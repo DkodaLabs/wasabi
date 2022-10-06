@@ -75,18 +75,18 @@ contract WasabiPool is Ownable, IWasabiPool {
 
     error InvalidToken();
 
-    function writeOption(WasabiStructs.OptionRule calldata _rule, address _buyer, bytes calldata _signature) public payable {
+    function writeOption(WasabiStructs.OptionRule calldata _rule, bytes calldata _signature) public payable {
         validateSignature(_rule, _signature);
         validate(_rule);
+
+        uint256 optionId = factory.issueOption(_msgSender());
+        vaults[optionId] = Vault(_rule);
 
         // lock nft / token into a vault
         if (_rule.optionType == WasabiStructs.OptionType.CALL) {
             tokenIdToStatus[_rule.tokenId] = TokenStatus.LOCKED;
-            emit NFTLocked(_rule.tokenId);
+            emit OptionIssued(optionId, _rule.tokenId);
         }
-
-        uint256 optionId = factory.issueOption(_buyer);
-        vaults[optionId] = Vault(_rule);
     }
 
     function validateSignature(WasabiStructs.OptionRule calldata _rule, bytes calldata _signature) internal view {
@@ -105,6 +105,9 @@ contract WasabiPool is Ownable, IWasabiPool {
         // require(_msgSender() == admin || _msgSender() == owner(), "WasabiPool: caller is not the owner or admin");
         require(msg.value == _rule.premium && _rule.premium > 0, "WasabiPool: Not enough premium is supplied");
         require(_rule.strikePrice > 0, "WasabiPool: Strike price must be set");
+
+        // require(_rule.expiration - currentDate < poolRules.maxExpiration, "Cannot issue more than max expiration");
+        // require(_rule.expiration - currentDate > poolRules.minExpiration, "Cannot issue less than min expiration");
 
         if (_rule.optionType == WasabiStructs.OptionType.CALL) {
             // Check that all tokens are free

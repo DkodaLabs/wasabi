@@ -16,9 +16,9 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     event AdminChanged(address admin);
 
     /**
-     * @dev Emitted when a token is locked.
+     * @dev Emitted when an option is issued an a token is locked.
      */
-    event NFTLocked(uint256 tokenId);
+    event OptionIssued(uint256 optionId, uint256 lockedTokenId);
 
     /**
      * @dev Emitted when an option is executed.
@@ -28,7 +28,7 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     /**
      * @dev Writes an option for the given rule and buyer
      */
-    function writeOption(WasabiStructs.OptionRule calldata _rule, address _buyer, bytes calldata _signature) external payable;
+    function writeOption(WasabiStructs.OptionRule calldata _rule, bytes calldata _signature) external payable;
 
     /**
      * @dev Executes the option for the given id.

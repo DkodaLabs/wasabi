@@ -17,11 +17,12 @@ contract WasabiPool is Ownable, IWasabiPool {
     IERC721 private nft;
     address private admin;
 
+    uint256 private lockedETH;
     mapping(uint256 => TokenStatus) private tokenIdToStatus;
     mapping(uint256 => Vault) private vaults;
 
     event ERC721Received(address, uint256);
-    event Test(string, address);
+    event Test(string, uint256);
 
     function initialize(
         WasabiPoolFactory _factory,
@@ -58,7 +59,7 @@ contract WasabiPool is Ownable, IWasabiPool {
     public virtual override returns (bytes4) {
         if (_msgSender() == address(optionNFT)) {
             require(vaults[tokenId].rule.strikePrice > 0, "Option NFT doesn't belong to this pool");
-            clearVault(tokenId, false);
+            clearVault(tokenId, 0, false);
         } else if (_msgSender() == address(nft)) {
             tokenIdToStatus[tokenId] = TokenStatus.FREE;
         } else {
@@ -86,6 +87,9 @@ contract WasabiPool is Ownable, IWasabiPool {
         if (_rule.optionType == WasabiStructs.OptionType.CALL) {
             tokenIdToStatus[_rule.tokenId] = TokenStatus.LOCKED;
             emit OptionIssued(optionId, _rule.tokenId);
+        } else if (_rule.optionType == WasabiStructs.OptionType.PUT) {
+            lockedETH += _rule.strikePrice;
+            emit OptionIssued(optionId, _rule.strikePrice);
         }
     }
 
@@ -112,12 +116,22 @@ contract WasabiPool is Ownable, IWasabiPool {
         if (_rule.optionType == WasabiStructs.OptionType.CALL) {
             // Check that all tokens are free
             require(tokenIdToStatus[_rule.tokenId] == TokenStatus.FREE, "WasabiPool: Token is locked or is not in the pool");
+        } else if (_rule.optionType == WasabiStructs.OptionType.PUT) {
+            require(availableBalance() >= _rule.strikePrice, "WasabiPool: Not enough ETH available to lock");
         }
     }
 
     function executeOption(uint256 _optionId) external payable {
-        validateOptionForExecution(_optionId);
-        clearVault(_optionId, true);
+        validateOptionForExecution(_optionId, 0);
+        clearVault(_optionId, 0, true);
+        factory.executeOption(_optionId);
+        emit OptionExecuted(_optionId);
+    }
+
+    function executeOptionWithSell(uint256 _optionId, uint256 _tokenId) external payable {
+        validateOptionForExecution(_optionId, _tokenId);
+        clearVault(_optionId, _tokenId, true);
+        factory.executeOption(_optionId);
         emit OptionExecuted(_optionId);
     }
 
@@ -125,24 +139,34 @@ contract WasabiPool is Ownable, IWasabiPool {
     //     return factory;
     // }
 
-    function validateOptionForExecution(uint256 _optionId) internal view {
+    function validateOptionForExecution(uint256 _optionId, uint256 _tokenId) internal view {
         require(_msgSender() == optionNFT.ownerOf(_optionId), "WasabiPool: Only the token owner can execute the option");
 
         Vault memory vault = vaults[_optionId];
         require(vault.rule.strikePrice > 0, "WasabiPool: Option NFT doesn't belong to this pool");
+
+        // TODO: check expiry
+
         if (vault.rule.optionType == WasabiStructs.OptionType.CALL) {
             require(vault.rule.strikePrice == msg.value, "WasabiPool: Strike price needs to be supplied to execute a CALL option");
+        } else if (vault.rule.optionType == WasabiStructs.OptionType.PUT) {
+            require(_msgSender() == nft.ownerOf(_tokenId), "WasabiPool: Need to own the token to sell in order to execute a PUT option");
         }
-        // TODO: check expiry
     }
 
-    function clearVault(uint256 _optionId, bool _executed) internal {
+    function clearVault(uint256 _optionId, uint256 _tokenId, bool _executed) internal {
         Vault memory vault = vaults[_optionId];
         if (vault.rule.optionType == WasabiStructs.OptionType.CALL) {
             if (_executed) {
                 nft.safeTransferFrom(address(this), _msgSender(), vault.rule.tokenId);
             }
             tokenIdToStatus[vault.rule.tokenId] = _executed ? TokenStatus.NA : TokenStatus.FREE;
+        } else if (vault.rule.optionType == WasabiStructs.OptionType.PUT) {
+            if (_executed) {
+                nft.safeTransferFrom(_msgSender(), address(this), _tokenId);
+                payable(_msgSender()).transfer(vault.rule.strikePrice);
+                lockedETH -= vault.rule.strikePrice;
+            }
         }
         delete vaults[_optionId];
     }
@@ -164,8 +188,9 @@ contract WasabiPool is Ownable, IWasabiPool {
     }
 
     function withdrawETH() external payable onlyOwner {
+        require(availableBalance() > 0, "WasabiPool: No ETH available to withdraw");
         address payable to = payable(_msgSender());
-        to.transfer(address(this).balance);
+        to.transfer(availableBalance());
     }
 
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
@@ -173,28 +198,11 @@ contract WasabiPool is Ownable, IWasabiPool {
             || interfaceId == type(IERC721Receiver).interfaceId;
     }
 
+    function availableBalance() view public returns(uint256) {
+        return address(this).balance - lockedETH;
+    }
 
-    /**
-     * @dev ORDER_TYPE_HASH type hash used for EIP-712 encoding.
-     */
-    bytes32 public constant ORDER_TYPE_HASH = keccak256(
-        "OptionRule(uint256 strikePrice, uint256 premium, uint256 optionType, uint256 tokenId)"
-    );
-
-    // /**
-    //  * @notice Hashes an order based on the eip-712 encoding scheme.
-    //  * @param order The order to hash.
-    //  * @return orderHash The eip-712 compliant hash of the order.
-    //  */
-    function hashOrder(WasabiStructs.OptionRule calldata _rule) public view returns (bytes32 orderHash) {
-        orderHash = keccak256(
-            abi.encode(
-                // ORDER_TYPE_HASH,
-                _rule.strikePrice,
-                _rule.premium,
-                _rule.optionType,
-                _rule.tokenId));
-
-        // orderHash = _hashTypedDataV4(orderHash);
+    receive() external payable {
+        emit Received(_msgSender(), msg.value);
     }
 }

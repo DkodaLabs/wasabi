@@ -18,7 +18,7 @@ const toBN = (value) => {
     return web3.utils.toBN(value, 10);
 }
 
-const makeRule = (strikePrice, premium, optionType, tokenId) => {
+const makeRule = (strikePrice, premium, optionType, tokenId = 0) => {
     return { strikePrice: toEth(strikePrice), premium: toEth(premium), optionType, tokenId };
 }
 const metadata = (from = undefined, value = undefined) => {
@@ -51,13 +51,20 @@ const signRule = async (rule, address) => {
     return await web3.eth.sign(encoded, address);
 }
 
-contract("WasabiPoolFactory", accounts => {
+const assertIncreaseInBalance = async (address, initialBalance, increase) => {
+    const newBalance = new BigNumber(await web3.eth.getBalance(address));
+    const expectedBalance = initialBalance.plus(increase);
+    assert.equal(newBalance.toString(), expectedBalance.toString(), "Incorrect balance in address");
+}
+
+contract("Wasabi Options end-to-end", accounts => {
     let poolFactory;
     let option;
     let testNft;
     const lp = accounts[2];
     const buyer = accounts[3];
     const admin = accounts[4]; // Dkoda
+    const someoneElse = accounts[5]; // Dkoda
 
     before("Setup contract for each test", async function () {
         await WasabiStructs.deployed();
@@ -70,6 +77,9 @@ contract("WasabiPoolFactory", accounts => {
         await testNft.mint(lp, 1001);
         await testNft.mint(lp, 1002);
         await testNft.mint(lp, 1003);
+        await testNft.mint(someoneElse, 1004);
+        await testNft.mint(buyer, 1005);
+        await testNft.mint(buyer, 1006);
     })
     
     it("Covered Call Option end-to-end", async () => {
@@ -114,9 +124,11 @@ contract("WasabiPoolFactory", accounts => {
             "Signed object and provided object are different");
 
         result = await pool.writeOption.sendTransaction(rule, await signRule(rule, lp), metadata(buyer, 1));
-        truffleAssert.eventEmitted(result, "OptionIssued", {lockedTokenId: toBN(rule.tokenId, 10)}, "Asset wasn't locked");
-        const optionId = result.logs.find(e => e.event === 'OptionIssued').args.optionId.toNumber();
+        truffleAssert.eventEmitted(result, "OptionIssued", {lockedTokenId: toBN(rule.tokenId)}, "Asset wasn't locked");
         assert.equal(await web3.eth.getBalance(poolAddress), rule.premium, "Incorrect balance in pool");
+
+        const optionId = result.logs.find(e => e.event === 'OptionIssued').args.optionId.toNumber();
+        assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
 
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(rule, await signRule(rule, lp), metadata(buyer, 1)),
@@ -125,7 +137,7 @@ contract("WasabiPoolFactory", accounts => {
 
         // 3. Execute Option (only option holder)
         await truffleAssert.reverts(
-            pool.executeOption.sendTransaction(optionId, metadata(null, 10)),
+            pool.executeOption.sendTransaction(optionId, metadata(someoneElse, 10)),
             "Only the token owner can execute the option",
             "Non option holder can't execute the option");
         await truffleAssert.reverts(
@@ -133,9 +145,10 @@ contract("WasabiPoolFactory", accounts => {
             "Strike price needs to be supplied to execute a CALL option",
             "Strike price needs to be supplied to execute a CALL option");
         result = await pool.executeOption.sendTransaction(optionId, metadata(buyer, 10));
-        truffleAssert.eventEmitted(result, "OptionExecuted", {optionId: toBN(optionId, 10)}, "Option wasn't executed");
+        truffleAssert.eventEmitted(result, "OptionExecuted", {optionId: toBN(optionId)}, "Option wasn't executed");
         assert.equal(await testNft.ownerOf(rule.tokenId), buyer, "Option executor didn't get NFT");
         assert.equal(await web3.eth.getBalance(poolAddress), toEth(10 + 1), "Incorrect balance in pool");
+        await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
 
         // 4. Withdraw NFTs
         await truffleAssert.reverts(
@@ -156,17 +169,15 @@ contract("WasabiPoolFactory", accounts => {
             "Only pool owner can withdraw ETH");
         const initialBalance = new BigNumber(await web3.eth.getBalance(lp));
         result = await pool.withdrawETH.sendTransaction({from: lp});
-        const newBalance = new BigNumber(await web3.eth.getBalance(lp));
-        const expectedBalance = initialBalance.plus(new BigNumber(toEth(11))).minus(gasOfTxn(result));
+        assertIncreaseInBalance(lp, initialBalance, new BigNumber(toEth(11)).minus(gasOfTxn(result)));
         assert.equal(await web3.eth.getBalance(poolAddress), 0, "Incorrect balance in pool");
-        assert.equal(newBalance.toString(), expectedBalance.toString(), "Incorrect balance in address");
     });
     
     it("Covered Call Option end-to-end (with admin)", async () => {
-        await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, {from: lp});
+        await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
 
         // 1. Liquidity Provider Creates Pool
-        let result = await poolFactory.createPool.sendTransaction(testNft.address, [1002, 1003], {from: lp});
+        let result = await poolFactory.createPool.sendTransaction(testNft.address, [1002, 1003], metadata(lp));
         truffleAssert.eventEmitted(result, "NewPool", null, "Pool wasn't created");
         truffleAssert.eventEmitted(result, "OwnershipTransferred", { previousOwner: ZERO_ADDRESS, newOwner: lp }, "Pool didn't change owners correctly");
 
@@ -210,9 +221,11 @@ contract("WasabiPoolFactory", accounts => {
             "Signed object and provided object are different");
 
         result = await pool.writeOption.sendTransaction(rule, await signRule(rule, admin), metadata(buyer, 1));
-        truffleAssert.eventEmitted(result, "OptionIssued", {lockedTokenId: toBN(rule.tokenId, 10)}, "Asset wasn't locked");
-        const optionId = result.logs.find(e => e.event === 'OptionIssued').args.optionId.toNumber();
+        truffleAssert.eventEmitted(result, "OptionIssued", {lockedTokenId: toBN(rule.tokenId)}, "Asset wasn't locked");
         assert.equal(await web3.eth.getBalance(poolAddress), rule.premium, "Incorrect balance in pool");
+
+        const optionId = result.logs.find(e => e.event === 'OptionIssued').args.optionId.toNumber();
+        assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
 
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(rule, await signRule(rule, admin), metadata(buyer, 1)),
@@ -221,7 +234,7 @@ contract("WasabiPoolFactory", accounts => {
 
         // 4. Execute Option (only option holder)
         await truffleAssert.reverts(
-            pool.executeOption.sendTransaction(optionId, metadata(null, 10)),
+            pool.executeOption.sendTransaction(optionId, metadata(someoneElse, 10)),
             "Only the token owner can execute the option",
             "Non option holder can't execute the option");
         await truffleAssert.reverts(
@@ -229,9 +242,10 @@ contract("WasabiPoolFactory", accounts => {
             "Strike price needs to be supplied to execute a CALL option",
             "Strike price needs to be supplied to execute a CALL option");
         result = await pool.executeOption.sendTransaction(optionId, metadata(buyer, 10));
-        truffleAssert.eventEmitted(result, "OptionExecuted", {optionId: toBN(optionId, 10)}, "Option wasn't executed");
+        truffleAssert.eventEmitted(result, "OptionExecuted", {optionId: toBN(optionId)}, "Option wasn't executed");
         assert.equal(await testNft.ownerOf(rule.tokenId), buyer, "Option executor didn't get NFT");
         assert.equal(await web3.eth.getBalance(poolAddress), toEth(10 + 1), "Incorrect balance in pool");
+        await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
 
         // 5. Withdraw NFTs
         await truffleAssert.reverts(
@@ -244,5 +258,104 @@ contract("WasabiPoolFactory", accounts => {
             pool.withdrawETH.sendTransaction({from: admin}),
             "caller is not the owner",
             "Only pool owner can withdraw ETH");
+    });
+
+    it("Covered Put Option end-to-end", async () => {
+        const initialPoolBalance = 20;
+        const strikePrice = 10;
+        const premium = 1;
+
+        // 1. Liquidity Provider Creates Pool
+        let result = await poolFactory.createPool.sendTransaction(testNft.address, [], metadata(lp, initialPoolBalance));
+        truffleAssert.eventEmitted(result, "NewPool", null, "Pool wasn't created");
+        truffleAssert.eventEmitted(result, "OwnershipTransferred", { previousOwner: ZERO_ADDRESS, newOwner: lp }, "Pool didn't change owners correctly");
+        const poolAddress = result.logs.find(e => e.event === 'NewPool').args.poolAddress;
+        const pool = await WasabiPool.at(poolAddress);
+        assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
+        assert.equal(await web3.eth.getBalance(poolAddress), toEth(initialPoolBalance), "Incorrect total balance in pool");
+        assert.equal(await pool.availableBalance.call(), toEth(initialPoolBalance), "Incorrect available balance in pool");
+
+        // 2. Write option (only owner)
+        let rule = makeRule(0, premium, OptionType.PUT); // no strike price in rule
+        await truffleAssert.reverts(
+            pool.writeOption.sendTransaction(rule, await signRule(rule, lp), metadata(buyer, premium)),
+            "Strike price must be set",
+            "Strike price must be set");
+        
+        rule = makeRule(strikePrice, 0, OptionType.PUT); // no premium in rule
+        await truffleAssert.reverts(
+            pool.writeOption.sendTransaction(rule, await signRule(rule, lp), metadata(buyer)),
+            "Not enough premium is supplied",
+            "Cannot write option when premium is 0");
+
+        rule = makeRule(initialPoolBalance * 5, premium, OptionType.PUT); // strike price too high
+        await truffleAssert.reverts(
+            pool.writeOption.sendTransaction(rule, await signRule(rule, lp), metadata(buyer, premium)),
+            "Not enough ETH available to lock",
+            "Cannot write option strike price is higher than available balance");
+
+        rule = makeRule(strikePrice, premium, OptionType.PUT);
+        await truffleAssert.reverts(
+            pool.writeOption.sendTransaction(rule, await signRule(rule, lp), metadata(buyer, premium / 2)), // not sending enough premium
+            "Not enough premium is supplied",
+            "Premium paid doesn't match the premium of the rule");
+
+        await truffleAssert.reverts(
+            pool.writeOption.sendTransaction(rule, await signRule(rule, buyer), metadata(buyer, premium)),
+            "Signature Not Valid",
+            "Only caller or admin can issue options");
+
+        const rule2 = makeRule(strikePrice - 1, premium, OptionType.PUT);
+        await truffleAssert.reverts(
+            pool.writeOption.sendTransaction(rule, await signRule(rule2, lp), metadata(buyer, premium)),
+            "Signature Not Valid",
+            "Signed object and provided object are different");
+
+        result = await pool.writeOption.sendTransaction(rule, await signRule(rule, lp), metadata(buyer, premium));
+        truffleAssert.eventEmitted(result, "OptionIssued", {lockedTokenId: toBN(rule.strikePrice)}, "Strike price wasn't locked")
+        assert.equal(await web3.eth.getBalance(poolAddress), toEth(initialPoolBalance + premium), "Incorrect total balance in pool");
+        assert.equal(await pool.availableBalance.call(), toEth(initialPoolBalance - strikePrice + premium), "Incorrect available balance in pool");
+
+        const optionId = result.logs.find(e => e.event === 'OptionIssued').args.optionId.toNumber();
+        assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
+
+        // 4. Execute Option (only option holder)
+        const tokenToSell = 1005;
+        assert.equal(await testNft.ownerOf(tokenToSell), buyer, "MP is not the owner of token to sell");
+        await testNft.approve(poolAddress, tokenToSell, metadata(buyer));
+
+        await truffleAssert.reverts(
+            pool.executeOptionWithSell.sendTransaction(optionId, tokenToSell, metadata(someoneElse)),
+            "Only the token owner can execute the option",
+            "Non option holder can't execute the option");
+        await truffleAssert.reverts(
+            pool.executeOptionWithSell.sendTransaction(optionId, 1004, metadata(buyer)),
+            "Need to own the token to sell in order to execute a PUT option",
+            "Cannot execute PUT and sell someone else's asset");
+
+        let initialBalance = new BigNumber(await web3.eth.getBalance(buyer));
+        result = await pool.executeOptionWithSell.sendTransaction(optionId, tokenToSell, metadata(buyer));
+        assertIncreaseInBalance(buyer, initialBalance, new BigNumber(toEth(strikePrice)).minus(gasOfTxn(result)));
+        truffleAssert.eventEmitted(result, "OptionExecuted", {optionId: toBN(optionId)}, "Option wasn't executed");
+        assert.equal(await web3.eth.getBalance(poolAddress), toEth(initialPoolBalance - strikePrice + premium), "Incorrect total balance in pool");
+        assert.equal(await pool.availableBalance.call(), toEth(initialPoolBalance - strikePrice + premium), "Incorrect available balance in pool");
+        assert.equal(await testNft.ownerOf(tokenToSell), poolAddress, "Pool didn't get NFT");
+        await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
+
+        // 5. Withdraw ETH
+        await truffleAssert.reverts(
+            pool.withdrawETH.sendTransaction({from: buyer}),
+            "caller is not the owner",
+            "Only pool owner can withdraw ETH");
+        initialBalance = new BigNumber(await web3.eth.getBalance(lp));
+        const availableBalance = await pool.availableBalance.call();
+        result = await pool.withdrawETH.sendTransaction({from: lp});
+        assertIncreaseInBalance(lp, initialBalance, new BigNumber(availableBalance).minus(gasOfTxn(result)));
+        assert.equal(await web3.eth.getBalance(poolAddress), 0, "Incorrect balance in pool");
+
+        await truffleAssert.reverts(
+            pool.withdrawETH.sendTransaction({from: lp}),
+            "No ETH available to withdraw",
+            "Cannot withdraw ETH if there is none");
     });
 });

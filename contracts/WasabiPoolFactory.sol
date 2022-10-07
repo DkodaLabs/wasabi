@@ -13,7 +13,6 @@ contract WasabiPoolFactory is Ownable {
 
     mapping (address => bool) private poolAddresses;
 
-    event Test(string, address);
     event NewPool(address poolAddress);
 
     constructor(WasabiOption _options, WasabiPool _templatePool) public {
@@ -24,14 +23,17 @@ contract WasabiPoolFactory is Ownable {
     function createPool(
         address _nftAddress,
         uint256[] memory _initialTokenIds
-    ) external returns(address _poolAddress) {
-        WasabiPool pool = WasabiPool(Clones.clone(address(templatePool)));
+    ) external payable returns(address payable _poolAddress) {
+        WasabiPool pool = WasabiPool(payable(Clones.clone(address(templatePool))));
 
-        _poolAddress = address(pool);
+        _poolAddress = payable(address(pool));
         emit NewPool(_poolAddress);
 
         IERC721 _nft = IERC721(_nftAddress);
         pool.initialize(this, _nft, options, _msgSender());
+        if (msg.value > 0) {
+            _poolAddress.transfer(msg.value);
+        }
 
         poolAddresses[_poolAddress] = true;
 
@@ -46,8 +48,17 @@ contract WasabiPoolFactory is Ownable {
         }
     }
 
+    function executeOption(uint256 _optionId) external {
+        require(poolAddresses[_msgSender()], "Only enabled pools can execute options");
+        options.burn(_optionId);
+    }
+
     function issueOption(address _target) external returns (uint256) {
         require(poolAddresses[_msgSender()], "Only enabled pools can issue options");
         return options.newMint(_target);
+    }
+
+    function disablePool(address _poolAddress) external onlyOwner {
+        poolAddresses[_poolAddress] = false;
     }
 }

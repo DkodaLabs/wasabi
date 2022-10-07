@@ -16,6 +16,11 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     event AdminChanged(address admin);
 
     /**
+     * @dev Emitted when ETH is received
+     */
+    event Received(address from, uint amount);
+
+    /**
      * @dev Emitted when an option is issued an a token is locked.
      */
     event OptionIssued(uint256 optionId, uint256 lockedTokenId);

@@ -1,3 +1,4 @@
+const IWasabiPool = artifacts.require("IWasabiPool");
 const Signing = artifacts.require("Signing");
 const WasabiStructs = artifacts.require("WasabiStructs");
 const WasabiOption = artifacts.require("WasabiOption");
@@ -7,11 +8,11 @@ const TestERC721 = artifacts.require("TestERC721");
 
 module.exports = function (deployer, _network, accounts) {
   
-  deployer.deploy(WasabiStructs)
+  deployer.deploy(TestERC721)
+    .then(() => deployer.deploy(WasabiStructs))
     .then(() => deployer.deploy(Signing))
     .then(() => deployer.deploy(WasabiOption))
     .then(() => deployer.link(Signing, WasabiPool))
-    .then(() => deployer.deploy(WasabiPool, WasabiOption.address))
+    .then(() => deployer.deploy(WasabiPool))
     .then(() => deployer.deploy(WasabiPoolFactory, WasabiOption.address, WasabiPool.address));
-  deployer.deploy(TestERC721);
 };

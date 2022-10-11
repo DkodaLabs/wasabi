@@ -32,13 +32,31 @@ library Signing {
 
     hash = "0xcf36ac4f97dc10d91fc2cbb20d718e94a8cbfe0f82eaedc6a4aa38946fb797cd"
     */
-    function getMessageHash(WasabiStructs.OptionRule calldata _rule) public pure returns (bytes32) {
+
+    /**
+     * @dev Returns the message hash for the given request
+     */
+    function getMessageHash(WasabiStructs.OptionRequest calldata _request) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                _rule.strikePrice,
-                _rule.premium,
-                _rule.optionType,
-                _rule.tokenId));
+                _request.poolAddress,
+                _request.optionType,
+                _request.strikePrice,
+                _request.premium,
+                _request.duration,
+                _request.tokenId,
+                _request.maxBlockToExecute));
+    }
+
+    /**
+     * @dev creates an ETH signed message hash
+     */
+    function getEthSignedMessageHash(bytes32 _messageHash) public pure returns (bytes32) {
+        /*
+        Signature is produced by signing a keccak256 hash with the following format:
+        "\x19Ethereum Signed Message\n" + len(msg) + msg
+        */
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _messageHash));
     }
 
     /* 3. Sign message hash
@@ -52,20 +70,6 @@ library Signing {
     Signature will be different for different accounts
     0x993dab3dd91f5c6dc28e17439be475478f5635c92a56e17e82349d3fb2f166196f466c0b4e0c146f285204f0dcb13e5ae67bc33f4b888ec32dfe0a063e8f3f781b
     */
-    function getEthSignedMessageHash(bytes32 _messageHash)
-        public
-        pure
-        returns (bytes32)
-    {
-        /*
-        Signature is produced by signing a keccak256 hash with the following format:
-        "\x19Ethereum Signed Message\n" + len(msg) + msg
-        */
-        return
-            keccak256(
-                abi.encodePacked("\x19Ethereum Signed Message:\n32", _messageHash)
-            );
-    }
 
     /* 4. Verify signature
     signer = 0xB273216C05A8c0D4F0a4Dd0d7Bae1D2EfFE636dd
@@ -76,15 +80,18 @@ library Signing {
     signature =
         0x993dab3dd91f5c6dc28e17439be475478f5635c92a56e17e82349d3fb2f166196f466c0b4e0c146f285204f0dcb13e5ae67bc33f4b888ec32dfe0a063e8f3f781b
     */
-    function verify(
-        address _signer,
-        WasabiStructs.OptionRule calldata _rule,
+    function verify(address _signer, WasabiStructs.OptionRequest calldata _request, bytes memory signature) public pure returns (bool) {
+        return getSigner(_request, signature) == _signer;
+    }
+
+    function getSigner(
+        WasabiStructs.OptionRequest calldata _request,
         bytes memory signature
-    ) public pure returns (bool) {
-        bytes32 messageHash = getMessageHash(_rule);
+    ) public pure returns (address) {
+        bytes32 messageHash = getMessageHash(_request);
         bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
 
-        return recoverSigner(ethSignedMessageHash, signature) == _signer;
+        return recoverSigner(ethSignedMessageHash, signature);
     }
 
     function recoverSigner(bytes32 _ethSignedMessageHash, bytes memory _signature)

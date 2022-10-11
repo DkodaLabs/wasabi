@@ -6,6 +6,7 @@ import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 
 import {WasabiOption} from "./WasabiOption.sol";
 import {WasabiPool} from "./WasabiPool.sol";
+import {WasabiStructs} from "./lib/WasabiStructs.sol";
 
 contract WasabiPoolFactory is Ownable {
     WasabiOption private options;
@@ -13,7 +14,7 @@ contract WasabiPoolFactory is Ownable {
 
     mapping (address => bool) private poolAddresses;
 
-    event NewPool(address poolAddress);
+    event NewPool(address poolAddress, address indexed commodityAddress, address indexed owner);
 
     constructor(WasabiOption _options, WasabiPool _templatePool) public {
         options = _options;
@@ -22,15 +23,17 @@ contract WasabiPoolFactory is Ownable {
 
     function createPool(
         address _nftAddress,
-        uint256[] memory _initialTokenIds
+        uint256[] calldata _initialTokenIds,
+        WasabiStructs.PoolConfiguration calldata _poolConfiguration,
+        WasabiStructs.OptionType[] calldata _types
     ) external payable returns(address payable _poolAddress) {
         WasabiPool pool = WasabiPool(payable(Clones.clone(address(templatePool))));
 
         _poolAddress = payable(address(pool));
-        emit NewPool(_poolAddress);
+        emit NewPool(_poolAddress, _nftAddress, _msgSender());
 
         IERC721 _nft = IERC721(_nftAddress);
-        pool.initialize(this, _nft, options, _msgSender());
+        pool.initialize(this, _nft, options, _msgSender(), _poolConfiguration, _types);
         if (msg.value > 0) {
             _poolAddress.transfer(msg.value);
         }
@@ -60,5 +63,9 @@ contract WasabiPoolFactory is Ownable {
 
     function disablePool(address _poolAddress) external onlyOwner {
         poolAddresses[_poolAddress] = false;
+    }
+
+    fallback() external payable {
+        require(false, "No fallback");
     }
 }

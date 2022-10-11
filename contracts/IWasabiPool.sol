@@ -31,14 +31,24 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     event OptionExecuted(uint256 optionId);
 
     /**
+     * @dev Returns the address of the commodity
+     */
+    function getCommodityAddress() external view returns(address);
+
+    /**
      * @dev Writes an option for the given rule and buyer
      */
-    function writeOption(WasabiStructs.OptionRule calldata _rule, bytes calldata _signature) external payable;
+    function writeOption(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) external payable;
 
     /**
      * @dev Executes the option for the given id.
      */
     function executeOption(uint256 _optionId) external payable;
+
+    /**
+     * @dev Executes the option for the given id.
+     */
+    function executeOptionWithSell(uint256 _optionId, uint256 _tokenId) external payable;
 
     /**
      * @dev Withdraws ERC721 tokens from the pool.
@@ -59,4 +69,9 @@ interface IWasabiPool is IERC165, IERC721Receiver {
      * @dev Removes the admin from this pool.
      */
     function removeAdmin() external;
+
+    /**
+     * @dev Returns the address of the current admin.
+     */
+    function getAdmin() external view returns (address);
 }

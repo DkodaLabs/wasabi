@@ -41,10 +41,6 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
         return _baseURIextended;
     }
 
-    function withdraw() public onlyOwner {
-        payable(owner()).transfer(address(this).balance);
-    }
-
     // IERC2981
     function royaltyInfo(uint256 _tokenId, uint256 _salePrice) external view returns (address, uint256 royaltyAmount) {
         _tokenId; // silence solc warning

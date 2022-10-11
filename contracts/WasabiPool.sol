@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {WasabiPoolFactory} from "./WasabiPoolFactory.sol";
 import {WasabiStructs} from "./lib/WasabiStructs.sol";
@@ -12,23 +13,38 @@ import {Signing} from "./lib/Signing.sol";
 import {IWasabiPool} from "./IWasabiPool.sol";
 
 contract WasabiPool is Ownable, IWasabiPool {
+    using EnumerableSet for EnumerableSet.UintSet;
+
+    error InvalidToken();
+
+    event ERC721Received(address, uint256);
+    event Test(string, uint256);
+
+    // Pool metadata
     WasabiPoolFactory private factory;
     IERC721 private optionNFT;
     IERC721 private nft;
     address private admin;
 
-    uint256 private lockedETH;
-    mapping(uint256 => TokenStatus) private tokenIdToStatus;
-    mapping(uint256 => Vault) private vaults;
+    // Pool Configuration
+    WasabiStructs.PoolConfiguration private poolConfiguration;
+    mapping(WasabiStructs.OptionType => bool) private allowedTypes;
 
-    event ERC721Received(address, uint256);
-    event Test(string, uint256);
+    // Pool Balance
+    uint256 private lockedETH;
+    EnumerableSet.UintSet private tokenIds;
+
+    // Option state
+    mapping(uint256 => uint256) private tokenIdToOptionId;
+    mapping(uint256 => WasabiStructs.OptionData) private options;
 
     function initialize(
         WasabiPoolFactory _factory,
         IERC721 _nft,
         IERC721 _optionNFT,
-        address _owner
+        address _owner,
+        WasabiStructs.PoolConfiguration calldata _poolConfiguration,
+        WasabiStructs.OptionType[] calldata _types
     ) external {
         require(owner() == address(0), "Already initialized");
         factory = _factory;
@@ -36,9 +52,22 @@ contract WasabiPool is Ownable, IWasabiPool {
 
         nft = _nft;
         optionNFT = _optionNFT;
+        poolConfiguration = _poolConfiguration;
+
+        uint length = _types.length;
+        for (uint256 i = 0; i < length; ) {
+            allowedTypes[_types[i]] = true;
+            unchecked {
+                ++i;
+            }
+        }
     }
 
-    function setAdmin(address _admin) external onlyOwner() {
+    function getCommodityAddress() external view returns(address) {
+        return address(nft);
+    }
+
+    function setAdmin(address _admin) external onlyOwner {
         admin = _admin;
         emit AdminChanged(_admin);
     }
@@ -46,6 +75,13 @@ contract WasabiPool is Ownable, IWasabiPool {
     function removeAdmin() external onlyOwner() {
         admin = address(0);
         emit AdminChanged(address(0));
+    }
+
+    /**
+     * @dev Returns the address of the current owner.
+     */
+    function getAdmin() public view virtual returns (address) {
+        return admin;
     }
 
     /**
@@ -58,129 +94,127 @@ contract WasabiPool is Ownable, IWasabiPool {
         bytes memory /* data */)
     public virtual override returns (bytes4) {
         if (_msgSender() == address(optionNFT)) {
-            require(vaults[tokenId].rule.strikePrice > 0, "Option NFT doesn't belong to this pool");
-            clearVault(tokenId, 0, false);
+            require(options[tokenId].strikePrice > 0, "Wasabi Pool: Option doesn't belong to this pool");
+            clearOption(tokenId, 0, false);
+            factory.executeOption(tokenId);
         } else if (_msgSender() == address(nft)) {
-            tokenIdToStatus[tokenId] = TokenStatus.FREE;
+            tokenIds.add(tokenId);
         } else {
             revert InvalidToken();
         }
         return this.onERC721Received.selector;
     }
 
-    enum TokenStatus { NA, FREE, LOCKED }
-
-    struct Vault {
-        WasabiStructs.OptionRule rule;
-    }
-
-    error InvalidToken();
-
-    function writeOption(WasabiStructs.OptionRule calldata _rule, bytes calldata _signature) public payable {
-        validateSignature(_rule, _signature);
-        validate(_rule);
+    function writeOption(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) public payable {
+        validate(_request, _signature);
 
         uint256 optionId = factory.issueOption(_msgSender());
-        vaults[optionId] = Vault(_rule);
+        uint256 expiration = block.timestamp + _request.duration;
+        WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
+            _request.optionType,
+            _request.strikePrice,
+            _request.premium,
+            expiration,
+            _request.tokenId
+        );
+        options[optionId] = optionData;
 
-        // lock nft / token into a vault
-        if (_rule.optionType == WasabiStructs.OptionType.CALL) {
-            tokenIdToStatus[_rule.tokenId] = TokenStatus.LOCKED;
-            emit OptionIssued(optionId, _rule.tokenId);
-        } else if (_rule.optionType == WasabiStructs.OptionType.PUT) {
-            lockedETH += _rule.strikePrice;
-            emit OptionIssued(optionId, _rule.strikePrice);
+        // Lock NFT / Token into a vault
+        if (_request.optionType == WasabiStructs.OptionType.CALL) {
+            tokenIdToOptionId[_request.tokenId] = optionId;
+            emit OptionIssued(optionId, _request.tokenId);
+        } else if (_request.optionType == WasabiStructs.OptionType.PUT) {
+            lockedETH += _request.strikePrice;
+            emit OptionIssued(optionId, _request.strikePrice);
         }
     }
 
-    function validateSignature(WasabiStructs.OptionRule calldata _rule, bytes calldata _signature) internal view {
-        bool isValid;
-        // First check for admin if present, it's more likely that an admin signs a txn if its set
-        if (admin != address(0)) {
-            isValid = Signing.verify(admin, _rule, _signature);
-        }
-        if (!isValid) {
-            isValid = Signing.verify(owner(), _rule, _signature);
-        }
-        require(isValid, "WasabiPool: Signature Not Valid");
-    }
+    function validate(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) internal {
+        // 1. Validate Signature
+        address signer = Signing.getSigner(_request, _signature);
+        require(admin == signer || owner() == signer, "WasabiPool: Signature not valid");
 
-    function validate(WasabiStructs.OptionRule calldata _rule) internal {
-        // require(_msgSender() == admin || _msgSender() == owner(), "WasabiPool: caller is not the owner or admin");
-        require(msg.value == _rule.premium && _rule.premium > 0, "WasabiPool: Not enough premium is supplied");
-        require(_rule.strikePrice > 0, "WasabiPool: Strike price must be set");
+        // 2. Validate Meta
+        require(_request.poolAddress == address(this), "WasabiPool: Signature doesn't belong to this pool");
+        require(msg.value == _request.premium && _request.premium > 0, "WasabiPool: Not enough premium is supplied");
 
-        // require(_rule.expiration - currentDate < poolRules.maxExpiration, "Cannot issue more than max expiration");
-        // require(_rule.expiration - currentDate > poolRules.minExpiration, "Cannot issue less than min expiration");
+        // 3. Request Validation
+        require(allowedTypes[_request.optionType], "WasabiPool: Option type is not allowed");
 
-        if (_rule.optionType == WasabiStructs.OptionType.CALL) {
+        require(_request.strikePrice > 0, "WasabiPool: Strike price must be set");
+        require(_request.strikePrice >= poolConfiguration.minStrikePrice, "WasabiPool: Strike price is too small");
+        require(_request.strikePrice <= poolConfiguration.maxStrikePrice, "WasabiPool: Strike price is too large");
+
+        require(_request.duration > 0, "WasabiPool: Duration must be set");
+        require(_request.duration >= poolConfiguration.minDuration, "WasabiPool: Duration is too small");
+        require(_request.duration <= poolConfiguration.maxDuration, "WasabiPool: Duration is too large");
+
+        // 4. Type specific validation
+        if (_request.optionType == WasabiStructs.OptionType.CALL) {
             // Check that all tokens are free
-            require(tokenIdToStatus[_rule.tokenId] == TokenStatus.FREE, "WasabiPool: Token is locked or is not in the pool");
-        } else if (_rule.optionType == WasabiStructs.OptionType.PUT) {
-            require(availableBalance() >= _rule.strikePrice, "WasabiPool: Not enough ETH available to lock");
+            require(tokenIdToOptionId[_request.tokenId] == 0, "WasabiPool: Token is locked or is not in the pool");
+        } else if (_request.optionType == WasabiStructs.OptionType.PUT) {
+            require(availableBalance() >= _request.strikePrice, "WasabiPool: Not enough ETH available to lock");
         }
     }
 
     function executeOption(uint256 _optionId) external payable {
         validateOptionForExecution(_optionId, 0);
-        clearVault(_optionId, 0, true);
+        clearOption(_optionId, 0, true);
         factory.executeOption(_optionId);
         emit OptionExecuted(_optionId);
     }
 
     function executeOptionWithSell(uint256 _optionId, uint256 _tokenId) external payable {
         validateOptionForExecution(_optionId, _tokenId);
-        clearVault(_optionId, _tokenId, true);
+        clearOption(_optionId, _tokenId, true);
         factory.executeOption(_optionId);
         emit OptionExecuted(_optionId);
     }
 
-    // function getFactoryAddress() public view returns(address) {
-    //     return factory;
-    // }
-
     function validateOptionForExecution(uint256 _optionId, uint256 _tokenId) internal view {
         require(_msgSender() == optionNFT.ownerOf(_optionId), "WasabiPool: Only the token owner can execute the option");
 
-        Vault memory vault = vaults[_optionId];
-        require(vault.rule.strikePrice > 0, "WasabiPool: Option NFT doesn't belong to this pool");
+        WasabiStructs.OptionData memory optionData = options[_optionId];
+        require(optionData.strikePrice > 0, "WasabiPool: Option NFT doesn't belong to this pool");
+        require(optionData.expiry >= block.timestamp, "WasabiPool: Option has expired");
 
-        // TODO: check expiry
-
-        if (vault.rule.optionType == WasabiStructs.OptionType.CALL) {
-            require(vault.rule.strikePrice == msg.value, "WasabiPool: Strike price needs to be supplied to execute a CALL option");
-        } else if (vault.rule.optionType == WasabiStructs.OptionType.PUT) {
+        if (optionData.optionType == WasabiStructs.OptionType.CALL) {
+            require(optionData.strikePrice == msg.value, "WasabiPool: Strike price needs to be supplied to execute a CALL option");
+        } else if (optionData.optionType == WasabiStructs.OptionType.PUT) {
             require(_msgSender() == nft.ownerOf(_tokenId), "WasabiPool: Need to own the token to sell in order to execute a PUT option");
         }
     }
 
-    function clearVault(uint256 _optionId, uint256 _tokenId, bool _executed) internal {
-        Vault memory vault = vaults[_optionId];
-        if (vault.rule.optionType == WasabiStructs.OptionType.CALL) {
+    function clearOption(uint256 _optionId, uint256 _tokenId, bool _executed) internal {
+        WasabiStructs.OptionData memory optionData = options[_optionId];
+        if (optionData.optionType == WasabiStructs.OptionType.CALL) {
             if (_executed) {
-                nft.safeTransferFrom(address(this), _msgSender(), vault.rule.tokenId);
+                tokenIds.remove(optionData.tokenId);
+                nft.safeTransferFrom(address(this), _msgSender(), optionData.tokenId);
             }
-            tokenIdToStatus[vault.rule.tokenId] = _executed ? TokenStatus.NA : TokenStatus.FREE;
-        } else if (vault.rule.optionType == WasabiStructs.OptionType.PUT) {
+            delete tokenIdToOptionId[optionData.tokenId];
+        } else if (optionData.optionType == WasabiStructs.OptionType.PUT) {
             if (_executed) {
                 nft.safeTransferFrom(_msgSender(), address(this), _tokenId);
-                payable(_msgSender()).transfer(vault.rule.strikePrice);
-                lockedETH -= vault.rule.strikePrice;
+                payable(_msgSender()).transfer(optionData.strikePrice);
             }
+            lockedETH -= optionData.strikePrice;
         }
-        delete vaults[_optionId];
+        delete options[_optionId];
     }
 
-    function withdrawERC721(IERC721 _nft, uint256[] calldata tokenIds) external payable onlyOwner {
+    function withdrawERC721(IERC721 _nft, uint256[] calldata _tokenIds) external payable onlyOwner {
         bool isPoolAsset = _nft == nft;
 
-        uint256 numNFTs = tokenIds.length;
+        uint256 numNFTs = _tokenIds.length;
         for (uint256 i; i < numNFTs; ) {
             if (isPoolAsset) {
-                require(tokenIdToStatus[tokenIds[i]] == TokenStatus.FREE, "WasabiPool: Token is locked or is not in the pool");
-                tokenIdToStatus[tokenIds[i]] = TokenStatus.NA;
+                require(tokenIdToOptionId[_tokenIds[i]] == 0 && tokenIds.contains(_tokenIds[i]), "WasabiPool: Token is locked or is not in the pool");
+                tokenIds.remove(_tokenIds[i]);
+                delete tokenIdToOptionId[_tokenIds[i]];
             }
-            _nft.safeTransferFrom(address(this), owner(), tokenIds[i]);
+            _nft.safeTransferFrom(address(this), owner(), _tokenIds[i]);
             unchecked {
                 ++i;
             }
@@ -202,7 +236,36 @@ contract WasabiPool is Ownable, IWasabiPool {
         return address(this).balance - lockedETH;
     }
 
+    function getAllTokenIds() view public returns(uint256[] memory) {
+        return tokenIds.values();
+    }
+
+    function enableType(WasabiStructs.OptionType _type) external onlyOwner {
+        allowedTypes[_type] = true;
+    }
+
+    function disableType(WasabiStructs.OptionType _type) external onlyOwner {
+        delete allowedTypes[_type];
+    }
+
+    function getPoolConfiguration() external view returns(WasabiStructs.PoolConfiguration memory) {
+        return poolConfiguration;
+    }
+
+    function setPoolConfiguration(WasabiStructs.PoolConfiguration calldata _poolConfiguration) external onlyOwner {
+        poolConfiguration = _poolConfiguration;
+    }
+
+    function getOptionData(uint256 _optionId) external view returns(WasabiStructs.OptionData memory) {
+        require(options[_optionId].strikePrice > 0, "WasabiPool: Option doesn't belong to this pool");
+        return options[_optionId];
+    }
+
     receive() external payable {
         emit Received(_msgSender(), msg.value);
+    }
+
+    fallback() external payable {
+        require(false, "No fallback");
     }
 }

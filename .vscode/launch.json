@@ -5,12 +5,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "run tests",
+            "name": "Run All Tests",
             "type": "node",
             "request": "launch",
             "program": "${workspaceRoot}/node_modules/truffle/build/cli.bundled.js",
             "args": [
-                "test"
+                "test",
             ],
             "cwd": "${workspaceRoot}",
             "outFiles": [
@@ -18,7 +18,7 @@
             ],
         },
         {
-            "name": "run tests (log events)",
+            "name": "Run All Tests (show events)",
             "type": "node",
             "request": "launch",
             "program": "${workspaceRoot}/node_modules/truffle/build/cli.bundled.js",

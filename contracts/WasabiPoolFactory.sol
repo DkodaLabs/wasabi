@@ -7,6 +7,7 @@ import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import {WasabiOption} from "./WasabiOption.sol";
 import {WasabiPool} from "./WasabiPool.sol";
 import {WasabiStructs} from "./lib/WasabiStructs.sol";
+import {WasabiValidation} from "./lib/WasabiValidation.sol";
 
 contract WasabiPoolFactory is Ownable {
     WasabiOption private options;
@@ -27,6 +28,9 @@ contract WasabiPoolFactory is Ownable {
         WasabiStructs.PoolConfiguration calldata _poolConfiguration,
         WasabiStructs.OptionType[] calldata _types
     ) external payable returns(address payable _poolAddress) {
+        WasabiValidation.validate(_poolConfiguration);
+        require(_types.length > 0, "Need to supply an option type");
+        
         WasabiPool pool = WasabiPool(payable(Clones.clone(address(templatePool))));
 
         _poolAddress = payable(address(pool));

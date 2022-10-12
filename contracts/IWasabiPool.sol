@@ -10,20 +10,26 @@ import {WasabiStructs} from "./lib/WasabiStructs.sol";
  * @dev Required interface of an WasabiPool compliant contract.
  */
 interface IWasabiPool is IERC165, IERC721Receiver {
+
+    /**
+     * @dev Thrown when an invalid token is received
+     */
+    error InvalidToken();
+
     /**
      * @dev Emitted when `admin` is changed.
      */
     event AdminChanged(address admin);
 
     /**
-     * @dev Emitted when ETH is received
+     * @dev Emitted when an ERC721 is received
      */
-    event Received(address from, uint amount);
+    event ERC721Received(address contractAddress, uint256 tokenId);
 
     /**
-     * @dev Emitted when an option is issued an a token is locked.
+     * @dev Emitted when ETH is received
      */
-    event OptionIssued(uint256 optionId, uint256 lockedTokenId);
+    event ETHReceived(uint amount);
 
     /**
      * @dev Emitted when an option is executed.
@@ -31,9 +37,19 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     event OptionExecuted(uint256 optionId);
 
     /**
+     * @dev Emitted when an option is issued an a token is locked.
+     */
+    event OptionIssued(uint256 optionId, uint256 lockedTokenId);
+
+    /**
      * @dev Returns the address of the commodity
      */
     function getCommodityAddress() external view returns(address);
+
+    /**
+     * @dev Returns the option data for the given option id
+     */
+    function getOptionData(uint256 _optionId) external view returns(WasabiStructs.OptionData memory);
 
     /**
      * @dev Writes an option for the given rule and buyer

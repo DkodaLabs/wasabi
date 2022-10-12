@@ -80,11 +80,11 @@ contract("Wasabi Options end-to-end", accounts => {
     const someoneElse = accounts[5];
 
     before("Setup contract for each test", async function () {
-        testNft = await TestERC721.at("0x3CA35257570F4AAEDFaFeb33181c7c6CbBf5A9F6");
-        await WasabiStructs.at("0xA12120547E3c00d7f1232BFaCbd4e393C0aCDC46");
-        await Signing.at("0x43d0BbcE6dF77E786998a3801D213234a7f41214");
-        option = await WasabiOption.at("0x6D2C5E0a0FDF44A95699a5EDD73fC81e361a0A66");
-        poolFactory = await WasabiPoolFactory.at("0xF03b0a7FAbFfdF0FA79A4Df07A1f9b09c6204d49");
+        testNft = await TestERC721.deployed();//.at("0x3CA35257570F4AAEDFaFeb33181c7c6CbBf5A9F6");
+        await WasabiStructs.deployed();//.at("0xA12120547E3c00d7f1232BFaCbd4e393C0aCDC46");
+        await Signing.deployed();//.at("0x43d0BbcE6dF77E786998a3801D213234a7f41214");
+        option = await WasabiOption.deployed();//.at("0x6D2C5E0a0FDF44A95699a5EDD73fC81e361a0A66");
+        poolFactory = await WasabiPoolFactory.deployed();//.at("0xF03b0a7FAbFfdF0FA79A4Df07A1f9b09c6204d49");
         await option.setFactory(poolFactory.address);
 
         await testNft.mint(metadata(lp));
@@ -99,7 +99,7 @@ contract("Wasabi Options end-to-end", accounts => {
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, {from: lp});
 
         // 1. Liquidity Provider Creates Pool
-        const config = makeConfig(0, 100, 0, 2630000 /* one month */);
+        const config = makeConfig(1, 100, 222, 2630000 /* one month */);
         const types = [OptionType.CALL];
         let result = await poolFactory.createPool.sendTransaction(testNft.address, [1001, 1002, 1003], config, types, {from: lp});
         truffleAssert.eventEmitted(result, "NewPool", null, "Pool wasn't created");
@@ -109,8 +109,6 @@ contract("Wasabi Options end-to-end", accounts => {
         const pool = await WasabiPool.at(poolAddress);
         assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1001, 1002, 1003], "Pool doesn't have the correct tokens");
-
-        return;
         
         // 2. Write option (only owner)
         let request = makeRequest(poolAddress, OptionType.CALL, 0, 1, 263000, 1001); // no strike price in request
@@ -189,7 +187,6 @@ contract("Wasabi Options end-to-end", accounts => {
     });
     
     it("Covered Call Option, transferred back to the pool", async () => {
-        return;
         await testNft.safeTransferFrom(lp, poolAddress, 1002, metadata(lp));
 
         const pool = await WasabiPool.at(poolAddress);
@@ -212,11 +209,10 @@ contract("Wasabi Options end-to-end", accounts => {
     });
     
     it("Covered Call Option end-to-end (with admin)", async () => {
-        return;
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
 
         // 1. Liquidity Provider Creates Pool
-        const config = makeConfig(0, 100, 0, 2630000 /* one month */);
+        const config = makeConfig(1, 100, 222, 2630000 /* one month */);
         const types = [WasabiStructs.OptionType.CALL];
         let result = await poolFactory.createPool.sendTransaction(testNft.address, [1002, 1003], config, types, metadata(lp));
         truffleAssert.eventEmitted(result, "NewPool", null, "Pool wasn't created");
@@ -303,13 +299,12 @@ contract("Wasabi Options end-to-end", accounts => {
     });
 
     it("Covered Put Option end-to-end", async () => {
-        return;
         const initialPoolBalance = 20;
         const strikePrice = 10;
         const premium = 1;
 
         // 1. Liquidity Provider Creates Pool
-        const config = makeConfig(0, 100, 0, 2630000 /* one month */);
+        const config = makeConfig(1, 100, 222, 2630000 /* one month */);
         const types = [WasabiStructs.OptionType.PUT];
         let result = await poolFactory.createPool.sendTransaction(testNft.address, [], config, types, metadata(lp, initialPoolBalance));
         truffleAssert.eventEmitted(result, "NewPool", null, "Pool wasn't created");

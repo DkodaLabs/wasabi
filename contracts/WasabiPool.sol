@@ -9,16 +9,12 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {WasabiPoolFactory} from "./WasabiPoolFactory.sol";
 import {WasabiStructs} from "./lib/WasabiStructs.sol";
+import {WasabiValidation} from "./lib/WasabiValidation.sol";
 import {Signing} from "./lib/Signing.sol";
 import {IWasabiPool} from "./IWasabiPool.sol";
 
 contract WasabiPool is Ownable, IWasabiPool {
     using EnumerableSet for EnumerableSet.UintSet;
-
-    error InvalidToken();
-
-    event ERC721Received(address, uint256);
-    event Test(string, uint256);
 
     // Pool metadata
     WasabiPoolFactory private factory;
@@ -37,6 +33,15 @@ contract WasabiPool is Ownable, IWasabiPool {
     // Option state
     mapping(uint256 => uint256) private tokenIdToOptionId;
     mapping(uint256 => WasabiStructs.OptionData) private options;
+
+
+    receive() external payable {
+        emit ETHReceived(msg.value);
+    }
+
+    fallback() external payable {
+        require(false, "No fallback");
+    }
 
     function initialize(
         WasabiPoolFactory _factory,
@@ -105,7 +110,7 @@ contract WasabiPool is Ownable, IWasabiPool {
         return this.onERC721Received.selector;
     }
 
-    function writeOption(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) public payable {
+    function writeOption(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) external payable {
         validate(_request, _signature);
 
         uint256 optionId = factory.issueOption(_msgSender());
@@ -253,19 +258,12 @@ contract WasabiPool is Ownable, IWasabiPool {
     }
 
     function setPoolConfiguration(WasabiStructs.PoolConfiguration calldata _poolConfiguration) external onlyOwner {
+        WasabiValidation.validate(_poolConfiguration);
         poolConfiguration = _poolConfiguration;
     }
 
     function getOptionData(uint256 _optionId) external view returns(WasabiStructs.OptionData memory) {
         require(options[_optionId].strikePrice > 0, "WasabiPool: Option doesn't belong to this pool");
         return options[_optionId];
-    }
-
-    receive() external payable {
-        emit Received(_msgSender(), msg.value);
-    }
-
-    fallback() external payable {
-        require(false, "No fallback");
     }
 }

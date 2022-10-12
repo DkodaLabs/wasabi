@@ -3,8 +3,8 @@ name: Unit Tests
 on: push
 
 jobs:
-  setupEnvironment:
-    name: Set Up Environment
+  ci:
+    name: Run Unit Tests
     runs-on: ubuntu-latest
     environment: production
     steps:

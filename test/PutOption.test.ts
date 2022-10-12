@@ -162,4 +162,17 @@ contract("PutOption", accounts => {
             "No ETH available to withdraw",
             "Cannot withdraw ETH if there is none");
     });
+
+    it("6. Withdraw ERC721", async () => {
+        await truffleAssert.reverts(
+            pool.withdrawERC721.sendTransaction(testNft.address, [otherToken], {from: lp}),
+            "Token is locked or is not in the pool",
+            "Token is locked or is not in the pool");
+        await truffleAssert.reverts(
+            pool.withdrawERC721.sendTransaction(testNft.address, [tokenToSell], {from: buyer}),
+            "caller is not the owner",
+            "Only pool owner can withdraw assets");
+        await pool.withdrawERC721.sendTransaction(testNft.address, [tokenToSell], {from: lp})
+        assert.equal(await testNft.ownerOf(tokenToSell), lp, "Pool owner didn't receive withdrawn NFT");
+    });
 });

@@ -11,10 +11,10 @@ jobs:
       - uses: actions/checkout@v2
       - name: Setup NodeJS 14
         uses: actions/setup-node@v2
+        with:
+          node-version: '14'
       - name: Show NodeJS version    
         run: npm --version
-        with:
-          - node: 14
       - name: NPM install
         run: npm install   
       - name: Run Truffle Test with CI=true for Codechecks  

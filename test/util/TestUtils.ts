@@ -14,7 +14,7 @@ export const makeRequest = (
     optionType: OptionType,
     strikePrice: any,
     premium: any,
-    duration: any,
+    duration: number,
     tokenId = 0,
     maxBlockToExecute = 0
 ): OptionRequest => {

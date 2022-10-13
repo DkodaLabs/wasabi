@@ -8,6 +8,6 @@
       "types": ["@types/node", "@types/chai", "@types/mocha"],
       "typeRoots": ["./node_modules/@types", "./types"]
     },
-    "include": ["**/*.ts"],
+    "include": ["**/*.ts", "test/WasabiValidation.test.js", "test/WasabiValidation.test.js"],
     "exclude": ["node_modules", "build", "cache", "artifacts"]
   }

@@ -43,7 +43,7 @@ contract("CallOption", accounts => {
         await testNft.mint(metadata(buyer));
     });
     
-    it("1. Create Pool", async () => {
+    it("Create Pool", async () => {
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, {from: lp});
 
         const config = makeConfig(1, 100, 222, 2630000 /* one month */);
@@ -58,33 +58,44 @@ contract("CallOption", accounts => {
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1001, 1002, 1003], "Pool doesn't have the correct tokens");
     });
     
-    it("2. Validate Option Requests", async () => {
-        request = makeRequest(pool.address, OptionType.CALL, 0, 1, 263000, 1001); // no strike price in request
+    it("Validate Option Requests", async () => {
+        let blockNumber = await web3.eth.getBlockNumber();
+        let maxBlockToExecute = blockNumber - 2;
+
+        request = makeRequest(pool.address, OptionType.CALL, 0, 1, 263000, 1001, maxBlockToExecute); // no strike price in request
+        await truffleAssert.reverts(
+            pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1)),
+            "Max block to execute has passed",
+            "Max block to execute has passed");
+
+        maxBlockToExecute = blockNumber + 5;
+
+        request = makeRequest(pool.address, OptionType.CALL, 0, 1, 263000, 1001, maxBlockToExecute); // no strike price in request
         await truffleAssert.reverts(
             pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1)),
             "Strike price must be set",
             "Strike price must be set");
         
-        request = makeRequest(pool.address, OptionType.CALL, 10, 0, 263000, 1001); // no premium in request
+        request = makeRequest(pool.address, OptionType.CALL, 10, 0, 263000, 1001, maxBlockToExecute); // no premium in request
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
             "Not enough premium is supplied",
             "Cannot write option when premium is 0");
 
-        request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1001);
+        request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1001, maxBlockToExecute);
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, 0.5)), // not sending enough premium
             "Not enough premium is supplied",
             "Premium paid doesn't match the premium of the request");
 
-        const request2 = makeRequest(pool.address, OptionType.CALL, 9, 1, 263000, 1001);
+        const request2 = makeRequest(pool.address, OptionType.CALL, 9, 1, 263000, 1001, maxBlockToExecute);
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request2, someoneElse), metadata(buyer, 1)),
             "Signature not valid",
             "Signed object and provided object are different");
     });
 
-    it("3. Write Option (only owner)", async () => {
+    it("Write Option (only owner)", async () => {
         const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", {lockedTokenId: toBN(request.tokenId)}, "Asset wasn't locked");
         assert.equal(await web3.eth.getBalance(pool.address), request.premium, "Incorrect balance in pool");
@@ -98,7 +109,7 @@ contract("CallOption", accounts => {
             "Cannot (re)write an option for a locked asset");
     });
 
-    it("4. Execute Option (only option holder)", async () => {
+    it("Execute Option (only option holder)", async () => {
         await truffleAssert.reverts(
             pool.executeOption.sendTransaction(optionId, metadata(someoneElse, 10)),
             "Only the token owner can execute the option",
@@ -115,11 +126,12 @@ contract("CallOption", accounts => {
         await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
     });
     
-    it("5. Issue Option & Send/Sell Back to Pool", async () => {
+    it("Issue Option & Send/Sell Back to Pool", async () => {
         let initialPoolBalance = toBN(await web3.eth.getBalance(pool.address));
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1003, 1002], "Pool doesn't have the correct tokens");
 
-        request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1002);
+        let blockNumber = await web3.eth.getBlockNumber();
+        request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1002, blockNumber + 5);
         const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", {lockedTokenId: toBN(request.tokenId)}, "Asset wasn't locked");
         assert.equal(
@@ -136,7 +148,7 @@ contract("CallOption", accounts => {
         await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
     });
 
-    it("6. Withdraw ERC721", async () => {
+    it("Withdraw ERC721", async () => {
         await truffleAssert.reverts(
             pool.withdrawERC721.sendTransaction(testNft.address, [1001], {from: lp}),
             "Token is locked or is not in the pool",
@@ -150,7 +162,7 @@ contract("CallOption", accounts => {
         assert.equal(await testNft.ownerOf(1003), lp, "Pool owner didn't receive withdrawn NFT");
     });
 
-    it("7. Withdraw ETH", async () => {
+    it("Withdraw ETH", async () => {
         const availablePoolBalance = await pool.availableBalance();
         await truffleAssert.reverts(
             pool.withdrawETH.sendTransaction({from: buyer}),

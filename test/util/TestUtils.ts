@@ -1,4 +1,4 @@
-import {OptionRequest, OptionType, WasabiPoolConfiguration} from "./TestTypes";
+import { OptionRequest, OptionType, WasabiPoolConfiguration } from "./TestTypes";
 
 export const toEth = (value: string | number): string => {
     return web3.utils.toWei(`${value}`, "ether");
@@ -11,7 +11,7 @@ export const makeData = (strikePrice: any, premium: any, optionType: any, tokenI
 }
 export const makeRequest = (
     poolAddress: string,
-    optionType: OptionType, 
+    optionType: OptionType,
     strikePrice: any,
     premium: any,
     duration: any,
@@ -40,11 +40,11 @@ export const makeConfig = (
 export const metadata = (
     from: string | undefined = undefined,
     value: string | number | undefined = undefined): { from: string | undefined, value: string | undefined } => {
-        return {
-             from,
-             value: toEth(value || 0)
-        };
-    }
+    return {
+        from,
+        value: toEth(value || 0)
+    };
+}
 
 export const signRequest = async (request: OptionRequest, address: string) => {
     let encoded = await web3.eth.abi.encodeParameter(
@@ -75,4 +75,35 @@ export const assertIncreaseInBalance = async (address: string, initialBalance: B
     const newBalance = toBN(await web3.eth.getBalance(address));
     const expectedBalance = initialBalance.add(increase);
     assert.equal(newBalance.toString(), expectedBalance.toString(), "Incorrect balance in address");
+}
+
+export const advanceBlock = () => {
+    return new Promise((resolve, reject) => {
+        // @ts-ignore
+        web3.currentProvider.send({
+            jsonrpc: '2.0',
+            method: 'evm_mine',
+            id: new Date().getTime()
+            // @ts-ignore
+        }, (err, result) => {
+            if (err) { return reject(err) }
+            return resolve(result);
+        })
+    });
+};
+
+export const advanceTime = (seconds: number) => {
+    return new Promise((resolve, reject) => {
+        // @ts-ignore
+        web3.currentProvider.send({
+            jsonrpc: '2.0',
+            method: 'evm_increaseTime',
+            params: [seconds],
+            id: new Date().getTime()
+            // @ts-ignore
+        }, (err, result) => {
+            if (err) { return reject(err) }
+            return resolve(result)
+        })
+    })
 }

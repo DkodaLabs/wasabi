@@ -140,6 +140,7 @@ contract WasabiPool is Ownable, IWasabiPool {
         require(admin == signer || owner() == signer, "WasabiPool: Signature not valid");
 
         // 2. Validate Meta
+        require(_request.maxBlockToExecute >= block.number, "WasabiPool: Max block to execute has passed");
         require(_request.poolAddress == address(this), "WasabiPool: Signature doesn't belong to this pool");
         require(msg.value == _request.premium && _request.premium > 0, "WasabiPool: Not enough premium is supplied");
 

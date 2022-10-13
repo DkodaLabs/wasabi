@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceBlock } from "./util/TestUtils";
 import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -22,6 +22,7 @@ contract("CallOption (with Admin)", accounts => {
     let optionId: BN | string;
     let request: OptionRequest;
 
+    const types = [OptionType.CALL];
     const lp = accounts[2];
     const buyer = accounts[3];
     const admin = accounts[4]; // Dkoda
@@ -43,11 +44,37 @@ contract("CallOption (with Admin)", accounts => {
         await testNft.mint(metadata(buyer));
     });
     
-    it("1. Create Pool", async () => {
+    it("Validate Create Pool Parameters", async () => {
+        let config = makeConfig(0, 10, 222, 2630000);
+        await truffleAssert.reverts(
+            poolFactory.createPool(testNft.address, [1001, 1002, 1003], config, types, {from: lp}),
+            "Min strike price needs to be present",
+            "Min strike price needs to be present");
+
+        config = makeConfig(20, 10, 222, 2630000);
+        await truffleAssert.reverts(
+            poolFactory.createPool(testNft.address, [1001, 1002, 1003], config, types, {from: lp}),
+            "Min strike price cannnot greater than max",
+            "Min strike price cannnot greater than max");
+
+        config = makeConfig(1, 10, 0, 222);
+        await truffleAssert.reverts(
+            poolFactory.createPool(testNft.address, [1001, 1002, 1003], config, types, {from: lp}),
+            "Min duration needs to be present",
+            "Min duration needs to be present");
+
+        config = makeConfig(1, 10, 2630000, 222);
+        await truffleAssert.reverts(
+            poolFactory.createPool(testNft.address, [1001, 1002, 1003], config, types, {from: lp}),
+            "Min duration cannnot greater than max",
+            "Min duration cannnot greater than max");
+    });
+    
+    it("Create Pool", async () => {
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, {from: lp});
 
         const config = makeConfig(1, 100, 222, 2630000 /* one month */);
-        const types = [OptionType.CALL];
+
         const createPoolResult = await poolFactory.createPool(testNft.address, [1001, 1002, 1003], config, types, {from: lp});
         truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");
         truffleAssert.eventEmitted(createPoolResult, "OwnershipTransferred", { previousOwner: ZERO_ADDRESS, newOwner: lp }, "Pool didn't change owners correctly");
@@ -58,40 +85,51 @@ contract("CallOption (with Admin)", accounts => {
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1001, 1002, 1003], "Pool doesn't have the correct tokens");
     });
     
-    it("2. Set admin", async () => {
+    it("Set admin", async () => {
         await truffleAssert.reverts(pool.setAdmin(admin), "caller is not the owner", "Only owner can change the admin.");
         await truffleAssert.reverts(pool.removeAdmin(), "caller is not the owner", "Only owner can change the admin.");
         const setAdminResult = await pool.setAdmin(admin, {from: lp});
         truffleAssert.eventEmitted(setAdminResult, "AdminChanged", {admin: admin}, "Admin wasn't changed");
     });
     
-    it("3. Validate Option Requests", async () => {
-        request = makeRequest(pool.address, OptionType.CALL, 0, 1, 263000, 1001); // no strike price in request
+    it("Validate Option Requests", async () => {
+        let blockNumber = await web3.eth.getBlockNumber();
+        let maxBlockToExecute = blockNumber - 2;
+
+        request = makeRequest(pool.address, OptionType.CALL, 0, 1, 263000, 1001, maxBlockToExecute); // no strike price in request
+        await truffleAssert.reverts(
+            pool.writeOption(request, await signRequest(request, admin), metadata(buyer, 1)),
+            "Max block to execute has passed",
+            "Max block to execute has passed");
+
+        maxBlockToExecute = blockNumber + 5;
+
+        request = makeRequest(pool.address, OptionType.CALL, 0, 1, 263000, 1001, maxBlockToExecute); // no strike price in request
         await truffleAssert.reverts(
             pool.writeOption(request, await signRequest(request, admin), metadata(buyer, 1)),
             "Strike price must be set",
             "Strike price must be set");
         
-        request = makeRequest(pool.address, OptionType.CALL, 10, 0, 263000, 1001); // no premium in request
+        request = makeRequest(pool.address, OptionType.CALL, 10, 0, 263000, 1001, maxBlockToExecute); // no premium in request
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, admin), metadata(buyer)),
             "Not enough premium is supplied",
             "Cannot write option when premium is 0");
 
-        request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1001);
+        request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1001, maxBlockToExecute);
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, admin), metadata(buyer, 0.5)), // not sending enough premium
             "Not enough premium is supplied",
             "Premium paid doesn't match the premium of the request");
 
-        const request2 = makeRequest(pool.address, OptionType.CALL, 9, 1, 263000, 1001);
+        const request2 = makeRequest(pool.address, OptionType.CALL, 9, 1, 263000, 1001, maxBlockToExecute);
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request2, someoneElse), metadata(buyer, 1)),
             "Signature not valid",
             "Signed object and provided object are different");
     });
 
-    it("4. Write Option (only owner)", async () => {
+    it("Write Option (only owner)", async () => {
         const writeOptionResult = await pool.writeOption(request, await signRequest(request, admin), metadata(buyer, 1));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", {lockedTokenId: toBN(request.tokenId)}, "Asset wasn't locked");
         assert.equal(await web3.eth.getBalance(pool.address), request.premium, "Incorrect balance in pool");
@@ -105,7 +143,7 @@ contract("CallOption (with Admin)", accounts => {
             "Cannot (re)write an option for a locked asset");
     });
 
-    it("5. Execute Option (only option holder)", async () => {
+    it("Execute Option (only option holder)", async () => {
         await truffleAssert.reverts(
             pool.executeOption.sendTransaction(optionId, metadata(someoneElse, 10)),
             "Only the token owner can execute the option",
@@ -122,11 +160,12 @@ contract("CallOption (with Admin)", accounts => {
         await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
     });
     
-    it("6. Issue Option & Send/Sell Back to Pool", async () => {
+    it("Issue Option & Send/Sell Back to Pool", async () => {
         let initialPoolBalance = toBN(await web3.eth.getBalance(pool.address));
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1003, 1002], "Pool doesn't have the correct tokens");
 
-        request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1002);
+        let blockNumber = await web3.eth.getBlockNumber();
+        request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1002, blockNumber + 10);
         const writeOptionResult = await pool.writeOption(request, await signRequest(request, admin), metadata(buyer, 1));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", {lockedTokenId: toBN(request.tokenId)}, "Asset wasn't locked");
         assert.equal(
@@ -143,7 +182,7 @@ contract("CallOption (with Admin)", accounts => {
         await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
     });
 
-    it("7. Withdraw ERC721", async () => {
+    it("Withdraw ERC721", async () => {
         await truffleAssert.reverts(
             pool.withdrawERC721.sendTransaction(testNft.address, [1001], {from: lp}),
             "Token is locked or is not in the pool",
@@ -157,7 +196,7 @@ contract("CallOption (with Admin)", accounts => {
         assert.equal(await testNft.ownerOf(1003), lp, "Pool owner didn't receive withdrawn NFT");
     });
 
-    it("8. Withdraw ETH", async () => {
+    it("Withdraw ETH", async () => {
         const availablePoolBalance = await pool.availableBalance();
         await truffleAssert.reverts(
             pool.withdrawETH.sendTransaction({from: admin}),
@@ -167,5 +206,37 @@ contract("CallOption (with Admin)", accounts => {
         const withdrawETHResult = await pool.withdrawETH({from: lp});
         await assertIncreaseInBalance(lp, initialBalance, availablePoolBalance.sub(gasOfTxn(withdrawETHResult.receipt)));
         assert.equal(await web3.eth.getBalance(pool.address), '0', "Incorrect balance in pool");
+    });
+
+    it("Validate Update Pool Parameters", async () => {
+        let config = makeConfig(1, 10, 222, 2630000);
+        await truffleAssert.reverts(
+            pool.setPoolConfiguration(config, metadata(someoneElse)),
+            "caller is not the owner",
+            "caller is not the owner");
+
+        config = makeConfig(0, 10, 222, 2630000);
+        await truffleAssert.reverts(
+            pool.setPoolConfiguration(config, metadata(lp)),
+            "Min strike price needs to be present",
+            "Min strike price needs to be present");
+
+        config = makeConfig(20, 10, 222, 2630000);
+        await truffleAssert.reverts(
+            pool.setPoolConfiguration(config, metadata(lp)),
+            "Min strike price cannnot greater than max",
+            "Min strike price cannnot greater than max");
+
+        config = makeConfig(1, 10, 0, 222);
+        await truffleAssert.reverts(
+            pool.setPoolConfiguration(config, metadata(lp)),
+            "Min duration needs to be present",
+            "Min duration needs to be present");
+
+        config = makeConfig(1, 10, 2630000, 222);
+        await truffleAssert.reverts(
+            pool.setPoolConfiguration(config, metadata(lp)),
+            "Min duration cannnot greater than max",
+            "Min duration cannnot greater than max");
     });
 });

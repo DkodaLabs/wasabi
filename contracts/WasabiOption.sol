@@ -2,8 +2,7 @@ pragma solidity >=0.4.25 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-
-import { IERC2981, IERC165 } from "@openzeppelin/contracts/interfaces/IERC2981.sol";
+import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 
 contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
     address private factory;

@@ -1,10 +1,9 @@
 pragma solidity >=0.4.25 <0.9.0;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {WasabiStructs} from "./lib/WasabiStructs.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "./lib/WasabiStructs.sol";
 
 /**
  * @dev Required interface of an WasabiPool compliant contract.

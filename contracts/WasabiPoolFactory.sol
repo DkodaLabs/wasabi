@@ -2,12 +2,12 @@ pragma solidity >=0.4.25 <0.9.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 
-import {WasabiOption} from "./WasabiOption.sol";
-import {WasabiPool} from "./WasabiPool.sol";
-import {WasabiStructs} from "./lib/WasabiStructs.sol";
-import {WasabiValidation} from "./lib/WasabiValidation.sol";
+import "./WasabiOption.sol";
+import "./WasabiPool.sol";
+import "./lib/WasabiStructs.sol";
+import "./lib/WasabiValidation.sol";
 
 contract WasabiPoolFactory is Ownable {
     WasabiOption private options;

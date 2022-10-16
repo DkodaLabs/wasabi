@@ -1,17 +1,14 @@
 pragma solidity >=0.4.25 <0.9.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
-import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import {WasabiPoolFactory} from "./WasabiPoolFactory.sol";
-import {WasabiStructs} from "./lib/WasabiStructs.sol";
-import {WasabiValidation} from "./lib/WasabiValidation.sol";
-import {Signing} from "./lib/Signing.sol";
-import {IWasabiPool} from "./IWasabiPool.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "./WasabiPoolFactory.sol";
+import "./lib/WasabiStructs.sol";
+import "./lib/WasabiValidation.sol";
+import "./lib/Signing.sol";
+import "./IWasabiPool.sol";
 
 contract WasabiPool is Ownable, IWasabiPool {
     using EnumerableSet for EnumerableSet.UintSet;

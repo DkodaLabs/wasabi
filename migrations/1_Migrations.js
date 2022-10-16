@@ -8,6 +8,7 @@ const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const TestERC721 = artifacts.require("TestERC721");
 
 module.exports = function (deployer, _network, accounts) {
+  console.log("test net", _network);
   deployer.deploy(TestERC721)
     .then(() => deployer.deploy(WasabiStructs))
     .then(() => deployer.deploy(Signing))

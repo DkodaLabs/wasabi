@@ -108,3 +108,5 @@ build
 
 # Typechain
 types
+
+.DS_Store

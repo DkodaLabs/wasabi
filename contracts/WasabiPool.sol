@@ -101,6 +101,7 @@ contract WasabiPool is Ownable, IWasabiPool {
             factory.executeOption(tokenId);
         } else if (_msgSender() == address(nft)) {
             tokenIds.add(tokenId);
+            emit ERC721Received(tokenId);
         } else {
             revert InvalidToken();
         }

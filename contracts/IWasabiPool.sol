@@ -23,7 +23,7 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     /**
      * @dev Emitted when an ERC721 is received
      */
-    event ERC721Received(address contractAddress, uint256 tokenId);
+    event ERC721Received(uint256 tokenId);
 
     /**
      * @dev Emitted when ETH is received

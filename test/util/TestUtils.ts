@@ -46,8 +46,8 @@ export const metadata = (
     };
 }
 
-export const signRequest = async (request: OptionRequest, address: string) => {
-    let encoded = await web3.eth.abi.encodeParameter(
+export const signRequest = async (request: OptionRequest, address: string): Promise<string> => {
+    const encoded = await web3.eth.abi.encodeParameter(
         {
             "OptionRequest": {
                 "poolAddress": "address",
@@ -60,9 +60,9 @@ export const signRequest = async (request: OptionRequest, address: string) => {
             }
         },
         request);
-    encoded = await web3.utils.keccak256(encoded);
-    return await web3.eth.sign(encoded, address);
-    // return (await web3.eth.accounts.sign(encoded, "dbe5766890ceccabed337e302e227f7b11b1361a158744841f79ffbe74a6c564")).signature;
+    const hashed = await web3.utils.keccak256(encoded);
+    const signed = await web3.eth.sign(hashed, address);
+    return signed;
 }
 
 export const gasOfTxn = (receipt: TransactionReceipt): BN => {

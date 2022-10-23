@@ -24,7 +24,6 @@ contract("CallOption", accounts => {
 
     const lp = accounts[2];
     const buyer = accounts[3];
-    const admin = accounts[4]; // Dkoda
     const someoneElse = accounts[5];
 
     before("Prepare State", async function () {
@@ -93,6 +92,17 @@ contract("CallOption", accounts => {
             pool.writeOption.sendTransaction(request, await signRequest(request2, someoneElse), metadata(buyer, 1)),
             "Signature not valid",
             "Signed object and provided object are different");
+
+        const emptySignature = "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        await truffleAssert.reverts(
+            pool.writeOption.sendTransaction(request, emptySignature, metadata(buyer, 1)),
+            "Signature not valid",
+            "Invalid signature");
+
+        await truffleAssert.reverts(
+            pool.writeOption.sendTransaction(request, await signRequest(request, someoneElse), metadata(buyer, 1)),
+            "Signature not valid",
+            "Must be signed by owner");
     });
 
     it("Write Option (only owner)", async () => {

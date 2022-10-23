@@ -135,6 +135,7 @@ contract WasabiPool is Ownable, IWasabiPool {
     function validate(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) internal {
         // 1. Validate Signature
         address signer = Signing.getSigner(_request, _signature);
+        require(signer != address(0), "WasabiPool: Signature not valid");
         require(admin == signer || owner() == signer, "WasabiPool: Signature not valid");
 
         // 2. Validate Meta

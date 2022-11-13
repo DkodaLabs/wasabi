@@ -31,6 +31,16 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     event ETHReceived(uint amount);
 
     /**
+     * @dev Emitted when an ERC721 is received
+     */
+    event ERC721Withdrawn(uint256 tokenId);
+
+    /**
+     * @dev Emitted when ETH is received
+     */
+    event ETHWithdrawn(uint amount);
+
+    /**
      * @dev Emitted when an option is executed.
      */
     event OptionExecuted(uint256 optionId);

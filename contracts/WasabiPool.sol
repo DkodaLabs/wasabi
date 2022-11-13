@@ -226,6 +226,7 @@ contract WasabiPool is Ownable, IWasabiPool {
                 delete tokenIdToOptionId[_tokenIds[i]];
             }
             _nft.safeTransferFrom(address(this), owner(), _tokenIds[i]);
+            emit ERC721Withdrawn(_tokenIds[i]);
             unchecked {
                 ++i;
             }
@@ -237,6 +238,8 @@ contract WasabiPool is Ownable, IWasabiPool {
         require(availableBalance() >= amount, "WasabiPool: Not enough ETH available to withdraw");
         address payable to = payable(_msgSender());
         to.transfer(amount);
+
+        emit ETHWithdrawn(amount);
     }
 
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
@@ -295,7 +298,7 @@ contract WasabiPool is Ownable, IWasabiPool {
         return options[_optionId];
     }
 
-    function getOptionIdForToken(uint256 _tokenId) public view returns(uint256) {
+    function getOptionIdForToken(uint256 _tokenId) external view returns(uint256) {
         require(tokenIds.contains(_tokenId), "WasabiPool: Token is not present in the pool");
         return tokenIdToOptionId[_tokenId];
     }

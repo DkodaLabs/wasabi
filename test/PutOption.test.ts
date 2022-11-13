@@ -1,6 +1,7 @@
 const truffleAssert = require('truffle-assertions');
 
 import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, WasabiPoolInstance } from "../types/truffle-contracts";
+import { OptionExecuted, OptionIssued } from "../types/truffle-contracts/WasabiPool";
 import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { assertIncreaseInBalance, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth } from "./util/TestUtils";
 
@@ -17,7 +18,7 @@ contract("PutOption", accounts => {
     let otherToken: BN;
     let tokenToSell: BN;
     let pool: WasabiPoolInstance;
-    let optionId: BN | string;
+    let optionId: BN;
     let request: OptionRequest;
 
     const lp = accounts[2];
@@ -128,7 +129,8 @@ contract("PutOption", accounts => {
             toEth(initialPoolBalance - strikePrice + premium),
             "Incorrect available balance in pool");
 
-        optionId = writeOptionResult.logs.find(e => e.event === 'OptionIssued')!.args[0];
+        const log = writeOptionResult.logs.find(l => l.event == "OptionIssued")! as Truffle.TransactionLog<OptionIssued>;
+        optionId = log.args.optionId;
         assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
     });
     
@@ -151,7 +153,10 @@ contract("PutOption", accounts => {
             buyer,
             initialBalance,
             toBN(toEth(strikePrice)).sub(gasOfTxn(executeOptionWithSellResult.receipt)));
-        assert.equal(executeOptionWithSellResult.logs.find(e => e.event == 'OptionExecuted')?.args[0].toString(), `${optionId}`, "Option wasn't executed");
+
+        const log = executeOptionWithSellResult.logs.find(l => l.event == "OptionExecuted")! as Truffle.TransactionLog<OptionExecuted>;
+        const expectedOptionId = log.args.optionId;
+        assert.equal(expectedOptionId.toString(), optionId.toString(), "Option wasn't executed");
         assert.equal(await web3.eth.getBalance(pool.address), toEth(initialPoolBalance - strikePrice + premium), "Incorrect total balance in pool");
         assert.equal((await pool.availableBalance()).toString(), toEth(initialPoolBalance - strikePrice + premium), "Incorrect available balance in pool");
         assert.equal(await testNft.ownerOf(tokenToSell), pool.address, "Pool didn't get NFT");

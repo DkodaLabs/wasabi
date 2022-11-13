@@ -5,7 +5,7 @@ import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
-import { WasabiPoolInstance } from "../types/truffle-contracts/WasabiPool.js";
+import { OptionIssued, WasabiPoolInstance } from "../types/truffle-contracts/WasabiPool.js";
 
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
@@ -57,7 +57,8 @@ contract("Expiring CallOption execution", accounts => {
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
         assert.equal(await web3.eth.getBalance(pool.address), request.premium, "Incorrect balance in pool");
 
-        optionId = toBN(writeOptionResult.logs.find(l => l.event == 'OptionIssued')!.args[0]);
+        const log = writeOptionResult.logs.find(l => l.event == "OptionIssued")! as Truffle.TransactionLog<OptionIssued>;
+        optionId = log.args.optionId;
         assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
     });
 

@@ -5,7 +5,7 @@ import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
-import { WasabiPoolInstance } from "../types/truffle-contracts/WasabiPool.js";
+import { WasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/truffle-contracts/WasabiPool.js";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -110,7 +110,9 @@ contract("CallOption", accounts => {
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
         assert.equal(await web3.eth.getBalance(pool.address), request.premium, "Incorrect balance in pool");
 
-        optionId = toBN(writeOptionResult.logs.find(l => l.event == 'OptionIssued')!.args[0]);
+        const log = writeOptionResult.logs.find(l => l.event == "OptionIssued")! as Truffle.TransactionLog<OptionIssued>;
+        optionId = log.args.optionId;
+
         assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
         const expectedOptionId = await pool.getOptionIdForToken(request.tokenId);
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
@@ -132,7 +134,10 @@ contract("CallOption", accounts => {
             "Strike price needs to be supplied to execute a CALL option");
         const executeOptionResult = await pool.executeOption(optionId, metadata(buyer, 10));
 
-        assert.equal(executeOptionResult.logs.find(e => e.event == 'OptionExecuted')?.args[0].toString(), `${optionId}`, "Option wasn't executed");
+        const log = executeOptionResult.logs.find(l => l.event == "OptionExecuted")! as Truffle.TransactionLog<OptionExecuted>;
+        const expectedOptionId = log.args.optionId;
+
+        assert.equal(expectedOptionId.toString(), optionId.toString(), "Option wasn't executed");
         assert.equal(await testNft.ownerOf(request.tokenId), buyer, "Option executor didn't get NFT");
         assert.equal(await web3.eth.getBalance(pool.address), toEth(10 + 1), "Incorrect balance in pool");
         await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
@@ -151,7 +156,8 @@ contract("CallOption", accounts => {
             initialPoolBalance.add(toBN(request.premium)).toString(),
             "Incorrect balance in pool");
 
-        const optionId = writeOptionResult.logs.find(e => e.event === 'OptionIssued')!.args[0];
+        const log = writeOptionResult.logs.find(l => l.event == "OptionIssued")! as Truffle.TransactionLog<OptionIssued>;
+        const optionId = log.args.optionId;
         assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
 
         await option.methods["safeTransferFrom(address,address,uint256)"](buyer, pool.address, optionId, metadata(buyer));

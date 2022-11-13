@@ -14,8 +14,7 @@ module.exports = {
     //   network_id: "*"
     // },
     goerli: {
-      provider: () =>
-        new HDWalletProvider(PRIVATE_KEY, API_URL),
+      provider: () => new HDWalletProvider(PRIVATE_KEY, API_URL),
       network_id: '5',
     }
     // dashboard: {

@@ -111,3 +111,5 @@ types
 
 .DS_Store
 .idea
+
+test/GenerateSignature.test.ts

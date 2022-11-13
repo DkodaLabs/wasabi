@@ -50,6 +50,7 @@ contract("PutOption", accounts => {
                 [],
                 makeConfig(1, 100, 222, 2630000 /* one month */),
                 [OptionType.PUT],
+                ZERO_ADDRESS,
                 metadata(lp, initialPoolBalance));
 
         truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");
@@ -119,7 +120,7 @@ contract("PutOption", accounts => {
 
     it("Write Option (only owner)", async () => {
         const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer, premium));
-        truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", {lockedTokenId: toBN(request.strikePrice)}, "Strike price wasn't locked")
+        truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Strike price wasn't locked")
 
         assert.equal(await web3.eth.getBalance(pool.address), toEth(initialPoolBalance + premium), "Incorrect total balance in pool");
         assert.equal(
@@ -158,32 +159,33 @@ contract("PutOption", accounts => {
     });
     
     it("Withdraw ETH", async () => {
-        await truffleAssert.reverts(
-            pool.withdrawETH.sendTransaction({from: buyer}),
-            "caller is not the owner",
-            "Only pool owner can withdraw ETH");
         const lpInitialBalance = toBN(await web3.eth.getBalance(lp));
         const availableBalance = await pool.availableBalance();
-        const withdrawETHResult = await pool.withdrawETH({from: lp});
+        
+        await truffleAssert.reverts(
+            pool.withdrawETH(availableBalance, metadata(buyer)),
+            "caller is not the owner",
+            "Only pool owner can withdraw ETH");
+        const withdrawETHResult = await pool.withdrawETH(availableBalance, metadata(lp));
         await assertIncreaseInBalance(lp, lpInitialBalance, toBN(availableBalance).sub(gasOfTxn(withdrawETHResult.receipt)));
         assert.equal(await web3.eth.getBalance(pool.address), '0', "Incorrect balance in pool");
 
         await truffleAssert.reverts(
-            pool.withdrawETH.sendTransaction({from: lp}),
-            "No ETH available to withdraw",
+            pool.withdrawETH(availableBalance, metadata(lp)),
+            "Not enough ETH available to withdraw",
             "Cannot withdraw ETH if there is none");
     });
 
     it("Withdraw ERC721", async () => {
         await truffleAssert.reverts(
-            pool.withdrawERC721.sendTransaction(testNft.address, [otherToken], {from: lp}),
-            "Token is locked or is not in the pool",
-            "Token is locked or is not in the pool");
+            pool.withdrawERC721.sendTransaction(testNft.address, [otherToken], metadata(lp)),
+            "Token is not in the pool",
+            "Token is not in the pool");
         await truffleAssert.reverts(
             pool.withdrawERC721.sendTransaction(testNft.address, [tokenToSell], {from: buyer}),
             "caller is not the owner",
             "Only pool owner can withdraw assets");
-        await pool.withdrawERC721.sendTransaction(testNft.address, [tokenToSell], {from: lp})
+        await pool.withdrawERC721.sendTransaction(testNft.address, [tokenToSell], metadata(lp))
         assert.equal(await testNft.ownerOf(tokenToSell), lp, "Pool owner didn't receive withdrawn NFT");
     });
 });

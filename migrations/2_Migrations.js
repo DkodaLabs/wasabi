@@ -1,5 +1,5 @@
-const TestAzuki = artifacts.require("TestAzuki");
+const TestPudgyPenguins = artifacts.require("TestPudgyPenguins");
 
 module.exports = function (deployer, _network, accounts) {
-  deployer.deploy(TestAzuki);
+  deployer.deploy(TestPudgyPenguins);
 };

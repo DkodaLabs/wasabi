@@ -36,11 +36,11 @@ contract("Expiring CallOption execution", accounts => {
     });
     
     it("Create Pool", async () => {
-        await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, {from: lp});
+        await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
 
         const config = makeConfig(1, 100, 222, 2630000 /* one month */);
         const types = [OptionType.CALL];
-        const createPoolResult = await poolFactory.createPool(testNft.address, [tokenToSell], config, types, {from: lp});
+        const createPoolResult = await poolFactory.createPool(testNft.address, [tokenToSell], config, types, ZERO_ADDRESS, metadata(lp));
         truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");
         truffleAssert.eventEmitted(createPoolResult, "OwnershipTransferred", { previousOwner: ZERO_ADDRESS, newOwner: lp }, "Pool didn't change owners correctly");
 
@@ -54,7 +54,7 @@ contract("Expiring CallOption execution", accounts => {
         let blockNumber = await web3.eth.getBlockNumber();
         request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, tokenToSell, blockNumber + 5);
         const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1));
-        truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", {lockedTokenId: toBN(request.tokenId)}, "Asset wasn't locked");
+        truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
         assert.equal(await web3.eth.getBalance(pool.address), request.premium, "Incorrect balance in pool");
 
         optionId = writeOptionResult.logs.find(l => l.event == 'OptionIssued')!.args[0];

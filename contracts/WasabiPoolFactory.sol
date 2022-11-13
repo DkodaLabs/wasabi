@@ -26,7 +26,8 @@ contract WasabiPoolFactory is Ownable {
         address _nftAddress,
         uint256[] calldata _initialTokenIds,
         WasabiStructs.PoolConfiguration calldata _poolConfiguration,
-        WasabiStructs.OptionType[] calldata _types
+        WasabiStructs.OptionType[] calldata _types,
+        address _admin
     ) external payable returns(address payable _poolAddress) {
         WasabiValidation.validate(_poolConfiguration);
         require(_types.length > 0, "Need to supply an option type");
@@ -53,9 +54,13 @@ contract WasabiPoolFactory is Ownable {
                 ++i;
             }
         }
+
+        if (_admin != address(0)) {
+            pool.setAdmin(_admin);
+        }
     }
 
-    function executeOption(uint256 _optionId) external {
+    function burnOption(uint256 _optionId) external {
         require(poolAddresses[_msgSender()], "Only enabled pools can execute options");
         options.burn(_optionId);
     }
@@ -68,6 +73,8 @@ contract WasabiPoolFactory is Ownable {
     function disablePool(address _poolAddress) external onlyOwner {
         poolAddresses[_poolAddress] = false;
     }
+
+    receive() external payable {}
 
     fallback() external payable {
         require(false, "No fallback");

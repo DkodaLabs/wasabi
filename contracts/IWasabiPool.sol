@@ -36,9 +36,9 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     event OptionExecuted(uint256 optionId);
 
     /**
-     * @dev Emitted when an option is issued an a token is locked.
+     * @dev Emitted when an option is issued
      */
-    event OptionIssued(uint256 optionId, uint256 lockedTokenId);
+    event OptionIssued(uint256 optionId);
 
     /**
      * @dev Returns the address of the commodity
@@ -68,12 +68,12 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     /**
      * @dev Withdraws ERC721 tokens from the pool.
      */
-    function withdrawERC721(IERC721 a, uint256[] calldata nftIds) external payable;
+    function withdrawERC721(IERC721 _nft, uint256[] calldata _tokenIds) external payable;
 
     /**
      * @dev Withdraws all eth from this pool
      */
-    function withdrawETH() external payable;
+    function withdrawETH(uint256 _amount) external payable;
 
     /**
      * @dev Sets the admin of this pool.

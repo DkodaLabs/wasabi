@@ -268,10 +268,12 @@ contract WasabiPool is Ownable, IWasabiPool {
 
     function enableType(WasabiStructs.OptionType _type) external onlyOwner {
         allowedTypes[_type] = true;
+        emit PoolSettingsChanged();
     }
 
     function disableType(WasabiStructs.OptionType _type) external onlyOwner {
         delete allowedTypes[_type];
+        emit PoolSettingsChanged();
     }
 
     function isEnabled(WasabiStructs.OptionType _type) external view returns(bool) {
@@ -285,6 +287,7 @@ contract WasabiPool is Ownable, IWasabiPool {
     function setPoolConfiguration(WasabiStructs.PoolConfiguration calldata _poolConfiguration) external onlyOwner {
         WasabiValidation.validate(_poolConfiguration);
         poolConfiguration = _poolConfiguration;
+        emit PoolSettingsChanged();
     }
 
     function getOptionData(uint256 _optionId) public view returns(WasabiStructs.OptionData memory) {

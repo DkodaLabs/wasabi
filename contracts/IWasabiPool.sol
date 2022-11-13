@@ -41,6 +41,11 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     event OptionIssued(uint256 optionId);
 
     /**
+     * @dev Emitted when the pool settings are changed
+     */
+    event PoolSettingsChanged();
+
+    /**
      * @dev Returns the address of the commodity
      */
     function getCommodityAddress() external view returns(address);

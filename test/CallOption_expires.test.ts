@@ -17,7 +17,7 @@ contract("Expiring CallOption execution", accounts => {
     let option: WasabiOptionInstance;
     let testNft: TestERC721Instance;
     let pool: WasabiPoolInstance;
-    let optionId: BN | string;
+    let optionId: BN;
     let request: OptionRequest;
     let tokenToSell: number;
 
@@ -57,7 +57,7 @@ contract("Expiring CallOption execution", accounts => {
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
         assert.equal(await web3.eth.getBalance(pool.address), request.premium, "Incorrect balance in pool");
 
-        optionId = writeOptionResult.logs.find(l => l.event == 'OptionIssued')!.args[0];
+        optionId = toBN(writeOptionResult.logs.find(l => l.event == 'OptionIssued')!.args[0]);
         assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
     });
 

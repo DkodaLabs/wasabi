@@ -38,7 +38,7 @@ contract WasabiPoolFactory is Ownable {
         emit NewPool(_poolAddress, _nftAddress, _msgSender());
 
         IERC721 _nft = IERC721(_nftAddress);
-        pool.initialize(this, _nft, options, _msgSender(), _poolConfiguration, _types);
+        pool.initialize(this, _nft, options, _msgSender(), _poolConfiguration, _types, _admin);
         if (msg.value > 0) {
             _poolAddress.transfer(msg.value);
         }
@@ -53,10 +53,6 @@ contract WasabiPoolFactory is Ownable {
             unchecked {
                 ++i;
             }
-        }
-
-        if (_admin != address(0)) {
-            pool.setAdmin(_admin);
         }
     }
 

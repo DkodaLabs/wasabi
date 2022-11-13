@@ -46,7 +46,8 @@ contract WasabiPool is Ownable, IWasabiPool {
         IERC721 _optionNFT,
         address _owner,
         WasabiStructs.PoolConfiguration calldata _poolConfiguration,
-        WasabiStructs.OptionType[] calldata _types
+        WasabiStructs.OptionType[] calldata _types,
+        address _admin
     ) external {
         require(owner() == address(0), "Already initialized");
         factory = _factory;
@@ -62,6 +63,11 @@ contract WasabiPool is Ownable, IWasabiPool {
             unchecked {
                 ++i;
             }
+        }
+
+        if (_admin != address(0)) {
+            admin = _admin;
+            emit AdminChanged(_admin);
         }
     }
 

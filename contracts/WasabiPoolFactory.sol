@@ -56,14 +56,14 @@ contract WasabiPoolFactory is Ownable {
         }
     }
 
-    function burnOption(uint256 _optionId) external {
-        require(poolAddresses[_msgSender()], "Only enabled pools can execute options");
-        options.burn(_optionId);
+    function issueOption(address _target) external returns (uint256) {
+        require(poolAddresses[msg.sender], "Only enabled pools can issue options");
+        return options.newMint(_target);
     }
 
-    function issueOption(address _target) external returns (uint256) {
-        require(poolAddresses[_msgSender()], "Only enabled pools can issue options");
-        return options.newMint(_target);
+    function burnOption(uint256 _optionId) external {
+        require(poolAddresses[msg.sender], "Only enabled pools can burn options");
+        options.burn(_optionId);
     }
 
     function disablePool(address _poolAddress) external onlyOwner {

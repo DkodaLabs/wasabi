@@ -19,7 +19,7 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
     }
 
     function newMint(address to) external returns (uint256 mintedId) {
-        require(_msgSender() == factory, "Only the factory can mint tokens");
+        require(msg.sender == factory, "Only the factory can mint tokens");
 
         _safeMint(to, _currentId);
         mintedId = _currentId;
@@ -27,7 +27,7 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
     }
 
     function burn(uint256 _optionId) external {
-        require(_msgSender() == factory, "Only the factory can burn tokens");
+        require(msg.sender == factory, "Only the factory can burn tokens");
         _burn(_optionId);
     }
 

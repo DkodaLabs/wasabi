@@ -5,20 +5,21 @@ import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
-import { WasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/truffle-contracts/WasabiPool.js";
+import { ETHWasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/truffle-contracts/ETHWasabiPool.js";
+import { Transfer } from "../types/truffle-contracts/ERC721";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
-const WasabiPool = artifacts.require("WasabiPool");
+const ETHWasabiPool = artifacts.require("ETHWasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
 
-contract("CallOption", accounts => {
+contract("ETHWasabiPool: CallOption", accounts => {
     let poolFactory: WasabiPoolFactoryInstance;
     let option: WasabiOptionInstance;
     let testNft: TestERC721Instance;
     let poolAddress: string;
-    let pool: WasabiPoolInstance;
+    let pool: ETHWasabiPoolInstance;
     let optionId: BN;
     let request: OptionRequest;
 
@@ -52,7 +53,7 @@ contract("CallOption", accounts => {
         truffleAssert.eventEmitted(createPoolResult, "OwnershipTransferred", { previousOwner: ZERO_ADDRESS, newOwner: lp }, "Pool didn't change owners correctly");
 
         poolAddress = createPoolResult.logs.find(e => e.event == "NewPool")!.args[0];
-        pool = await WasabiPool.at(poolAddress);
+        pool = await ETHWasabiPool.at(poolAddress);
         assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1001, 1002, 1003], "Pool doesn't have the correct tokens");
     });
@@ -80,6 +81,12 @@ contract("CallOption", accounts => {
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
             "Not enough premium is supplied",
             "Cannot write option when premium is 0");
+        
+        request = makeRequest(pool.address, OptionType.PUT, 10, 1, 263000, 1001, maxBlockToExecute); // incorrect option type
+        await truffleAssert.reverts(
+            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, 1)),
+            "Option type is not allowed",
+            "Cannot issue PUT option");
 
         request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1001, maxBlockToExecute);
         await truffleAssert.reverts(
@@ -160,7 +167,10 @@ contract("CallOption", accounts => {
         const optionId = log.args.optionId;
         assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
 
-        await option.methods["safeTransferFrom(address,address,uint256)"](buyer, pool.address, optionId, metadata(buyer));
+        const result = await option.methods["safeTransferFrom(address,address,uint256)"](buyer, pool.address, optionId, metadata(buyer));
+        const transferLog = (result.logs.filter(l => l.event === 'Transfer'))[1] as Truffle.TransactionLog<Transfer>;
+        assert.equal(transferLog.args.to, ZERO_ADDRESS, "Token wasn't burned");
+        assert.equal(transferLog.args.tokenId.toString(), optionId.toString(), "Incorrect option was burned");
 
         await truffleAssert.reverts(pool.getOptionData(optionId), "Option doesn't belong to this pool", "Option data not cleared correctly");
         await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");

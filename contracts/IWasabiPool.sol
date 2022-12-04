@@ -2,6 +2,7 @@ pragma solidity >=0.4.25 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "./lib/WasabiStructs.sol";
 
@@ -31,12 +32,22 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     event ETHReceived(uint amount);
 
     /**
-     * @dev Emitted when an ERC721 is received
+     * @dev Emitted when ERC20 is received
+     */
+    event ERC20Received(uint amount);
+
+    /**
+     * @dev Emitted when an ERC721 is withdrawn
      */
     event ERC721Withdrawn(uint256 tokenId);
 
     /**
-     * @dev Emitted when ETH is received
+     * @dev Emitted when ERC20 is withdrawn
+     */
+    event ERC20Withdrawn(uint amount);
+
+    /**
+     * @dev Emitted when ETH is withdrawn
      */
     event ETHWithdrawn(uint amount);
 
@@ -83,12 +94,17 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     /**
      * @dev Withdraws ERC721 tokens from the pool.
      */
-    function withdrawERC721(IERC721 _nft, uint256[] calldata _tokenIds) external payable;
+    function withdrawERC721(IERC721 _nft, uint256[] calldata _tokenIds) external;
 
     /**
-     * @dev Withdraws all eth from this pool
+     * @dev Withdraws ETH from this pool
      */
     function withdrawETH(uint256 _amount) external payable;
+
+    /**
+     * @dev Withdraws ERC20 tokens from this pool
+     */
+    function withdrawERC20(IERC20 _token, uint256 _amount) external;
 
     /**
      * @dev Sets the admin of this pool.
@@ -104,4 +120,9 @@ interface IWasabiPool is IERC165, IERC721Receiver {
      * @dev Returns the address of the current admin.
      */
     function getAdmin() external view returns (address);
+
+    /**
+     * @dev Returns the available balance this pool contains that can be withdrawn or collateralized
+     */
+    function availableBalance() view external returns(uint256);
 }

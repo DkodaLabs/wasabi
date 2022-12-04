@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, WasabiPoolInstance } from "../types/truffle-contracts";
+import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance } from "../types/truffle-contracts";
 import { OptionIssued } from "../types/truffle-contracts/WasabiPool";
 import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { advanceTime, assertIncreaseInBalance, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth } from "./util/TestUtils";
@@ -8,16 +8,16 @@ import { advanceTime, assertIncreaseInBalance, gasOfTxn, makeConfig, makeRequest
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
-const WasabiPool = artifacts.require("WasabiPool");
+const ETHWasabiPool = artifacts.require("ETHWasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
 
-contract("Expiring PutOption execution", accounts => {
+contract("ETHWasabiPool: Expiring PutOption execution", accounts => {
     let poolFactory: WasabiPoolFactoryInstance;
     let option: WasabiOptionInstance;
     let testNft: TestERC721Instance;
     let otherToken: BN;
     let tokenToSell: BN;
-    let pool: WasabiPoolInstance;
+    let pool: ETHWasabiPoolInstance;
     let optionId: BN | string;
     let request: OptionRequest;
 
@@ -59,7 +59,7 @@ contract("Expiring PutOption execution", accounts => {
         truffleAssert.eventEmitted(createPoolResult, "OwnershipTransferred", { previousOwner: ZERO_ADDRESS, newOwner: lp }, "Pool didn't change owners correctly");
 
         const poolAddress = createPoolResult.logs.find(e => e.event === 'NewPool')!.args[0];
-        pool = await WasabiPool.at(poolAddress);
+        pool = await ETHWasabiPool.at(poolAddress);
 
         assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
         assert.equal(await web3.eth.getBalance(pool.address), toEth(initialPoolBalance), "Incorrect total balance in pool");

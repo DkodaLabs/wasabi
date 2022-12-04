@@ -5,18 +5,18 @@ import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
-import { OptionIssued, WasabiPoolInstance } from "../types/truffle-contracts/WasabiPool.js";
+import { OptionIssued, ETHWasabiPoolInstance } from "../types/truffle-contracts/ETHWasabiPool.js";
 
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
-const WasabiPool = artifacts.require("WasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
+const ETHWasabiPool = artifacts.require("ETHWasabiPool");
 
-contract("Expiring CallOption execution", accounts => {
+contract("ETHWasabiPool: Expiring CallOption execution", accounts => {
     let poolFactory: WasabiPoolFactoryInstance;
     let option: WasabiOptionInstance;
     let testNft: TestERC721Instance;
-    let pool: WasabiPoolInstance;
+    let pool: ETHWasabiPoolInstance;
     let optionId: BN;
     let request: OptionRequest;
     let tokenToSell: number;
@@ -45,7 +45,7 @@ contract("Expiring CallOption execution", accounts => {
         truffleAssert.eventEmitted(createPoolResult, "OwnershipTransferred", { previousOwner: ZERO_ADDRESS, newOwner: lp }, "Pool didn't change owners correctly");
 
         const poolAddress = createPoolResult.logs.find(e => e.event == "NewPool")!.args[0];
-        pool = await WasabiPool.at(poolAddress);
+        pool = await ETHWasabiPool.at(poolAddress);
         assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [tokenToSell], "Pool doesn't have the correct tokens");
     });

@@ -3,11 +3,11 @@ pragma solidity >=0.4.25 <0.9.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract WasabiDemoToken is ERC20, Ownable {
+contract DemoETH is ERC20, Ownable {
     mapping(address => bool) private mintedAddress;
     uint256 private allowedMintSize = 100 ether;
 
-    constructor() ERC20("WasabiDemoToken", "WASABI") {}
+    constructor() ERC20("DemoETH", "DETH") {}
 
     function mint() external {
         require(!mintedAddress[msg.sender], "Address already minted");

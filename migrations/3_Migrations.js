@@ -1,5 +1,5 @@
-const WasabiDemoToken = artifacts.require("WasabiDemoToken");
+const DemoETH = artifacts.require("DemoETH");
 
 module.exports = function (deployer, _network, accounts) {
-  deployer.deploy(WasabiDemoToken);
+  deployer.deploy(DemoETH);
 };

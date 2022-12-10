@@ -12,7 +12,9 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
 
     event Log(string, address);
 
-    constructor() ERC721("Wasabi Option NFTs", "WASAB") public {}
+    constructor() ERC721("Wasabi Option NFTs", "WASAB") public {
+        royaltyPercent = 5;
+    }
 
     function setFactory(address _factory) external onlyOwner() {
         factory = _factory;
@@ -33,7 +35,6 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
 
     function setBaseURI(string memory baseURI_) external onlyOwner() {
         _baseURIextended = baseURI_;
-        _currentId = 1;
     }
     
     function _baseURI() internal view virtual override returns (string memory) {

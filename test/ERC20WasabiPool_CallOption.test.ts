@@ -6,7 +6,7 @@ import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
 import { ERC20WasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/truffle-contracts/ERC20WasabiPool.js";
-import { WasabiDemoTokenInstance } from "../types/truffle-contracts";
+import { DemoETHInstance } from "../types/truffle-contracts";
 import { Transfer } from "../types/truffle-contracts/ERC721";
 
 const Signing = artifacts.require("Signing");
@@ -14,10 +14,10 @@ const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
-const WasabiDemoToken = artifacts.require("WasabiDemoToken");
+const DemoETH = artifacts.require("DemoETH");
 
 contract("ERC20WasabiPool: CallOption", accounts => {
-    let token: WasabiDemoTokenInstance;
+    let token: DemoETHInstance;
     let poolFactory: WasabiPoolFactoryInstance;
     let option: WasabiOptionInstance;
     let testNft: TestERC721Instance;
@@ -31,7 +31,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
     const someoneElse = accounts[5];
 
     before("Prepare State", async function () {
-        token = await WasabiDemoToken.deployed();
+        token = await DemoETH.deployed();
         testNft = await TestERC721.deployed();//.at("0x3CA35257570F4AAEDFaFeb33181c7c6CbBf5A9F6");
         // await WasabiStructs.deployed();//.at("0xA12120547E3c00d7f1232BFaCbd4e393C0aCDC46");
         await Signing.deployed();//.at("0x43d0BbcE6dF77E786998a3801D213234a7f41214");

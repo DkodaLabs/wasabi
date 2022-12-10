@@ -5,7 +5,7 @@ import {
     WasabiOptionInstance,
     TestERC721Instance,
     ETHWasabiPoolInstance,
-    WasabiDemoTokenInstance
+    DemoETHInstance
 } from "../types/truffle-contracts";
 import { OptionExecuted, OptionIssued } from "../types/truffle-contracts/WasabiPool";
 import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
@@ -16,10 +16,10 @@ const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const ETHWasabiPool = artifacts.require("ETHWasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
-const WasabiDemoToken = artifacts.require("WasabiDemoToken");
+const DemoETH = artifacts.require("DemoETH");
 
 contract("Erc20WasabiPool: PutOption", accounts => {
-    let token: WasabiDemoTokenInstance;
+    let token: DemoETHInstance;
     let poolFactory: WasabiPoolFactoryInstance;
     let option: WasabiOptionInstance;
     let testNft: TestERC721Instance;
@@ -38,7 +38,7 @@ contract("Erc20WasabiPool: PutOption", accounts => {
     const premium = 1;
 
     before("Prepare State", async function () {
-        token = await WasabiDemoToken.deployed();
+        token = await DemoETH.deployed();
 
         testNft = await TestERC721.deployed();
         await Signing.deployed();

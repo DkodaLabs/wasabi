@@ -1,7 +1,7 @@
 const truffleAssert = require('truffle-assertions');
 
 import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance } from "../types/truffle-contracts";
-import { OptionIssued } from "../types/truffle-contracts/WasabiPool";
+import { OptionIssued } from "../types/truffle-contracts/IWasabiPool";
 import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { advanceTime, assertIncreaseInBalance, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth } from "./util/TestUtils";
 

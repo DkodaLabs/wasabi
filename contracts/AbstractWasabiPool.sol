@@ -36,13 +36,15 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     mapping(uint256 => uint256) private tokenIdToOptionId;
     mapping(uint256 => WasabiStructs.OptionData) private options;
 
-
     receive() external payable virtual {}
 
     fallback() external payable {
         require(false, "No fallback");
     }
 
+    /**
+     * @dev Initializes this pool
+     */
     function baseInitialize(
         IWasabiPoolFactory _factory,
         IERC721 _nft,
@@ -74,19 +76,23 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         }
     }
 
+    /// @inheritdoc IWasabiPool
     function getCommodityAddress() external view returns(address) {
         return address(nft);
     }
 
+    /// @inheritdoc IWasabiPool
     function getLiquidityAddress() external view virtual returns(address) {
         return address(0);
     }
 
+    /// @inheritdoc IWasabiPool
     function setAdmin(address _admin) external onlyOwner {
         admin = _admin;
         emit AdminChanged(_admin);
     }
 
+    /// @inheritdoc IWasabiPool
     function removeAdmin() external onlyOwner {
         admin = address(0);
         emit AdminChanged(address(0));
@@ -120,6 +126,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         return this.onERC721Received.selector;
     }
 
+    /// @inheritdoc IWasabiPool
     function writeOption(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) external payable nonReentrant {
         validate(_request, _signature);
 
@@ -142,8 +149,9 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         emit OptionIssued(optionId);
     }
 
-    function validateAndWithdrawPayment(uint256 _premium, string memory _message) internal virtual;
-
+    /**
+     * @dev Validates the given OptionRequest in order to issue an option
+     */
     function validate(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) internal {
         // 1. Validate Signature
         address signer = Signing.getSigner(_request, _signature);
@@ -180,18 +188,23 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         }
     }
 
+    /// @inheritdoc IWasabiPool
     function executeOption(uint256 _optionId) external payable nonReentrant {
         validateOptionForExecution(_optionId, 0);
         clearOption(_optionId, 0, true);
         emit OptionExecuted(_optionId);
     }
 
+    /// @inheritdoc IWasabiPool
     function executeOptionWithSell(uint256 _optionId, uint256 _tokenId) external payable nonReentrant {
         validateOptionForExecution(_optionId, _tokenId);
         clearOption(_optionId, _tokenId, true);
         emit OptionExecuted(_optionId);
     }
 
+    /**
+     * @dev Validates the option if its available for execution
+     */
     function validateOptionForExecution(uint256 _optionId, uint256 _tokenId) private {
         require(optionIds.contains(_optionId), "WasabiPool: Option NFT doesn't belong to this pool");
         require(_msgSender() == optionNFT.ownerOf(_optionId), "WasabiPool: Only the token owner can execute the option");
@@ -206,8 +219,24 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         }
     }
 
+    /**
+     * @dev An abstract function to check available balance in this pool.
+     */
+    function availableBalance() view public virtual returns(uint256);
+
+    /**
+     * @dev An abstract function to send payment for any function
+     */
     function payAddress(address _seller, uint256 _amount) internal virtual;
 
+    /**
+     * @dev An abstract function to validate and withdraw payment for any function
+     */
+    function validateAndWithdrawPayment(uint256 _premium, string memory _message) internal virtual;
+
+    /**
+     * @dev Clears the option from the existing state and optionally exercises it.
+     */
     function clearOption(uint256 _optionId, uint256 _tokenId, bool _executed) internal {
         WasabiStructs.OptionData memory optionData = options[_optionId];
         if (optionData.optionType == WasabiStructs.OptionType.CALL) {
@@ -216,7 +245,9 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
                 nft.safeTransferFrom(address(this), _msgSender(), optionData.tokenId);
                 tokenIds.remove(optionData.tokenId);
             }
-            delete tokenIdToOptionId[optionData.tokenId];
+            if (tokenIdToOptionId[optionData.tokenId] == _optionId) {
+                delete tokenIdToOptionId[optionData.tokenId];
+            }
         } else if (optionData.optionType == WasabiStructs.OptionType.PUT) {
             if (_executed) {
                 // Buy from executor
@@ -229,6 +260,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         factory.burnOption(_optionId);
     }
 
+    /// @inheritdoc IWasabiPool
     function withdrawERC721(IERC721 _nft, uint256[] calldata _tokenIds) external onlyOwner {
         bool isPoolAsset = _nft == nft;
 
@@ -250,13 +282,13 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         }
     }
 
-    function availableBalance() view public virtual returns(uint256);
-
+    /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
         return interfaceId == type(IWasabiPool).interfaceId
             || interfaceId == type(IERC721Receiver).interfaceId;
     }
 
+    /// @inheritdoc IWasabiPool
     function isValid(uint256 _optionId) view public returns(bool) {
         if (!optionIds.contains(_optionId)) {
             return false;
@@ -264,34 +296,41 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         return getOptionData(_optionId).expiry >= block.timestamp;
     }
 
+    /// @inheritdoc IWasabiPool
     function getAllTokenIds() view public returns(uint256[] memory) {
         return tokenIds.values();
     }
 
+    /// @inheritdoc IWasabiPool
     function enableType(WasabiStructs.OptionType _type) external onlyOwner {
         allowedTypes[_type] = true;
         emit PoolSettingsChanged();
     }
 
+    /// @inheritdoc IWasabiPool
     function disableType(WasabiStructs.OptionType _type) external onlyOwner {
         delete allowedTypes[_type];
         emit PoolSettingsChanged();
     }
 
+    /// @inheritdoc IWasabiPool
     function isEnabled(WasabiStructs.OptionType _type) external view returns(bool) {
         return allowedTypes[_type];
     }
 
+    /// @inheritdoc IWasabiPool
     function getPoolConfiguration() external view returns(WasabiStructs.PoolConfiguration memory) {
         return poolConfiguration;
     }
 
+    /// @inheritdoc IWasabiPool
     function setPoolConfiguration(WasabiStructs.PoolConfiguration calldata _poolConfiguration) external onlyOwner {
         WasabiValidation.validate(_poolConfiguration);
         poolConfiguration = _poolConfiguration;
         emit PoolSettingsChanged();
     }
 
+    /// @inheritdoc IWasabiPool
     function getOptionData(uint256 _optionId) public view returns(WasabiStructs.OptionData memory) {
         require(optionIds.contains(_optionId), "WasabiPool: Option doesn't belong to this pool");
         return options[_optionId];

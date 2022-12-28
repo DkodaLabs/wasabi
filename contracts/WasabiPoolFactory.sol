@@ -13,6 +13,9 @@ import "./pools/ERC20WasabiPool.sol";
 import "./lib/WasabiStructs.sol";
 import "./lib/WasabiValidation.sol";
 
+/**
+ * @dev A factory class designed to initialize new WasabiPools.
+ */
 contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
     WasabiOption private options;
     ETHWasabiPool private immutable templatePool;
@@ -20,12 +23,18 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
 
     mapping (address => bool) private poolAddresses;
 
+    /**
+     * @dev Initializes a new WasabiPoolFactory
+     */
     constructor(WasabiOption _options, ETHWasabiPool _templatePool, ERC20WasabiPool _templateERC20Pool) public {
         options = _options;
         templatePool = _templatePool;
         templateERC20Pool = _templateERC20Pool;
     }
 
+    /**
+     * @dev Creates a new ETH based pool
+     */
     function createPool(
         address _nftAddress,
         uint256[] calldata _initialTokenIds,
@@ -60,6 +69,9 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
         }
     }
 
+    /**
+     * @dev Creates a new ERC20 based pool
+     */
     function createERC20Pool(
         address _tokenAddress,
         uint256 _initialDeposit,
@@ -103,16 +115,19 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
         }
     }
 
+    /// @inheritdoc IWasabiPoolFactory
     function issueOption(address _target) external returns (uint256) {
         require(poolAddresses[msg.sender], "Only enabled pools can issue options");
         return options.newMint(_target);
     }
 
+    /// @inheritdoc IWasabiPoolFactory
     function burnOption(uint256 _optionId) external {
         require(poolAddresses[msg.sender], "Only enabled pools can burn options");
         options.burn(_optionId);
     }
 
+    /// @inheritdoc IWasabiPoolFactory
     function disablePool(address _poolAddress) external onlyOwner {
         poolAddresses[_poolAddress] = false;
     }

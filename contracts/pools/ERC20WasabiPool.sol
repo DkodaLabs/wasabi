@@ -5,9 +5,15 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../AbstractWasabiPool.sol";
 
+/**
+ * An ERC20 backed implementation of the IWasabiPool.
+ */
 contract ERC20WasabiPool is AbstractWasabiPool {
     IERC20 private token;
 
+    /**
+     * @dev Initializes this pool with the given parameters.
+     */
     function initialize(
         IWasabiPoolFactory _factory,
         IERC20 _token,
@@ -22,19 +28,23 @@ contract ERC20WasabiPool is AbstractWasabiPool {
         token = _token;
     }
 
+    /// @inheritdoc IWasabiPool
     function getLiquidityAddress() override external view returns(address) {
         return address(token);
     }
 
+    /// @inheritdoc AbstractWasabiPool
     function validateAndWithdrawPayment(uint256 _premium, string memory _message) internal override {
         require(token.allowance(_msgSender(), address(this)) >= _premium && _premium > 0, _message);
         token.transferFrom(_msgSender(), address(this), _premium);
     }
 
+    /// @inheritdoc AbstractWasabiPool
     function payAddress(address _seller, uint256 _amount) internal override {
         token.transfer(_seller, _amount);
     }
     
+    /// @inheritdoc IWasabiPool
     function availableBalance() view public override returns(uint256) {
         uint256 balance = token.balanceOf(address(this));
         uint256[] memory optionIds = getOptionIds();
@@ -47,6 +57,7 @@ contract ERC20WasabiPool is AbstractWasabiPool {
         return balance;
     }
 
+    /// @inheritdoc IWasabiPool
     function withdrawERC20(IERC20 _token, uint256 _amount) external onlyOwner {
         require(_amount > 0, "WasabiPool: Need to withdraw more than 0");
 
@@ -63,6 +74,7 @@ contract ERC20WasabiPool is AbstractWasabiPool {
         }
     }
     
+    /// @inheritdoc IWasabiPool
     function withdrawETH(uint256 _amount) external override payable onlyOwner {
         require(_amount > 0, "WasabiPool: Need to withdraw more than 0");
         require(address(this).balance >= _amount, "WasabiPool: Not enough ETH available to withdraw");

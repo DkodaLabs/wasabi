@@ -1,4 +1,4 @@
-import { OptionRequest, OptionType, WasabiPoolConfiguration } from "./TestTypes";
+import { OptionRequest, OptionType, WasabiPoolConfiguration, AMMOrder } from "./TestTypes";
 
 export const toEth = (value: string | number): string => {
     return web3.utils.toWei(`${value}`, "ether");
@@ -25,6 +25,18 @@ export const makeRequest = (
         premium: toEth(premium),
         duration,
         tokenId,
+        maxBlockToExecute
+    };
+}
+
+export const makeAmmRequest = (
+    collection: string,
+    price: any,
+    maxBlockToExecute = 0
+): AMMOrder => {
+    return {
+        collection,
+        price: toEth(price),
         maxBlockToExecute
     };
 }
@@ -56,6 +68,21 @@ export const signRequest = async (request: OptionRequest, address: string): Prom
                 "premium": "uint256",
                 "duration": "uint256",
                 "tokenId": "uint256",
+                "maxBlockToExecute": "uint256"
+            }
+        },
+        request);
+    const hashed = await web3.utils.keccak256(encoded);
+    const signed = await web3.eth.sign(hashed, address);
+    return signed;
+}
+
+export const signAmmRequest = async (request: AMMOrder, address: string): Promise<string> => {
+    const encoded = await web3.eth.abi.encodeParameter(
+        {
+            "AMMOrder": {
+                "collection": "address",
+                "price": "uint256",
                 "maxBlockToExecute": "uint256"
             }
         },

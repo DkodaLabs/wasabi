@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.4.25 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -72,9 +73,9 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function getCommodityAddress() external view returns(address);
 
     /**
-     * @dev Returns the option data for the given option id
+     * @dev Returns the address of the commodity
      */
-    function getOptionData(uint256 _optionId) external view returns(WasabiStructs.OptionData memory);
+    function getLiquidityAddress() external view returns(address);
 
     /**
      * @dev Writes an option for the given rule and buyer
@@ -125,4 +126,19 @@ interface IWasabiPool is IERC165, IERC721Receiver {
      * @dev Returns the available balance this pool contains that can be withdrawn or collateralized
      */
     function availableBalance() view external returns(uint256);
+
+    /**
+     * @dev Returns an array of ids of all outstanding (issued or expired) options
+     */
+    function getOptionIds() external view returns(uint256[] memory);
+
+    /**
+     * @dev Returns the id of the option that locked the given token id, reverts if there is none
+     */
+    function getOptionIdForToken(uint256 _tokenId) external view returns(uint256);
+
+    /**
+     * @dev Returns the option data for the given option id
+     */
+    function getOptionData(uint256 _optionId) external view returns(WasabiStructs.OptionData memory);
 }

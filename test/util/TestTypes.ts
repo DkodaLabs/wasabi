@@ -23,6 +23,12 @@ export interface OptionRequest {
     maxBlockToExecute: number | BN | string;
 }
 
+export interface AMMOrder {
+    collection: string;
+    price: number | BN | string;
+    maxBlockToExecute: number | BN | string;
+}
+
 export interface WasabiPoolNFT {
     name: string,
     symbol: string,

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.4.25 <0.9.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -12,9 +13,9 @@ import "./lib/Signing.sol";
 import "./IWasabiPool.sol";
 
 /**
- * An abstract implementation of the IWasabiPool which handles issuing and exercising options.
+ * An base abstract implementation of the IWasabiPool which handles issuing and exercising options alond with state management.
  */
-abstract contract AbstractWasabiPool is Ownable, IWasabiPool, ReentrancyGuard {
+abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.UintSet;
 
     // Pool metadata
@@ -165,7 +166,7 @@ abstract contract AbstractWasabiPool is Ownable, IWasabiPool, ReentrancyGuard {
         require(_request.duration >= poolConfiguration.minDuration, "WasabiPool: Duration is too small");
         require(_request.duration <= poolConfiguration.maxDuration, "WasabiPool: Duration is too large");
 
-        // 4. Type specific validation
+        // 4. Type spec`ific validation
         if (_request.optionType == WasabiStructs.OptionType.CALL) {
             require(tokenIds.contains(_request.tokenId), "WasabiPool: Token is not in the pool");
             // Check that the token is free
@@ -296,11 +297,14 @@ abstract contract AbstractWasabiPool is Ownable, IWasabiPool, ReentrancyGuard {
         return options[_optionId];
     }
 
+    /// @inheritdoc IWasabiPool
     function getOptionIdForToken(uint256 _tokenId) external view returns(uint256) {
         require(tokenIds.contains(_tokenId), "WasabiPool: Token is not present in the pool");
+        require(tokenIdToOptionId[_tokenId] > 0, "WasabiPool: No option found for token");
         return tokenIdToOptionId[_tokenId];
     }
 
+    /// @inheritdoc IWasabiPool
     function getOptionIds() public view returns(uint256[] memory) {
         return optionIds.values();
     }

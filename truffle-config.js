@@ -4,7 +4,10 @@ require('dotenv').config();
 require("ts-node").register({
   files: true,
 });
-const { API_URL, MNEMONIC, PRIVATE_KEY } = process.env;
+const { 
+  GOERLI_API_URL, GOERLI_MNEMONIC, GOERLI_PRIVATE_KEY,
+  API_URL, PRIVATE_KEY,
+ } = process.env;
 
 module.exports = {
   networks: {
@@ -14,9 +17,13 @@ module.exports = {
     //   network_id: "*"
     // },
     goerli: {
-      provider: () => new HDWalletProvider(PRIVATE_KEY, API_URL),
+      provider: () => new HDWalletProvider(GOERLI_PRIVATE_KEY, GOERLI_API_URL),
       network_id: '5',
-    }
+    },
+    mainnet: {
+      provider: () => new HDWalletProvider(PRIVATE_KEY, API_URL),
+      network_id: '1',
+    },
     // dashboard: {
     // }
   },

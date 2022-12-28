@@ -28,11 +28,10 @@ contract("ETHWasabiPool: CallOption", accounts => {
     const someoneElse = accounts[5];
 
     before("Prepare State", async function () {
-        testNft = await TestERC721.deployed();//.at("0x3CA35257570F4AAEDFaFeb33181c7c6CbBf5A9F6");
-        // await WasabiStructs.deployed();//.at("0xA12120547E3c00d7f1232BFaCbd4e393C0aCDC46");
-        await Signing.deployed();//.at("0x43d0BbcE6dF77E786998a3801D213234a7f41214");
-        option = await WasabiOption.deployed();//.at("0x6D2C5E0a0FDF44A95699a5EDD73fC81e361a0A66");
-        poolFactory = await WasabiPoolFactory.deployed();//.at("0xF03b0a7FAbFfdF0FA79A4Df07A1f9b09c6204d49");
+        testNft = await TestERC721.deployed();
+        await Signing.deployed();
+        option = await WasabiOption.deployed();
+        poolFactory = await WasabiPoolFactory.deployed();
         await option.setFactory(poolFactory.address);
 
         await testNft.mint(metadata(lp));

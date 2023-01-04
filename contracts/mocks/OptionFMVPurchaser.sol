@@ -14,6 +14,8 @@ contract OptionFMVPurchaser is Ownable, ReentrancyGuard {
     address private demoEth;
     address private option;
 
+    event OptionFMVPurchase(address from, uint256 optionId, uint256 price);
+
     constructor(address _demoEth) {
         demoEth = _demoEth;
     }
@@ -44,6 +46,8 @@ contract OptionFMVPurchaser is Ownable, ReentrancyGuard {
 
         nft.safeTransferFrom(msg.sender, _poolAddress, _optionId);
         token.transfer(msg.sender, _request.premium);
+
+        emit OptionFMVPurchase(msg.sender, _optionId, _request.premium);
     }
 
     function setDemoEth(address _demoEth) external onlyOwner {

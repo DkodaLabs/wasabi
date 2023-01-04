@@ -3,35 +3,10 @@ pragma solidity >=0.4.25 <0.9.0;
 
 import {WasabiStructs} from "./WasabiStructs.sol";
 
-/* Signature Verification
-
-How to Sign and Verify
-# Signing
-1. Create message to sign
-2. Hash the message
-3. Sign the hash (off chain, keep your private key secret)
-
-# Verify
-1. Recreate hash from the original message
-2. Recover signer from signature and hash
-3. Compare recovered signer to claimed signer
-*/
-
+/**
+ * @dev Signature Verification
+ */
 library Signing {
-    /* 1. Unlock MetaMask account
-    ethereum.enable()
-    */
-
-    /* 2. Get message hash to sign
-    getMessageHash(
-        0x14723A09ACff6D2A60DcdF7aA4AFf308FDDC160C,
-        123,
-        "coffee and donuts",
-        1
-    )
-
-    hash = "0xcf36ac4f97dc10d91fc2cbb20d718e94a8cbfe0f82eaedc6a4aa38946fb797cd"
-    */
 
     /**
      * @dev Returns the message hash for the given request

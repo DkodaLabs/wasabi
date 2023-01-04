@@ -115,7 +115,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         bytes memory /* data */)
     public virtual override returns (bytes4) {
         if (_msgSender() == address(optionNFT)) {
-            require(options[tokenId].strikePrice > 0, "Wasabi Pool: Option doesn't belong to this pool");
+            require(optionIds.contains(tokenId), "Wasabi Pool: Option doesn't belong to this pool");
             clearOption(tokenId, 0, false);
         } else if (_msgSender() == address(nft)) {
             tokenIds.add(tokenId);
@@ -179,10 +179,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             require(tokenIds.contains(_request.tokenId), "WasabiPool: Token is not in the pool");
             // Check that the token is free
             uint256 optionId = tokenIdToOptionId[_request.tokenId];
-            if (optionIds.contains(optionId)) {
-                uint256 expiry = getOptionData(optionId).expiry;
-                require(expiry < block.timestamp, "WasabiPool: Token is locked");
-            }
+            require(!isValid(optionId), "WasabiPool: Token is locked");
         } else if (_request.optionType == WasabiStructs.OptionType.PUT) {
             require(availableBalance() >= _request.strikePrice, "WasabiPool: Not enough ETH available to lock");
         }

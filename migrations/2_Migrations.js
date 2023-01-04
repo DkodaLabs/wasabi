@@ -7,6 +7,7 @@ const TestERC721 = artifacts.require("TestERC721");
 const TestAzuki = artifacts.require("TestAzuki");
 
 module.exports = function (deployer, _network, accounts) {
+  deployer.deploy(TestERC721);
   deployer.deploy(TestAzuki);
   deployer.deploy(TestPudgyPenguins);
   deployer.deploy(TestInvisibleFriends);

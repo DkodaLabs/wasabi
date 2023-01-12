@@ -78,7 +78,8 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function getLiquidityAddress() external view returns(address);
 
     /**
-     * @dev Writes an option for the given rule and buyer
+     * @dev Writes an option for the given rule and buyer.
+     * TODO: return the option id
      */
     function writeOption(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) external payable;
 

@@ -7,7 +7,11 @@ const TestERC721 = artifacts.require("TestERC721");
 const TestAzuki = artifacts.require("TestAzuki");
 const TestCaptainz = artifacts.require("TestCaptainz");
 const TestMutantApes = artifacts.require("TestMutantApes");
+const TestFriendshipBracelets = artifacts.require("TestFriendshipBracelets");
 const TestMutantHoundCollars = artifacts.require("TestMutantHoundCollars");
+const TestDoodles = artifacts.require("TestDoodles");
+const TestCloneX = artifacts.require("TestCloneX");
+const TestMilady = artifacts.require("TestMilady");
 
 module.exports = function (deployer, _network, accounts) {
   deployer.deploy(TestERC721);
@@ -20,4 +24,8 @@ module.exports = function (deployer, _network, accounts) {
   deployer.deploy(TestMutantApes);
   deployer.deploy(TestMutantHoundCollars);
   deployer.deploy(TestCaptainz);
+  deployer.deploy(TestFriendshipBracelets);
+  deployer.deploy(TestDoodles);
+  deployer.deploy(TestCloneX);
+  deployer.deploy(TestMilady);
 };

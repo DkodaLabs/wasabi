@@ -12,6 +12,7 @@ const TestMutantHoundCollars = artifacts.require("TestMutantHoundCollars");
 const TestDoodles = artifacts.require("TestDoodles");
 const TestCloneX = artifacts.require("TestCloneX");
 const TestMilady = artifacts.require("TestMilady");
+const TestSewerPass = artifacts.require("TestSewerPass");
 
 module.exports = function (deployer, _network, accounts) {
   deployer.deploy(TestERC721);
@@ -28,4 +29,5 @@ module.exports = function (deployer, _network, accounts) {
   deployer.deploy(TestDoodles);
   deployer.deploy(TestCloneX);
   deployer.deploy(TestMilady);
+  deployer.deploy(TestSewerPass);
 };

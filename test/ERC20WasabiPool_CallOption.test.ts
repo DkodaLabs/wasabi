@@ -6,7 +6,7 @@ import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
 import { ERC20WasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/truffle-contracts/ERC20WasabiPool.js";
-import { DemoETHInstance } from "../types/truffle-contracts";
+import { DemoETHInstance, SigningInstance, TestSignatureInstance } from "../types/truffle-contracts";
 import { Transfer } from "../types/truffle-contracts/ERC721";
 
 const Signing = artifacts.require("Signing");
@@ -15,6 +15,7 @@ const WasabiOption = artifacts.require("WasabiOption");
 const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
 const DemoETH = artifacts.require("DemoETH");
+const TestSignature = artifacts.require("TestSignature")
 
 contract("ERC20WasabiPool: CallOption", accounts => {
     let token: DemoETHInstance;
@@ -25,6 +26,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
     let pool: ERC20WasabiPoolInstance;
     let optionId: BN;
     let request: OptionRequest;
+    let signing: TestSignatureInstance;
 
     const lp = accounts[2];
     const buyer = accounts[3];
@@ -37,6 +39,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
         await option.setFactory(poolFactory.address);
+        signing = await TestSignature.deployed();
         
         await token.mint(metadata(buyer));
 
@@ -87,6 +90,10 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         let maxBlockToExecute = blockNumber + 5;
         const premium = 1;
         const allowed = premium * 2;
+
+        const request4 = makeRequest(pool.address, OptionType.CALL, 10, premium, 263000, 1001, maxBlockToExecute);
+        const signer = await signing.getSigner(request4, await signRequest(request4, lp));
+        assert.equal(signer, lp, "Signer not equal");
 
         request = makeRequest(pool.address, OptionType.CALL, 10, premium, 263000, 1001, maxBlockToExecute); // no premium in request
         await truffleAssert.reverts(

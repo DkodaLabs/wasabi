@@ -18,7 +18,9 @@ jobs:
       - name: Install Truffle
         run: npm install truffle -g
       - name: NPM install
-        run: npm ci
+        run: npm install
+      - name: NPM postinstall
+        run: npm run postinstall
       - name: Run Truffle Test with CI=true for Codechecks  
         run: CI=true truffle test
       # - name: Run Codechecks

@@ -73,7 +73,13 @@ export const signRequest = async (request: OptionRequest, address: string): Prom
         },
         request);
     const hashed = await web3.utils.keccak256(encoded);
-    const signed = await web3.eth.sign(hashed, address);
+    let signed = await web3.eth.sign(hashed, address);
+    let lastTwo = signed.slice(-2);
+    if (lastTwo === '00') {
+        signed = signed.slice(0, signed.length - 2) + '1b';
+    } else if (lastTwo === '01') {
+        signed = signed.slice(0, signed.length - 2) + '1c';
+    }
     return signed;
 }
 
@@ -88,7 +94,13 @@ export const signAmmRequest = async (request: AMMOrder, address: string): Promis
         },
         request);
     const hashed = await web3.utils.keccak256(encoded);
-    const signed = await web3.eth.sign(hashed, address);
+    let signed = await web3.eth.sign(hashed, address);
+    let lastTwo = signed.slice(-2);
+    if (lastTwo === '00') {
+        signed = signed.slice(0, signed.length - 2) + '1b';
+    } else if (lastTwo === '01') {
+        signed = signed.slice(0, signed.length - 2) + '1c';
+    }
     return signed;
 }
 

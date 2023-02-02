@@ -13,16 +13,16 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 16
+          cache: 'npm'
+          cache-dependency-path: ./package-lock.json
       - name: Show NodeJS version    
         run: npm --version
       - name: Install Truffle
         run: npm install truffle -g
       - name: NPM install
-        run: npm install
-      - name: NPM postinstall
-        run: npm run postinstall
-      - name: Run Truffle Test with CI=true for Codechecks  
-        run: CI=true truffle test
+        run: npm ci
+      - name: Run Truffle Test
+        run: truffle test
       # - name: Run Codechecks
       #   run: npx codechecks
       # - name: Run Test Coverage

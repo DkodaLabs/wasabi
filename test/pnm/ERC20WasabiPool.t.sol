@@ -92,7 +92,7 @@ contract ERC20WasabiPoolTest is PTest {
         vm.stopPrank();
     }
 
-    function invariantLockedNft() public view {
+    function invariantNftBalance() public view {
         uint256 userNftBalance = nft.balanceOf(user);
         uint256 poolNftBalance = nft.balanceOf(address(pool));
 
@@ -100,6 +100,17 @@ contract ERC20WasabiPoolTest is PTest {
             (userNftBalance == 1 && poolNftBalance == 2) || // either option executed
                 (userNftBalance == 0 && poolNftBalance == 3), // or option not executed
             "invalid nft balance"
+        );
+    }
+
+    // An intentionally wrong invariant for DEMO
+    function invariantNftAlwaysLocked() public view {
+        uint256 userNftBalance = nft.balanceOf(user);
+        uint256 poolNftBalance = nft.balanceOf(address(pool));
+
+        require(
+            (userNftBalance == 0 && poolNftBalance == 3), // option not executed
+            "nft is not locked"
         );
     }
 

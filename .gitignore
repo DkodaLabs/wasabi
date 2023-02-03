@@ -117,3 +117,6 @@ test/GenerateSignature.test.ts
 # PNM files
 out
 cache
+crashes
+reports
+pnm-cov.json

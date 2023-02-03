@@ -11,6 +11,7 @@
             "program": "${workspaceRoot}/node_modules/truffle/build/cli.bundled.js",
             "args": [
                 "test",
+                "test/WasabiConduit_ETH.test.ts",
             ],
             "cwd": "${workspaceRoot}",
             "outFiles": [

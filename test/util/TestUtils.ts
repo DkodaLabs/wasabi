@@ -1,4 +1,4 @@
-import { OptionRequest, OptionType, WasabiPoolConfiguration, AMMOrder } from "./TestTypes";
+import { OptionRequest, OptionType, WasabiPoolConfiguration, AMMOrder, Bid, Ask } from "./TestTypes";
 
 export const toEth = (value: string | number): string => {
     return web3.utils.toWei(`${value}`, "ether");
@@ -72,15 +72,7 @@ export const signRequest = async (request: OptionRequest, address: string): Prom
             }
         },
         request);
-    const hashed = await web3.utils.keccak256(encoded);
-    let signed = await web3.eth.sign(hashed, address);
-    let lastTwo = signed.slice(-2);
-    if (lastTwo === '00') {
-        signed = signed.slice(0, signed.length - 2) + '1b';
-    } else if (lastTwo === '01') {
-        signed = signed.slice(0, signed.length - 2) + '1c';
-    }
-    return signed;
+    return await signEncodedRequest(encoded, address);
 }
 
 export const signAmmRequest = async (request: AMMOrder, address: string): Promise<string> => {
@@ -93,6 +85,45 @@ export const signAmmRequest = async (request: AMMOrder, address: string): Promis
             }
         },
         request);
+    return await signEncodedRequest(encoded, address);
+}
+
+export const signBid = async (request: Bid, address: string): Promise<string> => {
+    const encoded = await web3.eth.abi.encodeParameter(
+        {
+            "Bid": {
+                "id": "uint256",
+                "buyer": "address",
+                "optionType": "uint256",
+                "strikePrice": "uint256",
+                "expiry": "uint256",
+                "expiryAllowance": "uint256",
+                "price": "uint256",
+                "tokenAddress": "address",
+                "orderExpiry": "uint256",
+            }
+        },
+        request);
+    return await signEncodedRequest(encoded, address);
+}
+
+export const signAsk = async (request: Ask, address: string): Promise<string> => {
+    const encoded = await web3.eth.abi.encodeParameter(
+        {
+            "Ask": {
+                "id": "uint256",
+                "price": "uint256",
+                "tokenAddress": "address",
+                "orderExpiry": "uint256",
+                "seller": "address",
+                "optionId": "uint256",
+            }
+        },
+        request);
+    return await signEncodedRequest(encoded, address);
+}
+
+const signEncodedRequest = async (encoded: string, address: string) => {
     const hashed = await web3.utils.keccak256(encoded);
     let signed = await web3.eth.sign(hashed, address);
     let lastTwo = signed.slice(-2);

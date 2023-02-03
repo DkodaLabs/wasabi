@@ -24,6 +24,37 @@ library Signing {
     }
 
     /**
+     * @dev Returns the message hash for the given request
+     */
+    function getAskHash(WasabiStructs.Ask calldata _ask) public pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                _ask.id,
+                _ask.price,
+                _ask.tokenAddress,
+                _ask.orderExpiry,
+                _ask.seller,
+                _ask.optionId));
+    }
+
+    /**
+     * @dev Returns the message hash for the given request
+     */
+    function getBidHash(WasabiStructs.Bid calldata _bid) public pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                _bid.id,
+                _bid.buyer,
+                _bid.optionType,
+                _bid.strikePrice,
+                _bid.expiry,
+                _bid.expiryAllowance,
+                _bid.price,
+                _bid.tokenAddress,
+                _bid.orderExpiry));
+    }
+
+    /**
      * @dev creates an ETH signed message hash
      */
     function getEthSignedMessageHash(bytes32 _messageHash) public pure returns (bytes32) {

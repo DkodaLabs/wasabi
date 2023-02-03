@@ -28,4 +28,25 @@ library WasabiStructs {
         uint256 minDuration;
         uint256 maxDuration;
     }
+
+    struct Bid {
+        uint256 id;
+        uint256 price;
+        address tokenAddress;
+        uint256 orderExpiry;
+        address buyer;
+        OptionType optionType;
+        uint256 strikePrice;
+        uint256 expiry;
+        uint256 expiryAllowance;
+    }
+
+    struct Ask {
+        uint256 id;
+        uint256 price;
+        address tokenAddress;
+        uint256 orderExpiry;
+        address seller;
+        uint256 optionId;
+    }
 }

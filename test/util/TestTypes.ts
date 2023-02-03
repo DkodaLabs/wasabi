@@ -13,6 +13,14 @@ export enum OptionType {
     PUT = 1,
 }
 
+export interface OptionData {
+    optionType: BN;
+    strikePrice: BN;
+    premium: BN;
+    expiry: BN;
+    tokenId: BN;
+}
+
 export interface OptionRequest {
     poolAddress: string;
     optionType: number | BN | string;
@@ -21,6 +29,27 @@ export interface OptionRequest {
     duration: number | BN | string;
     tokenId: number | BN | string;
     maxBlockToExecute: number | BN | string;
+}
+
+export interface Bid {
+    id: number | BN | string;
+    price: number | BN | string;
+    tokenAddress: string;
+    orderExpiry: number | BN | string;
+    buyer: string;
+    optionType: number | BN | string;
+    strikePrice: number | BN | string;
+    expiry: number | BN | string;
+    expiryAllowance: number | BN | string;
+}
+
+export interface Ask {
+    id: number | BN | string;
+    price: number | BN | string;
+    tokenAddress: string;
+    orderExpiry: number | BN | string;
+    seller: string;
+    optionId: number | BN | string;
 }
 
 export interface AMMOrder {

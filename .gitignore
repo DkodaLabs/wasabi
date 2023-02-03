@@ -113,3 +113,7 @@ types
 .idea
 
 test/GenerateSignature.test.ts
+
+# PNM files
+out
+cache

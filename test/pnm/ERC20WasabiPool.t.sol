@@ -18,6 +18,10 @@ contract ERC20WasabiPoolTest is PTest {
     ERC20WasabiPool internal templateERC20Pool;
     ERC20WasabiPool internal pool;
 
+    uint256 internal nftId0;
+    uint256 internal nftId1;
+    uint256 internal nftId2;
+
     address internal user;
     address internal agent;
     uint256 internal constant AGENT_KEY = 0x12345678;
@@ -40,7 +44,10 @@ contract ERC20WasabiPoolTest is PTest {
         options.setFactory(address(poolFactory));
 
         nft = new TestAzuki();
-        uint256 tokenId = nft.mint(agent);
+        nftId0 = nft.mint(agent);
+        nftId1 = nft.mint(agent);
+        nftId2 = nft.mint(agent);
+
         vm.startPrank(agent);
         nft.setApprovalForAll(address(poolFactory), true);
         vm.stopPrank();
@@ -53,15 +60,17 @@ contract ERC20WasabiPoolTest is PTest {
         types[0] = WasabiStructs.OptionType.CALL;
         // types[1] = WasabiStructs.OptionType.PUT;
 
-        uint256[] memory tokenIds = new uint256[](1);
-        tokenIds[0] = tokenId;
+        uint256[] memory tokenIds = new uint256[](3);
+        tokenIds[0] = nftId0;
+        tokenIds[1] = nftId1;
+        tokenIds[2] = nftId2;
 
         vm.startPrank(agent);
         address poolAddress = poolFactory.createERC20Pool(
             address(token),
             0,
             address(nft),
-            tokenIds,
+            tokenIds, // 3 NFTs
             poolConfiguration,
             types,
             address(0)
@@ -77,38 +86,27 @@ contract ERC20WasabiPoolTest is PTest {
             10, // strike price
             1, // premium
             30 days,
-            tokenId,
+            nftId0,
             block.number + 5
         );
         vm.stopPrank();
     }
 
     function invariantLockedNft() public view {
+        uint256 userNftBalance = nft.balanceOf(user);
+        uint256 poolNftBalance = nft.balanceOf(address(pool));
+
         require(
-            nft.balanceOf(user) == 1 || nft.balanceOf(address(pool)) == 1,
-            "nft is not locked"
+            (userNftBalance == 1 && poolNftBalance == 2) || // either option executed
+                (userNftBalance == 0 && poolNftBalance == 3), // or option not executed
+            "invalid nft balance"
         );
     }
 
-    function actionWriteOption(
-        address poolAddress,
-        WasabiStructs.OptionType optionType,
-        uint256 strikePrice,
-        uint256 premium,
-        uint256 duration,
-        uint256 tokenId, // Tokens to deposit for CALL options
-        uint256 maxBlockToExecute
-    ) public {
-        vm.prank(agent);
-        writeOption(
-            poolAddress,
-            optionType,
-            strikePrice,
-            premium,
-            duration,
-            tokenId,
-            maxBlockToExecute
-        );
+    function actionExecuteOption(uint256 optionId) public {
+        vm.startPrank(user);
+        pool.executeOption(optionId);
+        vm.stopPrank();
     }
 
     function writeOption(

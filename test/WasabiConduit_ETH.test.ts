@@ -101,6 +101,7 @@ contract("WasabiConduit ETH", accounts => {
 
         const acceptAskResult = await conduit.acceptAsk(ask, signature, metadata(someoneElse, price));
         truffleAssert.eventEmitted(acceptAskResult, "AskTaken", null, "Ask wasn't taken");
+        assert.equal(await option.ownerOf(optionId), someoneElse, "Option not owned after buying");
     });
 
     it("Accept bid", async () => {
@@ -124,9 +125,10 @@ contract("WasabiConduit ETH", accounts => {
             expiryAllowance: 0,
         };
 
-        const signature = await signBid(bid, buyer);
+        const signature = await signBid(bid, buyer); // optionOwner signs it
 
-        const acceptBidResult = await conduit.acceptBid(optionId, pool.address, bid, signature, metadata(someoneElse, price));
+        const acceptBidResult = await conduit.acceptBid(optionId, pool.address, bid, signature, metadata(optionOwner, price));
         truffleAssert.eventEmitted(acceptBidResult, "BidTaken", null, "Bid wasn't taken");
+        assert.equal(await option.ownerOf(optionId), buyer, "Option not owned after buying");
     });
 });

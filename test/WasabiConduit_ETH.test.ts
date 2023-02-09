@@ -125,10 +125,68 @@ contract("WasabiConduit ETH", accounts => {
             expiryAllowance: 0,
         };
 
-        const signature = await signBid(bid, buyer); // optionOwner signs it
+        const signature = await signBid(bid, buyer); // buyer signs it
 
         const acceptBidResult = await conduit.acceptBid(optionId, pool.address, bid, signature, metadata(optionOwner, price));
         truffleAssert.eventEmitted(acceptBidResult, "BidTaken", null, "Bid wasn't taken");
         assert.equal(await option.ownerOf(optionId), buyer, "Option not owned after buying");
+    });
+
+    it("Cancel ask", async () => {
+        const price = 1;
+        let optionOwner = await option.ownerOf(optionId);
+
+        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const ask: Ask = {
+            id: 3,
+            optionId: optionId.toString(),
+            orderExpiry: Number(blockTimestamp) + 20,
+            price: toEth(price),
+            seller: optionOwner,
+            tokenAddress: ZERO_ADDRESS,
+        };
+
+        const signature = await signAsk(ask, optionOwner);
+        await conduit.cancelAsk(ask, signature);
+
+        await truffleAssert.reverts(
+            conduit.acceptAsk(ask, signature, metadata(someoneElse, price)),
+            "Order was finalized or cancelled",
+            "Can execute cancelled ask"
+        );
+    });
+
+    it("Cancel bid", async () => {
+        const price = 1;
+        let optionOwner = await option.ownerOf(optionId);
+
+        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+        const optionData: OptionData = await pool.getOptionData(optionId);
+
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const bid: Bid = {
+            id: 4,
+            price,
+            tokenAddress: ZERO_ADDRESS,
+            orderExpiry: Number(blockTimestamp) + 20,
+            buyer: someoneElse,
+            optionType: optionData.optionType,
+            strikePrice: optionData.strikePrice,
+            expiry: optionData.expiry,
+            expiryAllowance: 0,
+        };
+
+        const signature = await signBid(bid, someoneElse); // buyer signs it
+        await conduit.cancelBid(bid, signature);
+
+
+        await truffleAssert.reverts(
+            conduit.acceptBid(optionId, pool.address, bid, signature, metadata(optionOwner, price)),
+            "Order was finalized or cancelled",
+            "Can execute cancelled bid"
+        );
     });
 });

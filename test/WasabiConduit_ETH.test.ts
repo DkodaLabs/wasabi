@@ -149,7 +149,8 @@ contract("WasabiConduit ETH", accounts => {
         };
 
         const signature = await signAsk(ask, optionOwner);
-        await conduit.cancelAsk(ask, signature);
+        const cancelAskResult = await conduit.cancelAsk(ask, signature);
+        truffleAssert.eventEmitted(cancelAskResult, "AskCancelled", null, "Ask wasn't cancelled");
 
         await truffleAssert.reverts(
             conduit.acceptAsk(ask, signature, metadata(someoneElse, price)),
@@ -180,8 +181,8 @@ contract("WasabiConduit ETH", accounts => {
         };
 
         const signature = await signBid(bid, someoneElse); // buyer signs it
-        await conduit.cancelBid(bid, signature);
-
+        const cancelBidResult = await conduit.cancelBid(bid, signature);
+        truffleAssert.eventEmitted(cancelBidResult, "BidCancelled", null, "Bid wasn't cancelled");
 
         await truffleAssert.reverts(
             conduit.acceptBid(optionId, pool.address, bid, signature, metadata(optionOwner, price)),

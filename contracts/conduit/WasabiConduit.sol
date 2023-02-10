@@ -12,8 +12,11 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract WasabiConduit is Ownable, IERC721Receiver, ReentrancyGuard {
-    event AskTaken(uint256 optionId, uint256 orderId, address taker);
-    event BidTaken(uint256 optionId, uint256 orderId, address taker);
+    event AskTaken(uint256 optionId, uint256 orderId, address seller, address taker);
+    event BidTaken(uint256 optionId, uint256 orderId, address buyer, address taker);
+
+    event BidCancelled(uint256 orderId, address buyer);
+    event AskCancelled(uint256 orderId, address seller);
 
     WasabiOption private option;
     uint256 private lastToken;
@@ -103,7 +106,7 @@ contract WasabiConduit is Ownable, IERC721Receiver, ReentrancyGuard {
         option.safeTransferFrom(_ask.seller, _msgSender(), _ask.optionId);
         idToFinalizedOrCancelled[id] = true;
 
-        emit AskTaken(_ask.optionId, _ask.id, _msgSender());
+        emit AskTaken(_ask.optionId, _ask.id, _ask.seller, _msgSender());
     }
 
     function acceptBid(
@@ -138,7 +141,7 @@ contract WasabiConduit is Ownable, IERC721Receiver, ReentrancyGuard {
         option.safeTransferFrom(_msgSender(), _bid.buyer, _optionId);
         idToFinalizedOrCancelled[id] = true;
 
-        emit BidTaken(_optionId, _bid.id, _msgSender());
+        emit BidTaken(_optionId, _bid.id, _bid.buyer, _msgSender());
     }
 
     function validateAsk(WasabiStructs.Ask calldata _ask, bytes calldata _signature) view internal {
@@ -190,6 +193,8 @@ contract WasabiConduit is Ownable, IERC721Receiver, ReentrancyGuard {
         require(!idToFinalizedOrCancelled[id], "Order was already finalized or cancelled");
 
         idToFinalizedOrCancelled[id] = true;
+
+        emit AskCancelled(_ask.id, _ask.seller);
     }
 
     function cancelBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature) external {
@@ -202,6 +207,7 @@ contract WasabiConduit is Ownable, IERC721Receiver, ReentrancyGuard {
         require(!idToFinalizedOrCancelled[id], "Order was already finalized or cancelled");
 
         idToFinalizedOrCancelled[id] = true;
+        emit BidCancelled(_bid.id, _bid.buyer);
     }
 
     function getAskId(WasabiStructs.Ask calldata _ask) pure internal returns(bytes memory) {

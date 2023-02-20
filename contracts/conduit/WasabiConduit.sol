@@ -22,16 +22,25 @@ contract WasabiConduit is Ownable, IERC721Receiver, ReentrancyGuard {
     uint256 private lastToken;
     uint256 public maxOptionsToBuy;
     mapping(bytes => bool) idToFinalizedOrCancelled;
+    // bool private useRoylaty
 
-    function buyOptions(WasabiStructs.OptionRequest[] calldata _requests, bytes[] calldata _signatures) external payable returns(uint256[] memory) {
-        uint256 size = _requests.length;
+    function buyOptions(
+        WasabiStructs.OptionRequest[] calldata _requests,
+        WasabiStructs.Ask[] calldata _asks,
+        bytes[] calldata _signatures
+    ) external payable returns(uint256[] memory) {
+        uint256 size = _requests.length + _asks.length;
         require(size > 0, "Need to provide at least one request");
         require(size <= maxOptionsToBuy, "Cannot buy that many options");
-        require(size == _requests.length, "Need to provide the same amount of signatures and requests");
+        require(size == _signatures.length, "Need to provide the same amount of signatures and requests");
 
         uint256[] memory tokenIds = new uint[](size);
         for (uint256 index = 0; index < _requests.length; index++) {
             uint256 tokenId = buyOption(_requests[index], _signatures[index]);
+            tokenIds[index] = tokenId;
+        }
+        for (uint256 index = 0; index < _asks.length; index++) {
+            uint256 tokenId = acceptAsk(_asks[index], _signatures[index + _requests.length]);
             tokenIds[index] = tokenId;
         }
         return tokenIds;
@@ -78,7 +87,7 @@ contract WasabiConduit is Ownable, IERC721Receiver, ReentrancyGuard {
         maxOptionsToBuy = _maxOptionsToBuy;
     }
 
-    function acceptAsk(WasabiStructs.Ask calldata _ask, bytes calldata _signature) external payable nonReentrant {
+    function acceptAsk(WasabiStructs.Ask calldata _ask, bytes calldata _signature) public payable nonReentrant returns(uint256) {
         bytes memory id = getAskId(_ask);
         require(!idToFinalizedOrCancelled[id], "Order was finalized or cancelled");
 
@@ -107,6 +116,7 @@ contract WasabiConduit is Ownable, IERC721Receiver, ReentrancyGuard {
         idToFinalizedOrCancelled[id] = true;
 
         emit AskTaken(_ask.optionId, _ask.id, _ask.seller, _msgSender());
+        return _ask.optionId;
     }
 
     function acceptBid(
@@ -146,8 +156,7 @@ contract WasabiConduit is Ownable, IERC721Receiver, ReentrancyGuard {
 
     function validateAsk(WasabiStructs.Ask calldata _ask, bytes calldata _signature) view internal {
         // Validate Signature
-        bytes32 ethSignedMessageHash = Signing.getEthSignedMessageHash(Signing.getAskHash(_ask));
-        address signer = Signing.recoverSigner(ethSignedMessageHash, _signature);
+        address signer = Signing.getAskSigner(_ask, _signature);
         address currentOwner = option.ownerOf(_ask.optionId);
         
         require(signer == owner() || signer == currentOwner, 'Incorrect signature');
@@ -174,6 +183,8 @@ contract WasabiConduit is Ownable, IERC721Receiver, ReentrancyGuard {
         require(_bid.price > 0, "Price needs to be greater than 0");
 
         IWasabiPool pool = IWasabiPool(_poolAddress);
+        require(pool.getCommodityAddress() == _bid.collection, "Collections don't match");
+
         WasabiStructs.OptionData memory optionData = pool.getOptionData(_optionId);
         
         require(optionData.optionType == _bid.optionType, "Option types don't match");

@@ -1,5 +1,9 @@
 import { OptionRequest, OptionType, WasabiPoolConfiguration, AMMOrder, Bid, Ask } from "./TestTypes";
 
+export const fromWei = (value: string | BN): number  => {
+    return Number(web3.utils.fromWei(value, "ether"));
+}
+
 export const toEth = (value: string | number): string => {
     return web3.utils.toWei(`${value}`, "ether");
 }
@@ -93,14 +97,15 @@ export const signBid = async (request: Bid, address: string): Promise<string> =>
         {
             "Bid": {
                 "id": "uint256",
+                "price": "uint256",
+                "tokenAddress": "address",
+                "collection": "address",
+                "orderExpiry": "uint256",
                 "buyer": "address",
                 "optionType": "uint256",
                 "strikePrice": "uint256",
                 "expiry": "uint256",
                 "expiryAllowance": "uint256",
-                "price": "uint256",
-                "tokenAddress": "address",
-                "orderExpiry": "uint256",
             }
         },
         request);

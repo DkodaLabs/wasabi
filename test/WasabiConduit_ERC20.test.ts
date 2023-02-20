@@ -1,7 +1,7 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceTime } from "./util/TestUtils";
-import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceTime, signAsk, signBid, fromWei } from "./util/TestUtils";
+import { Ask, Bid, OptionData, OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
@@ -28,6 +28,7 @@ contract("WasabiConduit ERC20", accounts => {
     let optionId: BN;
     let request: OptionRequest;
     let conduit: WasabiConduitInstance;
+    let afterRoyaltyPayoutPercent: number;
 
     const lp = accounts[2];
     const buyer = accounts[3];
@@ -44,6 +45,7 @@ contract("WasabiConduit ERC20", accounts => {
         await conduit.setOption(option.address);
         
         await token.mint(metadata(buyer));
+        await token.mint(metadata(someoneElse));
 
         await testNft.mint(metadata(lp));
         await testNft.mint(metadata(lp));
@@ -51,6 +53,8 @@ contract("WasabiConduit ERC20", accounts => {
         await testNft.mint(metadata(someoneElse));
         await testNft.mint(metadata(buyer));
         await testNft.mint(metadata(buyer));
+
+        afterRoyaltyPayoutPercent = 1 - (await option.royaltyPercent()).toNumber() / 100;
     });
     
     it("Create Pool", async () => {
@@ -125,7 +129,7 @@ contract("WasabiConduit ERC20", accounts => {
         await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
     });
     
-    it("Issue Option & Send/Sell Back to Pool", async () => {
+    it("Issue Option", async () => {
         let initialPoolBalance = await token.balanceOf(poolAddress);
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1003, 1002], "Pool doesn't have the correct tokens");
 
@@ -140,56 +144,135 @@ contract("WasabiConduit ERC20", accounts => {
             "Incorrect balance in pool");
 
         const issueLog = writeOptionResult.logs.find(l => l.event == "OptionIssued")! as Truffle.TransactionLog<OptionIssued>;
-        const optionId = issueLog.args.optionId;
+        optionId = issueLog.args.optionId;
         assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
-
-        const result = await option.methods["safeTransferFrom(address,address,uint256)"](buyer, pool.address, optionId, metadata(buyer));
-        const transferLog = (result.logs.filter(l => l.event === 'Transfer'))[1] as Truffle.TransactionLog<Transfer>;
-        assert.equal(transferLog.args.to, ZERO_ADDRESS, "Token wasn't burned");
-        assert.equal(transferLog.args.tokenId.toString(), optionId.toString(), "Incorrect option was burned");
-
-        await truffleAssert.reverts(pool.getOptionData(optionId), "Option doesn't belong to this pool", "Option data not cleared correctly");
-        await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
     });
 
-    it("Withdraw ERC721", async () => {
-        await truffleAssert.reverts(
-            pool.withdrawERC721.sendTransaction(testNft.address, [1001], metadata(lp)),
-            "Token is not in the pool",
-            "Token is locked or is not in the pool");
-        await truffleAssert.reverts(
-            pool.withdrawERC721.sendTransaction(testNft.address, [1002], {from: buyer}),
-            "caller is not the owner",
-            "Only pool owner can withdraw assets");
-        await pool.withdrawERC721.sendTransaction(testNft.address, [1002, 1003], metadata(lp))
-        assert.equal(await testNft.ownerOf(1002), lp, "Pool owner didn't receive withdrawn NFT");
-        assert.equal(await testNft.ownerOf(1003), lp, "Pool owner didn't receive withdrawn NFT");
+
+    it("Accept ask", async () => {
+        const price = 1;
+        let optionOwner = await option.ownerOf(optionId);
+
+        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const ask: Ask = {
+            id: 1,
+            optionId: optionId.toString(),
+            orderExpiry: Number(blockTimestamp) + 20,
+            price: toEth(price),
+            seller: optionOwner,
+            tokenAddress: token.address,
+        };
+
+        const signature = await signAsk(ask, optionOwner);
+        await token.approve(conduit.address, ask.price, metadata(someoneElse));
+
+        const initialBalanceBuyer = await token.balanceOf(someoneElse);
+        const initialBalanceSeller = await token.balanceOf(optionOwner);
+        const acceptAskResult = await conduit.acceptAsk(ask, signature, metadata(someoneElse));
+        const finalBalanceBuyer = await token.balanceOf(someoneElse);
+        const finalBalanceSeller = await token.balanceOf(optionOwner);
+
+        truffleAssert.eventEmitted(acceptAskResult, "AskTaken", null, "Ask wasn't taken");
+        assert.equal(await option.ownerOf(optionId), someoneElse, "Option not owned after buying");
+        assert.equal(fromWei(initialBalanceBuyer.sub(finalBalanceBuyer)), price, 'Buyer incorrect balance change')
+        assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), price * afterRoyaltyPayoutPercent, 'Seller incorrect balance change')
     });
 
-    it("Withdraw ETH", async () => {
-        const value = toBN(toEth(5));
-        await web3.eth.sendTransaction({from: lp, to: poolAddress, value: value});
-        await truffleAssert.reverts(
-            pool.withdrawETH(value, metadata(buyer)),
-            "caller is not the owner",
-            "Only pool owner can withdraw ETH");
-        const initialBalance = toBN(await web3.eth.getBalance(lp));
-        const withdrawETHResult = await pool.withdrawETH(value, metadata(lp));
-        await assertIncreaseInBalance(lp, initialBalance, value.sub(gasOfTxn(withdrawETHResult.receipt)));
-        assert.equal(await web3.eth.getBalance(pool.address), '0', "Incorrect balance in pool");
+    it("Accept bid", async () => {
+        const price = 1;
+        let optionOwner = await option.ownerOf(optionId);
+
+        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+        const optionData: OptionData = await pool.getOptionData(optionId);
+
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const bid: Bid = {
+            id: 2,
+            price: toEth(price),
+            tokenAddress: token.address,
+            collection: testNft.address,
+            orderExpiry: Number(blockTimestamp) + 20,
+            buyer,
+            optionType: optionData.optionType,
+            strikePrice: optionData.strikePrice,
+            expiry: optionData.expiry,
+            expiryAllowance: 0,
+        };
+
+        const signature = await signBid(bid, buyer); // buyer signs it
+
+        const initialBalanceBuyer = await token.balanceOf(bid.buyer);
+        const initialBalanceSeller = await token.balanceOf(optionOwner);
+        const acceptBidResult = await conduit.acceptBid(optionId, pool.address, bid, signature, metadata(optionOwner));
+        const finalBalanceBuyer = await token.balanceOf(bid.buyer);
+        const finalBalanceSeller = await token.balanceOf(optionOwner);
+
+        truffleAssert.eventEmitted(acceptBidResult, "BidTaken", null, "Bid wasn't taken");
+        assert.equal(await option.ownerOf(optionId), buyer, "Option not owned after buying");
+        assert.equal(fromWei(initialBalanceBuyer.sub(finalBalanceBuyer)), price, 'Buyer incorrect balance change')
+        assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), price * afterRoyaltyPayoutPercent, 'Seller incorrect balance change')
     });
 
-    it("Withdraw ERC20", async () => {
-        const availablePoolBalance = await pool.availableBalance();
-        await truffleAssert.reverts(
-            pool.withdrawERC20(token.address, availablePoolBalance, metadata(buyer)),
-            "caller is not the owner",
-            "Only pool owner can withdraw ETH");
+    it("Cancel ask", async () => {
+        const price = 1;
+        let optionOwner = await option.ownerOf(optionId);
 
-        const initialLpBlanace = await token.balanceOf(lp);
-        await pool.withdrawERC20(token.address, availablePoolBalance, metadata(lp));
-        const finalLpBlanace = await token.balanceOf(lp);
-        assert.equal(finalLpBlanace.toString(), initialLpBlanace.add(availablePoolBalance).toString(), "Not enough withdrawn");
-        assert.equal((await pool.availableBalance()).toString(), '0', "Incorrect balance in pool");
+        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const ask: Ask = {
+            id: 3,
+            optionId: optionId.toString(),
+            orderExpiry: Number(blockTimestamp) + 20,
+            price: toEth(price),
+            seller: optionOwner,
+            tokenAddress: token.address,
+        };
+
+        const signature = await signAsk(ask, optionOwner);
+        const cancelAskResult = await conduit.cancelAsk(ask, signature);
+        truffleAssert.eventEmitted(cancelAskResult, "AskCancelled", null, "Ask wasn't cancelled");
+
+        await truffleAssert.reverts(
+            conduit.acceptAsk(ask, signature, metadata(someoneElse)),
+            "Order was finalized or cancelled",
+            "Can execute cancelled ask"
+        );
+    });
+
+    it("Cancel bid", async () => {
+        const price = 1;
+        let optionOwner = await option.ownerOf(optionId);
+
+        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+        const optionData: OptionData = await pool.getOptionData(optionId);
+
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const bid: Bid = {
+            id: 4,
+            price,
+            tokenAddress: token.address,
+            collection: testNft.address,
+            orderExpiry: Number(blockTimestamp) + 20,
+            buyer: someoneElse,
+            optionType: optionData.optionType,
+            strikePrice: optionData.strikePrice,
+            expiry: optionData.expiry,
+            expiryAllowance: 0,
+        };
+
+        const signature = await signBid(bid, someoneElse); // buyer signs it
+        const cancelBidResult = await conduit.cancelBid(bid, signature);
+        truffleAssert.eventEmitted(cancelBidResult, "BidCancelled", null, "Bid wasn't cancelled");
+
+        await truffleAssert.reverts(
+            conduit.acceptBid(optionId, pool.address, bid, signature, metadata(optionOwner)),
+            "Order was finalized or cancelled",
+            "Can execute cancelled bid"
+        );
     });
 });

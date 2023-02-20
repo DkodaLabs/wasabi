@@ -7,6 +7,7 @@ require("ts-node").register({
 const { 
   GOERLI_API_URL, GOERLI_MNEMONIC, GOERLI_PRIVATE_KEY,
   API_URL, PRIVATE_KEY,
+  ETHERSCAN_API_KEY
  } = process.env;
 
 module.exports = {
@@ -35,5 +36,9 @@ module.exports = {
   db: {
     // enabled: false,
     // host: "127.0.0.1",
-  }
+  },
+  plugins: ['truffle-plugin-verify'],
+  api_keys: {
+    etherscan: ETHERSCAN_API_KEY,
+  },
 };

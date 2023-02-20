@@ -35,6 +35,7 @@ export interface Bid {
     id: number | BN | string;
     price: number | BN | string;
     tokenAddress: string;
+    collection: string;
     orderExpiry: number | BN | string;
     buyer: string;
     optionType: number | BN | string;

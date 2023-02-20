@@ -37,21 +37,19 @@ library Signing {
                 _ask.optionId));
     }
 
-    /**
-     * @dev Returns the message hash for the given request
-     */
     function getBidHash(WasabiStructs.Bid calldata _bid) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 _bid.id,
+                _bid.price,
+                _bid.tokenAddress,
+                _bid.collection,
+                _bid.orderExpiry,
                 _bid.buyer,
                 _bid.optionType,
                 _bid.strikePrice,
                 _bid.expiry,
-                _bid.expiryAllowance,
-                _bid.price,
-                _bid.tokenAddress,
-                _bid.orderExpiry));
+                _bid.expiryAllowance));
     }
 
     /**
@@ -70,6 +68,16 @@ library Signing {
         bytes memory signature
     ) public pure returns (address) {
         bytes32 messageHash = getMessageHash(_request);
+        bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
+
+        return recoverSigner(ethSignedMessageHash, signature);
+    }
+
+    function getAskSigner(
+        WasabiStructs.Ask calldata _ask,
+        bytes memory signature
+    ) public pure returns (address) {
+        bytes32 messageHash = getAskHash(_ask);
         bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
 
         return recoverSigner(ethSignedMessageHash, signature);

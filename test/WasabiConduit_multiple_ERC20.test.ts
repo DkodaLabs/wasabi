@@ -98,8 +98,8 @@ contract("WasabiConduit Multibuy ERC20", accounts => {
             signatures.push(await signRequest(requests[i], lp));   
         }
 
-        optionIds = await conduit.buyOptions.call(requests, signatures, metadata(buyer));
-        await conduit.buyOptions(requests, signatures, metadata(buyer));
+        optionIds = await conduit.buyOptions.call(requests, [], signatures, metadata(buyer));
+        await conduit.buyOptions(requests, [], signatures, metadata(buyer));
 
         assert.equal(
             (await token.balanceOf(pool.address)).toString(),

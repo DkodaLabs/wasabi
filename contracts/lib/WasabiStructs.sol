@@ -33,6 +33,7 @@ library WasabiStructs {
         uint256 id;
         uint256 price;
         address tokenAddress;
+        address collection;
         uint256 orderExpiry;
         address buyer;
         OptionType optionType;

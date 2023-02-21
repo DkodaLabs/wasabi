@@ -134,20 +134,12 @@ contract WasabiConduit is Ownable, IERC721Receiver, ReentrancyGuard {
 
         (address royaltyAddress, uint256 royaltyAmount) = option.royaltyInfo(_optionId, price);
 
-        if (_bid.tokenAddress == address(0)) {
-            require(msg.value >= price, "Not enough ETH supplied");
-            if (royaltyAmount > 0) {
-                price -= royaltyAmount;
-            }
-            payable(_msgSender()).transfer(price);
-        } else {
-            IERC20 erc20 = IERC20(_bid.tokenAddress);
-            if (royaltyAmount > 0) {
-                erc20.transferFrom(_bid.buyer, royaltyAddress, royaltyAmount);
-                price -= royaltyAmount;
-            }
-            erc20.transferFrom(_bid.buyer, _msgSender(), price);
+        IERC20 erc20 = IERC20(_bid.tokenAddress);
+        if (royaltyAmount > 0) {
+            erc20.transferFrom(_bid.buyer, royaltyAddress, royaltyAmount);
+            price -= royaltyAmount;
         }
+        erc20.transferFrom(_bid.buyer, _msgSender(), price);
         option.safeTransferFrom(_msgSender(), _bid.buyer, _optionId);
         idToFinalizedOrCancelled[id] = true;
 
@@ -178,6 +170,7 @@ contract WasabiConduit is Ownable, IERC721Receiver, ReentrancyGuard {
         require(option.ownerOf(_optionId) == _msgSender(), "Seller is not owner");
         
         require(signer == owner() || signer == _bid.buyer, 'Incorrect signature');
+        require(_bid.tokenAddress != address(0), "Bidder didn't provide a ERC20 token");
 
         require(_bid.orderExpiry >= block.timestamp, "Order expired");
         require(_bid.price > 0, "Price needs to be greater than 0");

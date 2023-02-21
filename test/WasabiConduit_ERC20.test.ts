@@ -1,13 +1,13 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceTime, signAsk, signBid, fromWei } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, signAsk, signBid, fromWei } from "./util/TestUtils";
 import { Ask, Bid, OptionData, OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
+import { TestAzukiInstance } from "../types/truffle-contracts/TestAzuki.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
 import { ERC20WasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/truffle-contracts/ERC20WasabiPool.js";
 import { DemoETHInstance } from "../types/truffle-contracts";
-import { Transfer } from "../types/truffle-contracts/ERC721";
 import { WasabiConduitInstance } from "../types/truffle-contracts/WasabiConduit";
 
 const Signing = artifacts.require("Signing");
@@ -17,6 +17,7 @@ const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
 const DemoETH = artifacts.require("DemoETH");
 const WasabiConduit = artifacts.require("WasabiConduit");
+const TestAzuki = artifacts.require("TestAzuki");
 
 contract("WasabiConduit ERC20", accounts => {
     let token: DemoETHInstance;
@@ -29,6 +30,7 @@ contract("WasabiConduit ERC20", accounts => {
     let request: OptionRequest;
     let conduit: WasabiConduitInstance;
     let afterRoyaltyPayoutPercent: number;
+    let testAzukiInstance: TestAzukiInstance;
 
     const lp = accounts[2];
     const buyer = accounts[3];
@@ -41,6 +43,8 @@ contract("WasabiConduit ERC20", accounts => {
         await Signing.deployed();
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
+        testAzukiInstance = await TestAzuki.deployed();
+
         await option.setFactory(poolFactory.address);
         await conduit.setOption(option.address);
         
@@ -187,7 +191,6 @@ contract("WasabiConduit ERC20", accounts => {
         await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
 
         const optionData: OptionData = await pool.getOptionData(optionId);
-
         let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
         const bid: Bid = {
             id: 2,

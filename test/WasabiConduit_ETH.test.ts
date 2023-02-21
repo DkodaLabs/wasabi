@@ -1,12 +1,11 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceTime, signAsk, signBid } from "./util/TestUtils";
-import { Ask, Bid, OptionRequest, OptionType, ZERO_ADDRESS, OptionData } from "./util/TestTypes";
+import { toEth, makeRequest, makeConfig, metadata, signRequest, signAsk } from "./util/TestUtils";
+import { Ask, OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
-import { ETHWasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/truffle-contracts/ETHWasabiPool.js";
-import { Transfer } from "../types/truffle-contracts/ERC721";
+import { ETHWasabiPoolInstance } from "../types/truffle-contracts/ETHWasabiPool.js";
 import { WasabiConduitInstance } from "../types/truffle-contracts/WasabiConduit";
 
 const Signing = artifacts.require("Signing");
@@ -104,35 +103,6 @@ contract("WasabiConduit ETH", accounts => {
         assert.equal(await option.ownerOf(optionId), someoneElse, "Option not owned after buying");
     });
 
-    it("Accept bid", async () => {
-        const price = 1;
-        let optionOwner = await option.ownerOf(optionId);
-
-        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
-
-        const optionData: OptionData = await pool.getOptionData(optionId);
-
-        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
-        const bid: Bid = {
-            id: 2,
-            price,
-            tokenAddress: ZERO_ADDRESS,
-            collection: testNft.address,
-            orderExpiry: Number(blockTimestamp) + 20,
-            buyer,
-            optionType: optionData.optionType,
-            strikePrice: optionData.strikePrice,
-            expiry: optionData.expiry,
-            expiryAllowance: 0,
-        };
-
-        const signature = await signBid(bid, buyer); // buyer signs it
-
-        const acceptBidResult = await conduit.acceptBid(optionId, pool.address, bid, signature, metadata(optionOwner, price));
-        truffleAssert.eventEmitted(acceptBidResult, "BidTaken", null, "Bid wasn't taken");
-        assert.equal(await option.ownerOf(optionId), buyer, "Option not owned after buying");
-    });
-
     it("Cancel ask", async () => {
         const price = 1;
         let optionOwner = await option.ownerOf(optionId);
@@ -157,39 +127,6 @@ contract("WasabiConduit ETH", accounts => {
             conduit.acceptAsk(ask, signature, metadata(someoneElse, price)),
             "Order was finalized or cancelled",
             "Can execute cancelled ask"
-        );
-    });
-
-    it("Cancel bid", async () => {
-        const price = 1;
-        let optionOwner = await option.ownerOf(optionId);
-
-        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
-
-        const optionData: OptionData = await pool.getOptionData(optionId);
-
-        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
-        const bid: Bid = {
-            id: 4,
-            price,
-            tokenAddress: ZERO_ADDRESS,
-            collection: testNft.address,
-            orderExpiry: Number(blockTimestamp) + 20,
-            buyer: someoneElse,
-            optionType: optionData.optionType,
-            strikePrice: optionData.strikePrice,
-            expiry: optionData.expiry,
-            expiryAllowance: 0,
-        };
-
-        const signature = await signBid(bid, someoneElse); // buyer signs it
-        const cancelBidResult = await conduit.cancelBid(bid, signature);
-        truffleAssert.eventEmitted(cancelBidResult, "BidCancelled", null, "Bid wasn't cancelled");
-
-        await truffleAssert.reverts(
-            conduit.acceptBid(optionId, pool.address, bid, signature, metadata(optionOwner, price)),
-            "Order was finalized or cancelled",
-            "Can execute cancelled bid"
         );
     });
 });

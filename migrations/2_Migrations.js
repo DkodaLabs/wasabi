@@ -14,6 +14,7 @@ const TestCloneX = artifacts.require("TestCloneX");
 const TestMilady = artifacts.require("TestMilady");
 const TestSewerPass = artifacts.require("TestSewerPass");
 const TestChecks = artifacts.require("TestChecks");
+const TestMfers = artifacts.require("TestMfers");
 
 module.exports = function (deployer, _network, accounts) {
   deployer.deploy(TestERC721);
@@ -32,4 +33,5 @@ module.exports = function (deployer, _network, accounts) {
   deployer.deploy(TestMilady);
   deployer.deploy(TestSewerPass);
   deployer.deploy(TestChecks);
+  deployer.deploy(TestMfers);
 };

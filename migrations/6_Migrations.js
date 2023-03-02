@@ -1,5 +1,5 @@
-const TestMfers = artifacts.require("TestMfers");
+const TestBitBears = artifacts.require("TestBitBears");
 
 module.exports = function (deployer, _network, accounts) {
-  deployer.deploy(TestMfers);
+  deployer.deploy(TestBitBears);
 };

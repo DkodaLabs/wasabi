@@ -4,7 +4,7 @@ pragma solidity >=0.4.25 <0.9.0;
 import "./lib/Signing.sol";
 
 /**
- * @dev A Wasabi pricing Configuration signature validator.
+ * @dev A Wasabi pricing configuration signature validator.
  */
 contract PricingConfigValidator {
 
@@ -27,31 +27,31 @@ contract PricingConfigValidator {
     /**
      * @dev Creates the hash of the EIP712 domain for this validator
      *
-     * @param eip712Domain the domain to hash
+     * @param _eip712Domain the domain to hash
      * @return the hashed domain
      */
-    function hashDomain(EIP712Domain memory eip712Domain) internal pure returns (bytes32) {
+    function hashDomain(EIP712Domain memory _eip712Domain) internal pure returns (bytes32) {
         return keccak256(abi.encode(
             EIP712DOMAIN_TYPEHASH,
-            keccak256(bytes(eip712Domain.name)),
-            keccak256(bytes(eip712Domain.version)),
-            eip712Domain.chainId,
-            eip712Domain.verifyingContract
+            keccak256(bytes(_eip712Domain.name)),
+            keccak256(bytes(_eip712Domain.version)),
+            _eip712Domain.chainId,
+            _eip712Domain.verifyingContract
         ));
     }
 
     /**
      * @dev Creates the hash of the PricingConfiguration for this validator
      *
-     * @param config the configuration to hash
+     * @param _config the configuration to hash
      * @return the configuration domain
      */
-    function hash(PricingConfiguration memory config) internal pure returns (bytes32) {
+    function hash(PricingConfiguration memory _config) internal pure returns (bytes32) {
         return keccak256(abi.encode(
             TYPEHASH,
-            config.poolAddress,
-            config.premiumMultiplierPercent,
-            config.blockNumber
+            _config.poolAddress,
+            _config.premiumMultiplierPercent,
+            _config.blockNumber
         ));
     }
 

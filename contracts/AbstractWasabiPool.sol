@@ -174,7 +174,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         require(_request.duration >= poolConfiguration.minDuration, "WasabiPool: Duration is too small");
         require(_request.duration <= poolConfiguration.maxDuration, "WasabiPool: Duration is too large");
 
-        // 4. Type spec`ific validation
+        // 4. Type specific validation
         if (_request.optionType == WasabiStructs.OptionType.CALL) {
             require(tokenIds.contains(_request.tokenId), "WasabiPool: Token is not in the pool");
             // Check that the token is free

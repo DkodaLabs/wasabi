@@ -21,7 +21,12 @@ interface IWasabiPoolFactory {
     function burnOption(uint256 _optionId) external;
 
     /**
-     * @dev Disables the specified pool.
+     * @dev Disables/enables the specified pool.
      */
-    function disablePool(address _poolAddress) external;
+    function togglePool(address _poolAddress, bool _enabled) external;
+
+    /**
+     * @dev Checks if the pool for the given address is enabled.
+     */
+    function isValidPool(address _poolAddress) external returns(bool);
 }

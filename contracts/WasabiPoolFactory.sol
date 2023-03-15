@@ -128,8 +128,14 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
     }
 
     /// @inheritdoc IWasabiPoolFactory
-    function disablePool(address _poolAddress) external onlyOwner {
-        poolAddresses[_poolAddress] = false;
+    function togglePool(address _poolAddress, bool _enabled) external onlyOwner {
+        require(poolAddresses[_poolAddress] != _enabled, 'Pool already in same state');
+        poolAddresses[_poolAddress] = _enabled;
+    }
+
+    /// @inheritdoc IWasabiPoolFactory
+    function isValidPool(address _poolAddress) external view returns(bool) {
+        return poolAddresses[_poolAddress];
     }
 
     receive() external payable {}

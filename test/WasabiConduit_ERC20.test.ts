@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, signAsk, signBid, fromWei } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, signAsk, signBid, fromWei, signBidWithEIP712 } from "./util/TestUtils";
 import { Ask, Bid, OptionData, OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { TestAzukiInstance } from "../types/truffle-contracts/TestAzuki.js";
@@ -205,7 +205,7 @@ contract("WasabiConduit ERC20", accounts => {
             expiryAllowance: 0,
         };
 
-        const signature = await signBid(bid, buyer); // buyer signs it
+        const signature = await signBidWithEIP712(bid, conduit.address); // buyer signs it
 
         const initialBalanceBuyer = await token.balanceOf(bid.buyer);
         const initialBalanceSeller = await token.balanceOf(optionOwner);

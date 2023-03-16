@@ -2,7 +2,10 @@
 pragma solidity >=0.4.25 <0.9.0;
 
 library WasabiStructs {
-    enum OptionType { CALL, PUT }
+    enum OptionType {
+        CALL,
+        PUT
+    }
 
     struct OptionData {
         OptionType optionType;

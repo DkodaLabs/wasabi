@@ -30,7 +30,11 @@ export interface OptionRequest {
     tokenId: number | BN | string;
     maxBlockToExecute: number | BN | string;
 }
-
+export interface PricingConfig {
+    poolAddress: string;
+    premiumMultiplierPercent: number | BN | string;
+    blockNumber: number | BN | string;
+}
 export interface Bid {
     id: number | BN | string;
     price: number | BN | string;

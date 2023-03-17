@@ -7,8 +7,8 @@ const WasabiConduit = artifacts.require("WasabiConduit");
 contract("ConduitSignatureVerifier ERC20", (accounts) => {
   let conduit: WasabiConduitInstance;
   const buyer = accounts[3];
-  const validPrivateKey = "c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c";
-  const inValidPivateKey = "ae6ae8e5ccbfb04590405997ee2d52d2b330726137b875053c36d94e974d162f";
+  const buyerPrivateKey = "c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c";
+  const someoneElsePrivateKey = "659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63";
 
   before("Prepare State", async function () {
     conduit = await WasabiConduit.deployed();
@@ -34,7 +34,7 @@ contract("ConduitSignatureVerifier ERC20", (accounts) => {
     const signatureForBid = await signBidWithEIP712(
       bid,
       conduit.address,
-      validPrivateKey
+      buyerPrivateKey
     ); // buyer signs it
 
     assert.equal(
@@ -64,7 +64,7 @@ contract("ConduitSignatureVerifier ERC20", (accounts) => {
     const signatureForBid = await signBidWithEIP712(
       bid,
       conduit.address,
-      inValidPivateKey
+      someoneElsePrivateKey
     ); // buyer signs it
 
     assert.notEqual(await conduit.getSignerForBid(bid, signatureForBid), buyer);
@@ -86,7 +86,7 @@ contract("ConduitSignatureVerifier ERC20", (accounts) => {
     const signatureForAsk = await signAskWithEIP712(
       ask,
       conduit.address,
-      validPrivateKey
+      buyerPrivateKey
     ); // buyer signs it
 
     assert.equal(
@@ -112,7 +112,7 @@ contract("ConduitSignatureVerifier ERC20", (accounts) => {
     const signatureForAsk = await signAskWithEIP712(
       ask,
       conduit.address,
-      inValidPivateKey
+      someoneElsePrivateKey
     ); // buyer signs it
 
     assert.notEqual(

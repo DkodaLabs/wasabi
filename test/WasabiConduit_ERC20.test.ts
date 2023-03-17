@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, signAsk, signBid, fromWei, signBidWithEIP712 } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, fromWei, signBidWithEIP712, signAskWithEIP712 } from "./util/TestUtils";
 import { Ask, Bid, OptionData, OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { TestAzukiInstance } from "../types/truffle-contracts/TestAzuki.js";
@@ -35,6 +35,8 @@ contract("WasabiConduit ERC20", accounts => {
     const lp = accounts[2];
     const buyer = accounts[3];
     const someoneElse = accounts[5];
+    const buyerPrivateKey = "c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c";
+    const someoneElsePrivateKey = "659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63";
 
     before("Prepare State", async function () {
         conduit = await WasabiConduit.deployed();
@@ -169,7 +171,7 @@ contract("WasabiConduit ERC20", accounts => {
             tokenAddress: token.address,
         };
 
-        const signature = await signAsk(ask, optionOwner);
+        const signature = await signAskWithEIP712(ask, conduit.address, buyerPrivateKey);
         await token.approve(conduit.address, ask.price, metadata(someoneElse));
 
         const initialBalanceBuyer = await token.balanceOf(someoneElse);
@@ -205,7 +207,7 @@ contract("WasabiConduit ERC20", accounts => {
             expiryAllowance: 0,
         };
 
-        const signature = await signBidWithEIP712(bid, conduit.address); // buyer signs it
+        const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
 
         const initialBalanceBuyer = await token.balanceOf(bid.buyer);
         const initialBalanceSeller = await token.balanceOf(optionOwner);
@@ -235,7 +237,7 @@ contract("WasabiConduit ERC20", accounts => {
             tokenAddress: token.address,
         };
 
-        const signature = await signAsk(ask, optionOwner);
+        const signature = await signAskWithEIP712(ask, conduit.address, buyerPrivateKey);
         const cancelAskResult = await conduit.cancelAsk(ask, signature);
         truffleAssert.eventEmitted(cancelAskResult, "AskCancelled", null, "Ask wasn't cancelled");
 
@@ -268,7 +270,7 @@ contract("WasabiConduit ERC20", accounts => {
             expiryAllowance: 0,
         };
 
-        const signature = await signBid(bid, someoneElse); // buyer signs it
+        const signature = await signBidWithEIP712(bid, conduit.address, someoneElsePrivateKey); // buyer signs it
         const cancelBidResult = await conduit.cancelBid(bid, signature);
         truffleAssert.eventEmitted(cancelBidResult, "BidCancelled", null, "Bid wasn't cancelled");
 

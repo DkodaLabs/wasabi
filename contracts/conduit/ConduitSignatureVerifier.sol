@@ -48,7 +48,7 @@ abstract contract ConduitSignatureVerifier {
     /**
      * @dev Creates the hash of the Bid for this validator
      *
-     * @param _bid the bid to hash
+     * @param _bid hash
      * @return the bid domain
      */
     function hashForBid(
@@ -73,7 +73,7 @@ abstract contract ConduitSignatureVerifier {
     }
 
     /**
-     * @dev Creates the hash of the Bid for this validator
+     * @dev Creates the hash of the Ask for this validator
      *
      * @param _ask the ask to hash
      * @return the ask domain
@@ -177,6 +177,9 @@ abstract contract ConduitSignatureVerifier {
         return getSignerForAsk(_ask, _signature) == _signer;
     }
 
+    /**
+     * @return the current chain id
+     */
     function getChainID() internal view returns (uint256) {
         uint256 id;
         assembly {

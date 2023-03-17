@@ -194,11 +194,10 @@ contract WasabiConduit is
         bytes calldata _signature
     ) internal view {
         // Validate Signature
-        address signer = Signing.getAskSigner(_ask, _signature);
         address currentOwner = option.ownerOf(_ask.optionId);
 
         require(
-            signer == owner() || signer == currentOwner,
+            verifyAsk(_ask, _signature, owner()) || verifyAsk(_ask, _signature, currentOwner),
             "Incorrect signature"
         );
         require(currentOwner == _ask.seller, "Seller is not owner");
@@ -262,14 +261,7 @@ contract WasabiConduit is
         bytes calldata _signature
     ) external {
         // Validate Signature
-        bytes32 ethSignedMessageHash = Signing.getEthSignedMessageHash(
-            Signing.getAskHash(_ask)
-        );
-        address signer = Signing.recoverSigner(
-            ethSignedMessageHash,
-            _signature
-        );
-        require(signer == _ask.seller, "Incorrect signature");
+        require(verifyAsk(_ask, _signature, _ask.seller), "Incorrect signature");
 
         bytes memory id = getAskId(_ask);
         require(
@@ -287,14 +279,7 @@ contract WasabiConduit is
         bytes calldata _signature
     ) external {
         // Validate Signature
-        bytes32 ethSignedMessageHash = Signing.getEthSignedMessageHash(
-            Signing.getBidHash(_bid)
-        );
-        address signer = Signing.recoverSigner(
-            ethSignedMessageHash,
-            _signature
-        );
-        require(signer == _bid.buyer, "Incorrect signature");
+        require(verifyBid(_bid, _signature, _bid.buyer), "Incorrect signature");
 
         bytes memory id = getBidId(_bid);
         require(

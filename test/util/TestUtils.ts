@@ -188,6 +188,7 @@ const signEncodedRequest = async (encoded: string, address: string) => {
 export const signPriceConfig = async (
   request: PricingConfig,
   verifyingContract: string,
+  privateKey: string
 ) => {
   const domain = {
     name: "PricingConfigValidator",
@@ -215,7 +216,7 @@ export const signPriceConfig = async (
     message: request,
   };
   const signature = ethUtil.signTypedData(
-    Buffer.from("c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c", "hex"),
+    Buffer.from(privateKey, "hex"),
     {
       data: typeData as any,
     }
@@ -225,6 +226,7 @@ export const signPriceConfig = async (
 export const signBidWithEIP712 = async (
   request: Bid,
   verifyingContract: string,
+  privateKey: string
 ) => {
   const domain = {
     name: "ConduitSignature",
@@ -259,7 +261,7 @@ export const signBidWithEIP712 = async (
     message: request,
   };
   const signature = ethUtil.signTypedData(
-    Buffer.from("c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c", "hex"),
+    Buffer.from(privateKey, "hex"),
     {
       data: typeData as any,
     }
@@ -270,6 +272,7 @@ export const signBidWithEIP712 = async (
 export const signAskWithEIP712 = async (
   request: Ask,
   verifyingContract: string,
+  privateKey: string
 ) => {
   const domain = {
     name: "ConduitSignature",
@@ -300,7 +303,7 @@ export const signAskWithEIP712 = async (
     message: request,
   };
   const signature = ethUtil.signTypedData(
-    Buffer.from("c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c", "hex"),
+    Buffer.from(privateKey, "hex"),
     {
       data: typeData as any,
     }

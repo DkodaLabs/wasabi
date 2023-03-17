@@ -98,7 +98,7 @@ contract PricingConfigValidator {
     /**
      * @dev Checks the signer of the given signature for the given pricing configuration is the given signer
      *
-     * @param _pricingConfig the pricing configuration to val00idate
+     * @param _pricingConfig the pricing configuration to validate
      * @param _signature the signature to validate
      * @param _signer the signer to validate
      * @return true if the signature belongs to the signer, false otherwise
@@ -110,7 +110,9 @@ contract PricingConfigValidator {
     ) external view returns (bool) {
         return getSigner(_pricingConfig, _signature) == _signer;
     }
-
+    /**
+     * @return the current chain id
+     */
     function getChainID() internal view returns (uint256) {
         uint256 id;
         assembly {

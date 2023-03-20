@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, makeRequest, makeConfig, metadata, signRequest, signAsk } from "./util/TestUtils";
+import { toEth, makeRequest, makeConfig, metadata, signRequest, signAskWithEIP712 } from "./util/TestUtils";
 import { Ask, OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -29,6 +29,8 @@ contract("WasabiConduit ETH", accounts => {
     const lp = accounts[2];
     const buyer = accounts[3];
     const someoneElse = accounts[5];
+    const buyerPrivateKey = "c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c";
+    const someoneElsePrivateKey = "659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63";
 
     before("Prepare State", async function () {
         conduit = await WasabiConduit.deployed();
@@ -96,7 +98,7 @@ contract("WasabiConduit ETH", accounts => {
             tokenAddress: ZERO_ADDRESS,
         };
 
-        const signature = await signAsk(ask, optionOwner);
+        const signature = await signAskWithEIP712(ask, conduit.address, buyerPrivateKey);
 
         const acceptAskResult = await conduit.acceptAsk(ask, signature, metadata(someoneElse, price));
         truffleAssert.eventEmitted(acceptAskResult, "AskTaken", null, "Ask wasn't taken");
@@ -119,7 +121,7 @@ contract("WasabiConduit ETH", accounts => {
             tokenAddress: ZERO_ADDRESS,
         };
 
-        const signature = await signAsk(ask, optionOwner);
+        const signature = await signAskWithEIP712(ask, conduit.address, someoneElsePrivateKey);
         const cancelAskResult = await conduit.cancelAsk(ask, signature);
         truffleAssert.eventEmitted(cancelAskResult, "AskCancelled", null, "Ask wasn't cancelled");
 

@@ -116,7 +116,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         await token.approve(conduit.address, toEth(price), metadata(buyer)); // Approve tokens
 
         const prev_pool_balance = await token.balanceOf(pool.address);
-        const acceptBidResult = await pool.methods["acceptBid((uint256,uint256,address,address,uint256,address,uint8,uint256,uint256,uint256),bytes,uint256)"](bid, signature, tokenId, metadata(lp));
+        const acceptBidResult = await pool.acceptBidWithTokenId(bid, signature, tokenId, metadata(lp));
         const after_pool_balance = await token.balanceOf(pool.address);
         const optionId = await pool.getOptionIdForToken(tokenId);
         
@@ -150,7 +150,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         await token.approve(conduit.address, toEth(price), metadata(buyer)); // Approve tokens
 
         const prev_pool_balance = await token.balanceOf(pool.address);
-        await pool.methods["acceptBid((uint256,uint256,address,address,uint256,address,uint8,uint256,uint256,uint256),bytes)"] (bid, signature, metadata(lp));
+        await pool.acceptBid(bid, signature, metadata(lp));
 
         const after_pool_balance = await token.balanceOf(pool.address);
         
@@ -182,7 +182,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
 
         await token.approve(conduit.address, toEth(price), metadata(buyer)); // Approve tokens
 
-        await truffleAssert.reverts(pool.methods["acceptBid((uint256,uint256,address,address,uint256,address,uint8,uint256,uint256,uint256),bytes)"] (bid, signature, metadata(lp)), "Order was finalized or cancelled");
+        await truffleAssert.reverts(pool.acceptBid(bid, signature, metadata(lp)), "Order was finalized or cancelled");
     });
 
     it("Accept Call Bid with invalid tokenId - (only owner)", async () => {
@@ -208,7 +208,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         await conduit.setPoolFactoryAddress(poolFactory.address);
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
 
-        await truffleAssert.reverts(pool.methods["acceptBid((uint256,uint256,address,address,uint256,address,uint8,uint256,uint256,uint256),bytes,uint256)"] (bid, signature, tokenId, metadata(lp)), "WasabiPool: tokenId is not valid");
+        await truffleAssert.reverts(pool.acceptBidWithTokenId(bid, signature, tokenId, metadata(lp)), "WasabiPool: tokenId is not valid");
     });
 
     it("Accept Call Bid with not owner - (only owner)", async () => {
@@ -231,7 +231,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         let tokenId = 0;
 
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
-        await truffleAssert.reverts(pool.methods["acceptBid((uint256,uint256,address,address,uint256,address,uint8,uint256,uint256,uint256),bytes,uint256)"](bid, signature, tokenId, metadata(buyer)), "Ownable: caller is not the owner");
+        await truffleAssert.reverts(pool.acceptBidWithTokenId(bid, signature, tokenId, metadata(buyer)), "Ownable: caller is not the owner");
     });
     
 });

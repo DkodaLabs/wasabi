@@ -219,7 +219,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     /**
      * @dev accepts the bid for LPs with _tokenId
      */
-    function acceptBid(
+    function acceptBidWithTokenId(
         WasabiStructs.Bid calldata _bid,
         bytes calldata _signature,
         uint256 _tokenId
@@ -269,7 +269,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             _tokenId = 0;
         }
 
-        return acceptBid(_bid, _signature, _tokenId);
+        return acceptBidWithTokenId(_bid, _signature, _tokenId);
     }
 
     /**

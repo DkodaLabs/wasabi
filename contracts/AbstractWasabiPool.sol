@@ -233,12 +233,12 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         } else {
             _tokenId = 0;
         }
-        uint256 expiration = block.timestamp + _bid.expiry;
+
         WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
             _bid.optionType,
             _bid.strikePrice,
             _bid.price,
-            expiration,
+            _bid.expiry,
             _tokenId
         );
         options[_optionId] = optionData;

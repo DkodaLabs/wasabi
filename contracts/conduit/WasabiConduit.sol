@@ -3,6 +3,8 @@ pragma solidity >=0.4.25 <0.9.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../IWasabiPool.sol";
+import "../IWasabiPoolFactory.sol";
+import "../IWasabiConduit.sol";
 import "../WasabiOption.sol";
 import "./ConduitSignatureVerifier.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -14,7 +16,8 @@ contract WasabiConduit is
     Ownable,
     IERC721Receiver,
     ReentrancyGuard,
-    ConduitSignatureVerifier
+    ConduitSignatureVerifier,
+    IWasabiConduit
 {
     event AskTaken(
         uint256 optionId,
@@ -36,6 +39,7 @@ contract WasabiConduit is
     uint256 private lastToken;
     uint256 public maxOptionsToBuy;
     mapping(bytes => bool) idToFinalizedOrCancelled;
+    address private factory;
 
     // bool private useRoylaty
 
@@ -115,6 +119,10 @@ contract WasabiConduit is
         maxOptionsToBuy = _maxOptionsToBuy;
     }
 
+    function setPoolFactoryAddress(address _factory) external onlyOwner {
+        factory = _factory;
+    }
+
     function acceptAsk(
         WasabiStructs.Ask calldata _ask,
         bytes calldata _signature
@@ -187,6 +195,39 @@ contract WasabiConduit is
         idToFinalizedOrCancelled[id] = true;
 
         emit BidTaken(_optionId, _bid.id, _bid.buyer, _msgSender());
+    }
+
+    function poolAcceptBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature) external {
+        bytes memory id = getBidId(_bid);
+
+        require(
+            IWasabiPoolFactory(factory).isValidPool(_msgSender()),
+            "Pool is not valid"
+        );
+        // Validate Signature
+        require(
+            verifyBid(_bid, _signature, owner()) ||
+                verifyBid(_bid, _signature, _bid.buyer),
+            "Incorrect signature"
+        );
+        require(
+            _bid.tokenAddress != address(0),
+            "Bidder didn't provide a ERC20 token"
+        );
+
+        require(_bid.orderExpiry >= block.timestamp, "Order expired");
+        require(_bid.price > 0, "Price needs to be greater than 0");
+
+        IWasabiPool pool = IWasabiPool(_msgSender());
+        require(
+            pool.getCommodityAddress() == _bid.collection,
+            "Collections don't match"
+        );
+
+        IERC20 erc20 = IERC20(_bid.tokenAddress);
+        erc20.transferFrom(_bid.buyer, _msgSender(), _bid.price);
+
+        idToFinalizedOrCancelled[id] = true;
     }
 
     function validateAsk(

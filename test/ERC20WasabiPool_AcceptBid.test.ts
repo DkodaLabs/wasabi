@@ -28,6 +28,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
     let optionId: BN;
     let request: OptionRequest;
 
+    const owner = accounts[0];
     const lp = accounts[2];
     const buyer = accounts[3];
     const someoneElse = accounts[5];
@@ -48,6 +49,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         await testNft.mint(metadata(lp));
         await testNft.mint(metadata(lp));
         await testNft.mint(metadata(lp));
+        await testNft.mint(metadata(lp));
         await testNft.mint(metadata(someoneElse));
         await testNft.mint(metadata(buyer));
         await testNft.mint(metadata(buyer));
@@ -65,7 +67,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
                 token.address,
                 0,
                 testNft.address,
-                [1001, 1002, 1003],
+                [1001, 1002, 1003, 1004],
                 config,
                 types,
                 ZERO_ADDRESS,
@@ -76,7 +78,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         poolAddress = createPoolResult.logs.find(e => e.event == "NewPool")!.args[0];
         pool = await ERC20WasabiPool.at(poolAddress);
         assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
-        assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1001, 1002, 1003], "Pool doesn't have the correct tokens");
+        assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1001, 1002, 1003, 1004], "Pool doesn't have the correct tokens");
 
         assert.equal(await pool.getLiquidityAddress(), token.address, 'Token not correct');
     });
@@ -186,8 +188,9 @@ contract("ERC20WasabiPool: CallOption", accounts => {
                 break;
             }
         }
-        // Owner Set Conduit Address
-        await pool.setConduitAddress(conduit.address, metadata(lp));
+        // Factory Owner Sets Conduit Address
+        await poolFactory.setConduitAddress(conduit.address, metadata(owner));
+
         await conduit.setPoolFactoryAddress(poolFactory.address);
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
         await token.approve(conduit.address, toEth(price), metadata(buyer)); // Approve tokens
@@ -206,6 +209,39 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         const strikePrice = 10;
         let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
         const bid: Bid = {
+            id: 3,
+            price: toEth(price),
+            tokenAddress: token.address,
+            collection: testNft.address,
+            orderExpiry: Number(blockTimestamp) + 20,
+            buyer,
+            optionType: OptionType.CALL,
+            strikePrice: toEth(strikePrice),
+            expiry: Number(blockTimestamp) + 20000,
+            expiryAllowance: 0,
+        };
+
+        // Factory Owner Sets Conduit Address
+        await poolFactory.setConduitAddress(conduit.address, metadata(owner));
+
+        await conduit.setPoolFactoryAddress(poolFactory.address);
+        const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
+
+        await token.approve(conduit.address, toEth(price), metadata(buyer)); // Approve tokens
+
+        const prev_pool_balance = await token.balanceOf(pool.address);
+        await pool.methods["acceptBid((uint256,uint256,address,address,uint256,address,uint8,uint256,uint256,uint256),bytes)"] (bid, signature, metadata(lp));
+
+        const after_pool_balance = await token.balanceOf(pool.address);
+        
+        assert.equal((prev_pool_balance.add(toBN(toEth(price)))).toString(), after_pool_balance.toString());
+    });
+
+    it("Accept Call Bid without tokenId - (only owner) should be failed if bid already finished or cancelled", async () => {
+        const price = 1;
+        const strikePrice = 10;
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const bid: Bid = {
             id: 2,
             price: toEth(price),
             tokenAddress: token.address,
@@ -218,19 +254,15 @@ contract("ERC20WasabiPool: CallOption", accounts => {
             expiryAllowance: 0,
         };
 
-        // Owner Set Conduit Address
-        await pool.setConduitAddress(conduit.address, metadata(lp));
+        // Factory Owner Sets Conduit Address
+        await poolFactory.setConduitAddress(conduit.address, metadata(owner));
+
         await conduit.setPoolFactoryAddress(poolFactory.address);
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
 
         await token.approve(conduit.address, toEth(price), metadata(buyer)); // Approve tokens
 
-        const prev_pool_balance = await token.balanceOf(pool.address);
-        await pool.methods["acceptBid((uint256,uint256,address,address,uint256,address,uint8,uint256,uint256,uint256),bytes)"] (bid, signature, metadata(lp));
-
-        const after_pool_balance = await token.balanceOf(pool.address);
-        
-        assert.equal((prev_pool_balance.add(toBN(toEth(price)))).toString(), after_pool_balance.toString());
+        await truffleAssert.reverts(pool.methods["acceptBid((uint256,uint256,address,address,uint256,address,uint8,uint256,uint256,uint256),bytes)"] (bid, signature, metadata(lp)), "Order was finalized or cancelled");
     });
 
     it("Accept Call Bid with invalid tokenId - (only owner)", async () => {
@@ -251,8 +283,8 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         };
         let tokenId = 0;
 
-        // Owner Set Conduit Address
-        await pool.setConduitAddress(conduit.address, metadata(lp));
+        // Factory Owner Sets Conduit Address
+        await poolFactory.setConduitAddress(conduit.address, metadata(owner));
         await conduit.setPoolFactoryAddress(poolFactory.address);
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
 

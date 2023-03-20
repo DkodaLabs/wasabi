@@ -23,7 +23,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     IERC721 private optionNFT;
     IERC721 private nft;
     address private admin;
-    address private conduit;
 
     // Pool Configuration
     WasabiStructs.PoolConfiguration private poolConfiguration;
@@ -85,10 +84,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     /// @inheritdoc IWasabiPool
     function getLiquidityAddress() external view virtual returns(address) {
         return address(0);
-    }
-
-    function setConduitAddress(address _conduit) external onlyOwner {
-        conduit = _conduit;
     }
 
     /// @inheritdoc IWasabiPool
@@ -249,7 +244,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         options[_optionId] = optionData;
         optionIds.add(_optionId);
 
-        IWasabiConduit(conduit).poolAcceptBid(_bid, _signature);
+        IWasabiConduit(factory.getConduitAddress()).poolAcceptBid(_bid, _signature);
         return _optionId;
     }
 
@@ -264,12 +259,17 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         uint256 _tokenId;
         uint256[] memory _tokenIds = getAllTokenIds();
 
-        for (uint256 i; i < _tokenIds.length; i++ ) {
-            if (isAvailableTokenId(_tokenIds[i])) {
-                _tokenId = _tokenIds[i];
-                break;
+        if (_bid.optionType == WasabiStructs.OptionType.CALL) {
+            for (uint256 i; i < _tokenIds.length; i++ ) {
+                if (isAvailableTokenId(_tokenIds[i])) {
+                    _tokenId = _tokenIds[i];
+                    break;
+                }
             }
+        } else {
+            _tokenId = 0;
         }
+        
 
         return acceptBid(_bid, _signature, _tokenId);
     }

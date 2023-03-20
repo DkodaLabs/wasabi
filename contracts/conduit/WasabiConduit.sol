@@ -201,6 +201,11 @@ contract WasabiConduit is
         bytes memory id = getBidId(_bid);
 
         require(
+            !idToFinalizedOrCancelled[id],
+            "Order was finalized or cancelled"
+        );
+        
+        require(
             IWasabiPoolFactory(factory).isValidPool(_msgSender()),
             "Pool is not valid"
         );

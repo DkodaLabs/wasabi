@@ -21,6 +21,8 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
     ETHWasabiPool private immutable templatePool;
     ERC20WasabiPool private immutable templateERC20Pool;
 
+    address private conduit;
+
     mapping (address => bool) private poolAddresses;
 
     /**
@@ -114,6 +116,13 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
             }
         }
     }
+    
+    /**
+     * @dev sets the Wasabi Conduit address
+     */
+    function setConduitAddress(address _conduit) external onlyOwner {
+        conduit = _conduit;
+    }
 
     /// @inheritdoc IWasabiPoolFactory
     function issueOption(address _target) external returns (uint256) {
@@ -136,6 +145,11 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
     /// @inheritdoc IWasabiPoolFactory
     function isValidPool(address _poolAddress) external view returns(bool) {
         return poolAddresses[_poolAddress];
+    }
+
+    /// @inheritdoc IWasabiPoolFactory
+    function getConduitAddress() external view returns(address) {
+        return conduit;
     }
 
     receive() external payable {}

@@ -17,7 +17,7 @@ const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
 const DemoETH = artifacts.require("DemoETH");
 
-contract("ERC20WasabiPool: CallOption", accounts => {
+contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
     let token: DemoETHInstance;
     let poolFactory: WasabiPoolFactoryInstance;
     let conduit: WasabiConduitInstance;
@@ -81,86 +81,6 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1001, 1002, 1003, 1004], "Pool doesn't have the correct tokens");
 
         assert.equal(await pool.getLiquidityAddress(), token.address, 'Token not correct');
-    });
-    
-    it("Validate Option Requests", async () => {
-        let blockNumber = await web3.eth.getBlockNumber();
-        let maxBlockToExecute = blockNumber + 5;
-        const premium = 1;
-        const allowed = premium * 2;
-
-        request = makeRequest(pool.address, OptionType.CALL, 10, premium, 263000, 1001, maxBlockToExecute); // no premium in request
-        await truffleAssert.reverts(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
-            "Not enough premium is supplied",
-            "No permission given to transfer enough tokens");
-
-        await token.approve(pool.address, toEth(allowed), metadata(buyer));
-
-        maxBlockToExecute = blockNumber - 2;
-        request = makeRequest(pool.address, OptionType.CALL, 0, premium, 263000, 1001, maxBlockToExecute); // no strike price in request
-        await truffleAssert.reverts(
-            pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1)),
-            "Max block to execute has passed",
-            "Max block to execute has passed");
-
-        maxBlockToExecute = blockNumber + 5;
-
-        request = makeRequest(pool.address, OptionType.CALL, 0, premium, 263000, 1001, maxBlockToExecute); // no strike price in request
-        await truffleAssert.reverts(
-            pool.writeOption(request, await signRequest(request, lp), metadata(buyer)),
-            "Strike price must be set",
-            "Strike price must be set");
-        
-        request = makeRequest(pool.address, OptionType.CALL, 10, 0, 263000, 1001, maxBlockToExecute); // no premium in request
-        await truffleAssert.reverts(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
-            "Not enough premium is supplied",
-            "Cannot write option when premium is 0");
-
-        request = makeRequest(pool.address, OptionType.CALL, 10, allowed + 0.1, 263000, 1001, maxBlockToExecute);
-        await truffleAssert.reverts(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)), // not sending enough premium
-            "Not enough premium is supplied",
-            "Premium paid doesn't match the premium of the request");
-
-        const request2 = makeRequest(pool.address, OptionType.CALL, 9, premium, 263000, 1001, maxBlockToExecute);
-        await truffleAssert.reverts(
-            pool.writeOption.sendTransaction(request, await signRequest(request2, someoneElse), metadata(buyer)),
-            "Signature not valid",
-            "Signed object and provided object are different");
-
-        const emptySignature = "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
-        await truffleAssert.reverts(
-            pool.writeOption.sendTransaction(request, emptySignature, metadata(buyer)),
-            "Signature not valid",
-            "Invalid signature");
-
-        await truffleAssert.reverts(
-            pool.writeOption.sendTransaction(request, await signRequest(request, someoneElse), metadata(buyer)),
-            "Signature not valid",
-            "Must be signed by owner");
-
-        request = makeRequest(pool.address, OptionType.CALL, 10, premium, 263000, 1001, maxBlockToExecute);
-    });
-
-    it("Write Option (only owner)", async () => {
-
-        const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer));
-        truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
-        assert.equal(await token.balanceOf(pool.address), request.premium, "Incorrect balance in pool");
-
-        const log = writeOptionResult.logs.find(l => l.event == "OptionIssued")! as Truffle.TransactionLog<OptionIssued>;
-        optionId = log.args.optionId;
-
-        assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
-        const expectedOptionId = await pool.getOptionIdForToken(request.tokenId);
-        assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
-
-        await truffleAssert.reverts(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
-            "Token is locked",
-            "Cannot (re)write an option for a locked asset");
     });
 
     it("Accept Call Bid with tokenId - (only owner)", async () => {

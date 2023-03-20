@@ -257,9 +257,8 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     ) external onlyOwner returns(uint256) {
 
         uint256 _tokenId;
-        uint256[] memory _tokenIds = getAllTokenIds();
-
         if (_bid.optionType == WasabiStructs.OptionType.CALL) {
+            uint256[] memory _tokenIds = getAllTokenIds();
             for (uint256 i; i < _tokenIds.length; i++ ) {
                 if (isAvailableTokenId(_tokenIds[i])) {
                     _tokenId = _tokenIds[i];
@@ -269,7 +268,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         } else {
             _tokenId = 0;
         }
-        
 
         return acceptBid(_bid, _signature, _tokenId);
     }

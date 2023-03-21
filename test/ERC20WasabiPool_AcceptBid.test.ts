@@ -190,7 +190,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         const strikePrice = 10;
         let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
         const bid: Bid = {
-            id: 2,
+            id: 10,
             price: toEth(price),
             tokenAddress: token.address,
             collection: testNft.address,

@@ -231,6 +231,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             require(isAvailableTokenId(_tokenId), "WasabiPool: tokenId is not valid");
             tokenIdToOptionId[_tokenId] = _optionId;
         } else {
+            require(availableBalance() >= _bid.strikePrice, "WasabiPool: Not enough ETH available to lock");
             _tokenId = 0;
         }
 
@@ -405,9 +406,10 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
      * @dev Checks if _tokenId unlocked
      */
     function isAvailableTokenId(uint256 _tokenId) public view returns(bool) {
-        if (tokenIds.contains(_tokenId) && tokenIdToOptionId[_tokenId] == 0) {
-            return true;
+        if (!tokenIds.contains(_tokenId)) {
+            return false;
         }
-        return false;
+        uint256 optionId = tokenIdToOptionId[_tokenId];
+        return !isValid(optionId);
     }
 }

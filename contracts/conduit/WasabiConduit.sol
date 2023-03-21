@@ -3,6 +3,8 @@ pragma solidity >=0.4.25 <0.9.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../IWasabiPool.sol";
+import "../IWasabiPoolFactory.sol";
+import "../IWasabiConduit.sol";
 import "../WasabiOption.sol";
 import "./ConduitSignatureVerifier.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -14,7 +16,8 @@ contract WasabiConduit is
     Ownable,
     IERC721Receiver,
     ReentrancyGuard,
-    ConduitSignatureVerifier
+    ConduitSignatureVerifier,
+    IWasabiConduit
 {
     event AskTaken(
         uint256 optionId,
@@ -36,9 +39,11 @@ contract WasabiConduit is
     uint256 private lastToken;
     uint256 public maxOptionsToBuy;
     mapping(bytes => bool) idToFinalizedOrCancelled;
+    address private factory;
 
     // bool private useRoylaty
 
+    /// @inheritdoc IWasabiConduit
     function buyOptions(
         WasabiStructs.OptionRequest[] calldata _requests,
         WasabiStructs.Ask[] calldata _asks,
@@ -67,6 +72,7 @@ contract WasabiConduit is
         return tokenIds;
     }
 
+    /// @inheritdoc IWasabiConduit
     function buyOption(
         WasabiStructs.OptionRequest calldata _request,
         bytes calldata _signature
@@ -99,6 +105,7 @@ contract WasabiConduit is
         return this.onERC721Received.selector;
     }
 
+    /// @inheritdoc IWasabiConduit
     function transferToken(
         address _nft,
         uint256 _tokenId,
@@ -107,14 +114,22 @@ contract WasabiConduit is
         IERC721(_nft).safeTransferFrom(address(this), _target, _tokenId);
     }
 
+    /// @inheritdoc IWasabiConduit
     function setOption(WasabiOption _option) external onlyOwner {
         option = _option;
     }
 
+    /// @inheritdoc IWasabiConduit
     function setMaxOptionsToBuy(uint256 _maxOptionsToBuy) external onlyOwner {
         maxOptionsToBuy = _maxOptionsToBuy;
     }
 
+    /// @inheritdoc IWasabiConduit
+    function setPoolFactoryAddress(address _factory) external onlyOwner {
+        factory = _factory;
+    }
+
+    /// @inheritdoc IWasabiConduit
     function acceptAsk(
         WasabiStructs.Ask calldata _ask,
         bytes calldata _signature
@@ -156,6 +171,7 @@ contract WasabiConduit is
         return _ask.optionId;
     }
 
+    /// @inheritdoc IWasabiConduit
     function acceptBid(
         uint256 _optionId,
         address _poolAddress,
@@ -189,6 +205,51 @@ contract WasabiConduit is
         emit BidTaken(_optionId, _bid.id, _bid.buyer, _msgSender());
     }
 
+    /// @inheritdoc IWasabiConduit
+    function poolAcceptBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature) external {
+        bytes memory id = getBidId(_bid);
+
+        require(
+            !idToFinalizedOrCancelled[id],
+            "Order was finalized or cancelled"
+        );
+        
+        require(
+            IWasabiPoolFactory(factory).isValidPool(_msgSender()),
+            "Pool is not valid"
+        );
+        // Validate Signature
+        require(
+            verifyBid(_bid, _signature, owner()) ||
+                verifyBid(_bid, _signature, _bid.buyer),
+            "Incorrect signature"
+        );
+        require(
+            _bid.tokenAddress != address(0),
+            "Bidder didn't provide a ERC20 token"
+        );
+
+        require(_bid.orderExpiry >= block.timestamp, "Order expired");
+        require(_bid.price > 0, "Price needs to be greater than 0");
+
+        IWasabiPool pool = IWasabiPool(_msgSender());
+        require(
+            pool.getCommodityAddress() == _bid.collection,
+            "Collections don't match"
+        );
+
+        IERC20 erc20 = IERC20(_bid.tokenAddress);
+        erc20.transferFrom(_bid.buyer, _msgSender(), _bid.price);
+
+        idToFinalizedOrCancelled[id] = true;
+    }
+
+    /**
+     * @dev Validates if the _ask with _signature
+     *
+     * @param _ask the _ask to validate
+     * @param _signature the _signature to validate the ask with
+     */
     function validateAsk(
         WasabiStructs.Ask calldata _ask,
         bytes calldata _signature
@@ -206,6 +267,14 @@ contract WasabiConduit is
         require(_ask.price > 0, "Price needs to be greater than 0");
     }
 
+    /**
+     * @dev Validates if the _bid with _signature
+     *
+     * @param _optionId the id of option
+     * @param _poolAddress the address of pool
+     * @param _bid the _bid to validate
+     * @param _signature the _signature to validate the bid with
+     */
     function validateBid(
         uint256 _optionId,
         address _poolAddress,
@@ -256,6 +325,7 @@ contract WasabiConduit is
         require(diff <= _bid.expiryAllowance, "Not within expiry range");
     }
 
+    /// @inheritdoc IWasabiConduit
     function cancelAsk(
         WasabiStructs.Ask calldata _ask,
         bytes calldata _signature
@@ -291,12 +361,18 @@ contract WasabiConduit is
         emit BidCancelled(_bid.id, _bid.buyer);
     }
 
+    /**
+     * @dev returns the id of _ask
+     */
     function getAskId(
         WasabiStructs.Ask calldata _ask
     ) internal pure returns (bytes memory) {
         return abi.encodePacked(_ask.seller, _ask.id);
     }
 
+    /**
+     * @dev returns the id of _bid
+     */
     function getBidId(
         WasabiStructs.Bid calldata _bid
     ) internal pure returns (bytes memory) {

@@ -29,4 +29,9 @@ interface IWasabiPoolFactory {
      * @dev Checks if the pool for the given address is enabled.
      */
     function isValidPool(address _poolAddress) external returns(bool);
+
+    /**
+     * @dev Returns WasabiConduit Contract Address.
+     */
+    function getConduitAddress() external returns(address);
 }

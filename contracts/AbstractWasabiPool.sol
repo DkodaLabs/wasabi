@@ -7,11 +7,11 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./IWasabiPoolFactory.sol";
+import "./IWasabiConduit.sol";
 import "./lib/WasabiStructs.sol";
 import "./lib/WasabiValidation.sol";
 import "./lib/Signing.sol";
 import "./IWasabiPool.sol";
-
 /**
  * An base abstract implementation of the IWasabiPool which handles issuing and exercising options alond with state management.
  */
@@ -215,6 +215,63 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             require(_msgSender() == nft.ownerOf(_tokenId), "WasabiPool: Need to own the token to sell in order to execute a PUT option");
         }
     }
+    
+    /**
+     * @dev accepts the bid for LPs with _tokenId
+     */
+    function acceptBidWithTokenId(
+        WasabiStructs.Bid calldata _bid,
+        bytes calldata _signature,
+        uint256 _tokenId
+    ) public onlyOwner returns(uint256) {
+        uint256 _optionId = factory.issueOption(_bid.buyer);
+
+        // Lock NFT / Token into a vault
+        if (_bid.optionType == WasabiStructs.OptionType.CALL) {
+            require(isAvailableTokenId(_tokenId), "WasabiPool: tokenId is not valid");
+            tokenIdToOptionId[_tokenId] = _optionId;
+        } else {
+            require(availableBalance() >= _bid.strikePrice, "WasabiPool: Not enough ETH available to lock");
+            _tokenId = 0;
+        }
+
+        WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
+            _bid.optionType,
+            _bid.strikePrice,
+            _bid.price,
+            _bid.expiry,
+            _tokenId
+        );
+        options[_optionId] = optionData;
+        optionIds.add(_optionId);
+
+        IWasabiConduit(factory.getConduitAddress()).poolAcceptBid(_bid, _signature);
+        return _optionId;
+    }
+
+    /**
+     * @dev accepts the bid for LPs without _tokenId
+     */
+    function acceptBid(
+        WasabiStructs.Bid calldata _bid,
+        bytes calldata _signature
+    ) external onlyOwner returns(uint256) {
+
+        uint256 _tokenId;
+        if (_bid.optionType == WasabiStructs.OptionType.CALL) {
+            uint256[] memory _tokenIds = getAllTokenIds();
+            for (uint256 i; i < _tokenIds.length; i++ ) {
+                if (isAvailableTokenId(_tokenIds[i])) {
+                    _tokenId = _tokenIds[i];
+                    break;
+                }
+            }
+        } else {
+            _tokenId = 0;
+        }
+
+        return acceptBidWithTokenId(_bid, _signature, _tokenId);
+    }
 
     /**
      * @dev An abstract function to check available balance in this pool.
@@ -343,5 +400,16 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     /// @inheritdoc IWasabiPool
     function getOptionIds() public view returns(uint256[] memory) {
         return optionIds.values();
+    }
+
+    /**
+     * @dev Checks if _tokenId unlocked
+     */
+    function isAvailableTokenId(uint256 _tokenId) public view returns(bool) {
+        if (!tokenIds.contains(_tokenId)) {
+            return false;
+        }
+        uint256 optionId = tokenIdToOptionId[_tokenId];
+        return !isValid(optionId);
     }
 }

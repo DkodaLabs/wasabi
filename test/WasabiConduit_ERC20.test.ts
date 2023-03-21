@@ -49,6 +49,7 @@ contract("WasabiConduit ERC20", accounts => {
 
         await option.setFactory(poolFactory.address);
         await conduit.setOption(option.address);
+        await conduit.setPoolFactoryAddress(poolFactory.address);
         
         await token.mint(metadata(buyer));
         await token.mint(metadata(someoneElse));
@@ -219,6 +220,27 @@ contract("WasabiConduit ERC20", accounts => {
         assert.equal(await option.ownerOf(optionId), buyer, "Option not owned after buying");
         assert.equal(fromWei(initialBalanceBuyer.sub(finalBalanceBuyer)), price, 'Buyer incorrect balance change')
         assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), price * afterRoyaltyPayoutPercent, 'Seller incorrect balance change')
+    });
+
+    it("PoolAcceptBid with invalid pool address", async () => {
+        const price = 1;
+        const strikePrice = 10;
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const bid: Bid = {
+            id: 3,
+            price: toEth(price),
+            tokenAddress: token.address,
+            collection: testNft.address,
+            orderExpiry: Number(blockTimestamp) + 20,
+            buyer,
+            optionType: OptionType.CALL,
+            strikePrice: toEth(strikePrice),
+            expiry: Number(blockTimestamp) + 20000,
+            expiryAllowance: 0,
+        };
+
+        const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
+        await truffleAssert.reverts(conduit.poolAcceptBid(bid, signature, metadata(lp)), "Pool is not valid");
     });
 
     it("Cancel ask", async () => {

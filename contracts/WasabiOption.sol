@@ -4,6 +4,7 @@ pragma solidity >=0.4.25 <0.9.0;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
  * @dev An ERC721 which tracks Wasabi Option positions of accounts
@@ -68,5 +69,10 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
 
     function updateRoyalty(uint256 _royaltyPercent) external onlyOwner {
         royaltyPercent = _royaltyPercent;
+    }
+    
+    /// @inheritdoc IERC165
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721Enumerable, IERC165) returns (bool) {
+        return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
     }
 }

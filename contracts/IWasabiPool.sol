@@ -68,12 +68,12 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     event PoolSettingsChanged();
 
     /**
-     * @dev Returns the address of the commodity
+     * @dev Returns the address of the nft
      */
-    function getCommodityAddress() external view returns(address);
+    function getNftAddress() external view returns(address);
 
     /**
-     * @dev Returns the address of the commodity
+     * @dev Returns the address of the nft
      */
     function getLiquidityAddress() external view returns(address);
 

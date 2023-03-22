@@ -77,7 +77,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     }
 
     /// @inheritdoc IWasabiPool
-    function getCommodityAddress() external view returns(address) {
+    function getNftAddress() external view returns(address) {
         return address(nft);
     }
 

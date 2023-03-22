@@ -40,7 +40,7 @@ contract MockArbitrage is IERC721Receiver, Ownable, ReentrancyGuard {
         WasabiStructs.OptionData memory optionData = pool.getOptionData(_optionId);
 
         // Validate Order
-        require(pool.getCommodityAddress() == _order.collection, "Invalid collection for option");
+        require(pool.getNftAddress() == _order.collection, "Invalid collection for option");
         require(pool.getLiquidityAddress() == demoEth, "Invalid liquidity token for option");
 
         uint256 payout;

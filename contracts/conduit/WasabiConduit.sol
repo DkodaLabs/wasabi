@@ -234,7 +234,7 @@ contract WasabiConduit is
 
         IWasabiPool pool = IWasabiPool(_msgSender());
         require(
-            pool.getCommodityAddress() == _bid.collection,
+            pool.getNftAddress() == _bid.collection,
             "Collections don't match"
         );
 
@@ -302,7 +302,7 @@ contract WasabiConduit is
 
         IWasabiPool pool = IWasabiPool(_poolAddress);
         require(
-            pool.getCommodityAddress() == _bid.collection,
+            pool.getNftAddress() == _bid.collection,
             "Collections don't match"
         );
 

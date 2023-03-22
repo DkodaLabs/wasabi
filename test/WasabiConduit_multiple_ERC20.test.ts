@@ -8,6 +8,7 @@ import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js
 import { ERC20WasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/truffle-contracts/ERC20WasabiPool.js";
 import { DemoETHInstance } from "../types/truffle-contracts";
 import { WasabiConduitInstance } from "../types/truffle-contracts/WasabiConduit";
+import { request } from "http";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -84,11 +85,14 @@ contract("WasabiConduit Multibuy ERC20", accounts => {
     });
 
     it("Write Option (only owner)", async () => {
+        const id = 1;
         let blockNumber = await web3.eth.getBlockNumber();
-        let maxBlockToExecute = blockNumber + 5;
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + 10000;
+        let orderExpiry = timestamp + 10000;
         requests = [
-            makeRequest(pool.address, OptionType.CALL, strike, premium, 263000, 1001, maxBlockToExecute),
-            makeRequest(pool.address, OptionType.CALL, strike, premium, 263000, 1002, maxBlockToExecute)
+            makeRequest(id, pool.address, OptionType.CALL, strike, premium, expiry, 1001, orderExpiry),
+            makeRequest(id + 1, pool.address, OptionType.CALL, strike, premium, expiry, 1002, orderExpiry)
         ];
 
         await token.approve(conduit.address, toEth(premium * requests.length), metadata(buyer));
@@ -113,6 +117,7 @@ contract("WasabiConduit Multibuy ERC20", accounts => {
             const expectedOptionId = await pool.getOptionIdForToken(requests[i].tokenId);
             assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
+            requests[i].id = requests[i].id + 2;
             await truffleAssert.reverts(
                 conduit.buyOption(requests[i], await signRequest(requests[i], lp), metadata(buyer)),
                 "Token is locked",

@@ -131,12 +131,11 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         validate(_request, _signature);
 
         uint256 optionId = factory.issueOption(_msgSender());
-        uint256 expiration = block.timestamp + _request.duration;
         WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
             _request.optionType,
             _request.strikePrice,
             _request.premium,
-            expiration,
+            _request.expiry,
             _request.tokenId
         );
         options[optionId] = optionData;
@@ -159,7 +158,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         require(admin == signer || owner() == signer, "WasabiPool: Signature not valid");
 
         // 2. Validate Meta
-        require(_request.maxBlockToExecute >= block.number, "WasabiPool: Max block to execute has passed");
+        require(_request.orderExpiry >= block.timestamp, "WasabiPool: Order expiry to execute has passed");
         require(_request.poolAddress == address(this), "WasabiPool: Signature doesn't belong to this pool");
         validateAndWithdrawPayment(_request.premium, "WasabiPool: Not enough premium is supplied");
 
@@ -170,9 +169,9 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         require(_request.strikePrice >= poolConfiguration.minStrikePrice, "WasabiPool: Strike price is too small");
         require(_request.strikePrice <= poolConfiguration.maxStrikePrice, "WasabiPool: Strike price is too large");
 
-        require(_request.duration > 0, "WasabiPool: Duration must be set");
-        require(_request.duration >= poolConfiguration.minDuration, "WasabiPool: Duration is too small");
-        require(_request.duration <= poolConfiguration.maxDuration, "WasabiPool: Duration is too large");
+        require(_request.expiry > 0, "WasabiPool: Expiry must be set");
+        require(_request.expiry >= poolConfiguration.minDuration + block.timestamp, "WasabiPool: Expiry is too small");
+        require(_request.expiry <= poolConfiguration.maxDuration + block.timestamp, "WasabiPool: Expiry is too large");
 
         // 4. Type specific validation
         if (_request.optionType == WasabiStructs.OptionType.CALL) {

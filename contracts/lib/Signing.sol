@@ -14,13 +14,14 @@ library Signing {
     function getMessageHash(WasabiStructs.OptionRequest calldata _request) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
+                _request.id,
                 _request.poolAddress,
                 _request.optionType,
                 _request.strikePrice,
                 _request.premium,
-                _request.duration,
+                _request.expiry,
                 _request.tokenId,
-                _request.maxBlockToExecute));
+                _request.orderExpiry));
     }
 
     /**

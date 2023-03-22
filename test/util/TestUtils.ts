@@ -36,34 +36,36 @@ export const makeData = (
   };
 };
 export const makeRequest = (
+  id : number,
   poolAddress: string,
   optionType: OptionType,
   strikePrice: any,
   premium: any,
-  duration: number,
+  expiry: number,
   tokenId = 0,
-  maxBlockToExecute = 0
+  orderExpiry = 0
 ): OptionRequest => {
   return {
+    id,
     poolAddress,
     optionType: optionType.valueOf(),
     strikePrice: toEth(strikePrice),
     premium: toEth(premium),
-    duration,
+    expiry,
     tokenId,
-    maxBlockToExecute,
+    orderExpiry,
   };
 };
 
 export const makeAmmRequest = (
   collection: string,
   price: any,
-  maxBlockToExecute = 0
+  orderExpiry = 0
 ): AMMOrder => {
   return {
     collection,
     price: toEth(price),
-    maxBlockToExecute,
+    orderExpiry,
   };
 };
 
@@ -98,13 +100,14 @@ export const signRequest = async (
   const encoded = await web3.eth.abi.encodeParameter(
     {
       OptionRequest: {
+        id: "uint256",
         poolAddress: "address",
         optionType: "uint256",
         strikePrice: "uint256",
         premium: "uint256",
-        duration: "uint256",
+        expiry: "uint256",
         tokenId: "uint256",
-        maxBlockToExecute: "uint256",
+        orderExpiry: "uint256",
       },
     },
     request
@@ -121,7 +124,7 @@ export const signAmmRequest = async (
       AMMOrder: {
         collection: "address",
         price: "uint256",
-        maxBlockToExecute: "uint256",
+        orderExpiry: "uint256",
       },
     },
     request

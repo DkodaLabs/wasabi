@@ -39,6 +39,7 @@ contract WasabiConduit is
     uint256 private lastToken;
     uint256 public maxOptionsToBuy;
     mapping(bytes => bool) idToFinalizedOrCancelled;
+    mapping(uint256 => bool) idToRequestFilled;
     address private factory;
 
     // bool private useRoylaty
@@ -77,6 +78,11 @@ contract WasabiConduit is
         WasabiStructs.OptionRequest calldata _request,
         bytes calldata _signature
     ) public payable returns (uint256) {
+
+        require(
+            !idToRequestFilled[_request.id],
+            "Request was filled"
+        );
         IWasabiPool pool = IWasabiPool(_request.poolAddress);
 
         if (pool.getLiquidityAddress() != address(0)) {
@@ -89,6 +95,7 @@ contract WasabiConduit is
         }
 
         option.safeTransferFrom(address(this), _msgSender(), lastToken);
+        idToRequestFilled[_request.id] = true;
         return lastToken;
     }
 

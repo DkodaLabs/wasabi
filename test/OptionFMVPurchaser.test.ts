@@ -31,6 +31,7 @@ contract("OptionFMVPurchaser", accounts => {
     const lp = accounts[2];
     const buyer = accounts[3];
     const someoneElse = accounts[5];
+    const duration = 10000;
 
     before("Prepare State", async function () {
         optionFMVPurchaser = await OptionFMVPurchaser.deployed();
@@ -76,9 +77,12 @@ contract("OptionFMVPurchaser", accounts => {
 
         const premium = 1;
         await token.approve(pool.address, toEth(premium * 10), metadata(buyer));
+        const id = 1;
         let blockNumber = await web3.eth.getBlockNumber();
-        let maxBlockToExecute = blockNumber + 5;
-        request = makeRequest(pool.address, OptionType.CALL, 10, premium, 263000, 1001, maxBlockToExecute);
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + duration;
+        let orderExpiry = timestamp + duration;
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry);
     });
 
     it("Issue Option", async () => {
@@ -98,10 +102,12 @@ contract("OptionFMVPurchaser", accounts => {
         const deployer = await optionFMVPurchaser.owner();
         const optionData = await pool.getOptionData(optionId);
 
+        const id = 1;
         let blockNumber = await web3.eth.getBlockNumber();
-        let maxBlockToExecute = blockNumber + 5;
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let orderExpiry = timestamp + duration;
 
-        request = makeRequest(poolAddress, OptionType.CALL, 10, 2, Number(optionData.expiry), 1001, maxBlockToExecute);
+        request = makeRequest(id, poolAddress, OptionType.CALL, 10, 2, Number(optionData.expiry), 1001, orderExpiry);
 
         await option.setApprovalForAll(optionFMVPurchaser.address, true, metadata(buyer));
 

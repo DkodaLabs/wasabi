@@ -22,13 +22,14 @@ export interface OptionData {
 }
 
 export interface OptionRequest {
+    id: number;
     poolAddress: string;
     optionType: number | BN | string;
     strikePrice: number | BN | string;
     premium: number | BN | string;
-    duration: number | BN | string;
+    expiry: number | BN | string;
     tokenId: number | BN | string;
-    maxBlockToExecute: number | BN | string;
+    orderExpiry: number | BN | string;
 }
 export interface PricingConfig {
     poolAddress: string;
@@ -60,7 +61,7 @@ export interface Ask {
 export interface AMMOrder {
     collection: string;
     price: number | BN | string;
-    maxBlockToExecute: number | BN | string;
+    orderExpiry: number | BN | string;
 }
 
 export interface WasabiPoolNFT {

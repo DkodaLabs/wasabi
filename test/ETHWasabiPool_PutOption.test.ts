@@ -24,6 +24,7 @@ contract("ETHWasabiPool: PutOption", accounts => {
     const lp = accounts[2];
     const buyer = accounts[3];
     const someoneElse = accounts[5];
+    const duration = 10000;
 
     const initialPoolBalance = 20;
     const strikePrice = 10;
@@ -65,42 +66,45 @@ contract("ETHWasabiPool: PutOption", accounts => {
     });
     
     it("Validate option requests", async () => {
+        const id = 1;
         let blockNumber = await web3.eth.getBlockNumber();
-        let maxBlockToExecute = blockNumber - 2;
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + duration;
+        let orderExpiry = timestamp - 1000;
 
-        request = makeRequest(pool.address, OptionType.CALL, 0, 1, 263000, 1001, maxBlockToExecute); // no strike price in request
+        request = makeRequest(id, pool.address, OptionType.CALL, 0, 1, expiry, 1001, orderExpiry); // no strike price in request
         await truffleAssert.reverts(
             pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1)),
-            "Max block to execute has passed",
-            "Max block to execute has passed");
+            "WasabiPool: Order expiry to execute has passed",
+            "WasabiPool: Order expiry to execute has passed");
 
-        maxBlockToExecute = blockNumber + 5;
+        orderExpiry = timestamp + duration;
 
-        request = makeRequest(pool.address, OptionType.PUT, 0, premium, 263000, 0, maxBlockToExecute); // no strike price in request
+        request = makeRequest(id, pool.address, OptionType.PUT, 0, premium, expiry, 0, orderExpiry); // no strike price in request
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, premium)),
             "Strike price must be set",
             "Strike price must be set");
         
-        request = makeRequest(pool.address, OptionType.PUT, strikePrice, 0, 263000, 0, maxBlockToExecute); // no premium in request
+        request = makeRequest(id, pool.address, OptionType.PUT, strikePrice, 0, expiry, 0, orderExpiry); // no premium in request
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
             "Not enough premium is supplied",
             "Cannot write option when premium is 0");
 
-        request = makeRequest(pool.address, OptionType.CALL, strikePrice, premium, 263000, 0, maxBlockToExecute); // only PUT allowed
+        request = makeRequest(id, pool.address, OptionType.CALL, strikePrice, premium, expiry, 0, orderExpiry); // only PUT allowed
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, premium)),
             "Option type is not allowed",
             "Cannot write CALL options");
 
-        request = makeRequest(pool.address, OptionType.PUT, initialPoolBalance * 5, premium, 263000, 0, maxBlockToExecute); // strike price too high
+        request = makeRequest(id, pool.address, OptionType.PUT, initialPoolBalance * 5, premium, expiry, 0, orderExpiry); // strike price too high
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, premium)),
             "Not enough ETH available to lock",
             "Cannot write option strike price is higher than available balance");
 
-        request = makeRequest(pool.address, OptionType.PUT, strikePrice, premium, 263000, 0, maxBlockToExecute);
+        request = makeRequest(id, pool.address, OptionType.PUT, strikePrice, premium, expiry, 0, orderExpiry);
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, premium / 2)), // not sending enough premium
             "Not enough premium is supplied",
@@ -111,7 +115,7 @@ contract("ETHWasabiPool: PutOption", accounts => {
             "Signature not valid",
             "Only caller or admin can issue options");
 
-        const request2 = makeRequest(pool.address, OptionType.PUT, strikePrice, 0.1, 263000, 0, maxBlockToExecute);
+        const request2 = makeRequest(id, pool.address, OptionType.PUT, strikePrice, 0.1, expiry, 0, orderExpiry);
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request2, await signRequest(request, lp), metadata(buyer, premium)),
             "Signature not valid",

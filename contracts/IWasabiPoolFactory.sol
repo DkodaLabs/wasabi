@@ -8,7 +8,7 @@ interface IWasabiPoolFactory {
     /**
      * @dev Emitted when there is a new pool created
      */
-    event NewPool(address poolAddress, address indexed commodityAddress, address indexed owner);
+    event NewPool(address poolAddress, address indexed nftAddress, address indexed owner);
 
     /**
      * @dev Isses option to the given target

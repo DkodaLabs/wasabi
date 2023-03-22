@@ -95,7 +95,7 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
     
     it("Validate Option Requests", async () => {
 
-        const id = 1;
+        let id = 1;
         let blockNumber = await web3.eth.getBlockNumber();
         let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
         let expiry = timestamp + duration;
@@ -104,8 +104,8 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
         request = makeRequest(id, pool.address, OptionType.CALL, 0, 1, expiry, 1001, orderExpiry); // no strike price in request
         await truffleAssert.reverts(
             pool.writeOption(request, await signRequest(request, admin), metadata(buyer, 1)),
-            "WasabiPool: Order expiry to execute has passed",
-            "WasabiPool: Order expiry to execute has passed");
+            "WasabiPool: Order has expired",
+            "WasabiPool: Order has expired");
 
         orderExpiry = timestamp + duration;
 
@@ -127,6 +127,7 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
             "Not enough premium is supplied",
             "Premium paid doesn't match the premium of the request");
 
+        id = 2;
         const request2 = makeRequest(id, pool.address, OptionType.CALL, 9, 1, expiry, 1001, orderExpiry);
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request2, someoneElse), metadata(buyer, 1)),
@@ -143,6 +144,7 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
         optionId = log.args.optionId;
         assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
 
+        request.id = 2;
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, admin), metadata(buyer, 1)),
             "Token is locked",
@@ -172,7 +174,7 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
         let initialPoolBalance = toBN(await web3.eth.getBalance(pool.address));
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1003, 1002], "Pool doesn't have the correct tokens");
 
-        const id = 1;
+        const id = 3;
         let blockNumber = await web3.eth.getBlockNumber();
         let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
         let expiry = timestamp + duration;

@@ -67,7 +67,7 @@ contract NFTAMM is IERC721Receiver, Ownable, ReentrancyGuard {
         bytes32 ethSignedMessageHash = Signing.getEthSignedMessageHash(MockStructs.getMessageHash(_order));
         require(Signing.recoverSigner(ethSignedMessageHash, _signature) == owner(), 'Owner is not signer');
 
-        require(_order.orderExpiry >= block.timestamp, "WasabiPool: Order expiry to execute has passed");
+        require(_order.orderExpiry >= block.timestamp, "WasabiPool: Order has expired");
         require(_order.price > 0, "Price needs to be greater than 0");
     }
 }

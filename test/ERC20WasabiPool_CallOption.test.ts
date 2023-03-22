@@ -85,7 +85,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
     });
     
     it("Validate Option Requests", async () => {
-        const id = 1;
+        let id = 1;
         let blockNumber = await web3.eth.getBlockNumber();
         let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
         let expiry = timestamp + duration;
@@ -106,8 +106,8 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry); // no premium in request
         await truffleAssert.reverts(
             pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1)),
-            "WasabiPool: Order expiry to execute has passed",
-            "WasabiPool: Order expiry to execute has passed");
+            "WasabiPool: Order has expired",
+            "WasabiPool: Order has expired");
 
         orderExpiry = timestamp + duration;
 
@@ -129,6 +129,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
             "Not enough premium is supplied",
             "Premium paid doesn't match the premium of the request");
 
+        id = 2;
         const request2 = makeRequest(id, pool.address, OptionType.CALL, 9, premium, expiry, 1001, orderExpiry);
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request2, someoneElse), metadata(buyer)),
@@ -146,6 +147,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
             "Signature not valid",
             "Must be signed by owner");
 
+        id = 3;
         request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry);
     });
 
@@ -162,6 +164,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         const expectedOptionId = await pool.getOptionIdForToken(request.tokenId);
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
+        request.id = 4;
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
             "Token is locked",
@@ -195,7 +198,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         let initialPoolBalance = await token.balanceOf(poolAddress);
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1003, 1002], "Pool doesn't have the correct tokens");
 
-        const id = 1;
+        const id = 4;
         let blockNumber = await web3.eth.getBlockNumber();
         let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
         let expiry = timestamp + duration;

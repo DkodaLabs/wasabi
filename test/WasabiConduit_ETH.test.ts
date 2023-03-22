@@ -80,6 +80,7 @@ contract("WasabiConduit ETH", accounts => {
         const expectedOptionId = await pool.getOptionIdForToken(request.tokenId);
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
+        request.id = request.id + 1;
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, 1)),
             "Token is locked",

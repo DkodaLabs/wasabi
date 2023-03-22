@@ -35,6 +35,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     EnumerableSet.UintSet private optionIds;
     mapping(uint256 => uint256) private tokenIdToOptionId;
     mapping(uint256 => WasabiStructs.OptionData) private options;
+    mapping(uint256 => bool) idToRequestFilled;
 
     receive() external payable virtual {}
 
@@ -128,6 +129,10 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
     /// @inheritdoc IWasabiPool
     function writeOption(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) external payable nonReentrant {
+        require(
+            !idToRequestFilled[_request.id],
+            "WasabiPool: Request was filled"
+        );
         validate(_request, _signature);
 
         uint256 optionId = factory.issueOption(_msgSender());
@@ -145,6 +150,8 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             tokenIdToOptionId[_request.tokenId] = optionId;
         }
         optionIds.add(optionId);
+        idToRequestFilled[_request.id] = true;
+
         emit OptionIssued(optionId);
     }
 
@@ -158,7 +165,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         require(admin == signer || owner() == signer, "WasabiPool: Signature not valid");
 
         // 2. Validate Meta
-        require(_request.orderExpiry >= block.timestamp, "WasabiPool: Order expiry to execute has passed");
+        require(_request.orderExpiry >= block.timestamp, "WasabiPool: Order has expired");
         require(_request.poolAddress == address(this), "WasabiPool: Signature doesn't belong to this pool");
         validateAndWithdrawPayment(_request.premium, "WasabiPool: Not enough premium is supplied");
 

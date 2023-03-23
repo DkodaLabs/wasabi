@@ -35,7 +35,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     EnumerableSet.UintSet private optionIds;
     mapping(uint256 => uint256) private tokenIdToOptionId;
     mapping(uint256 => WasabiStructs.OptionData) private options;
-    mapping(uint256 => bool) idToRequestFilled;
+    mapping(uint256 => bool) idToFilledOrCancelled;
 
     receive() external payable virtual {}
 
@@ -130,8 +130,8 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     /// @inheritdoc IWasabiPool
     function writeOption(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) external payable nonReentrant {
         require(
-            !idToRequestFilled[_request.id],
-            "WasabiPool: Request was filled"
+            !idToFilledOrCancelled[_request.id],
+            "WasabiPool: Request was filled or cancelled"
         );
         validate(_request, _signature);
 
@@ -150,7 +150,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             tokenIdToOptionId[_request.tokenId] = optionId;
         }
         optionIds.add(optionId);
-        idToRequestFilled[_request.id] = true;
+        idToFilledOrCancelled[_request.id] = true;
 
         emit OptionIssued(optionId);
     }
@@ -340,6 +340,22 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
                 ++i;
             }
         }
+    }
+
+    /// @inheritdoc IWasabiPool
+    function cancelRequest(
+        WasabiStructs.OptionRequest calldata _request,
+        bytes calldata _signature
+    ) external {
+        require(
+            !idToFilledOrCancelled[_request.id],
+            "WasabiPool: Request was filled or cancelled"
+        );
+        validate(_request, _signature);
+
+        idToFilledOrCancelled[_request.id] = true;
+
+        emit RequestCancelled(_request.id);
     }
 
     /// @inheritdoc IERC165

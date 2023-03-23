@@ -226,6 +226,26 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
     });
 
+    it("Cancel Request", async () => {
+        assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1003, 1002], "Pool doesn't have the correct tokens");
+
+        const id = 5;
+        let blockNumber = await web3.eth.getBlockNumber();
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + duration;
+        let orderExpiry = timestamp + duration;
+
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, 1, expiry, 1002, orderExpiry);
+        await token.approve(pool.address, request.premium, metadata(buyer));
+        const cancelRequestResult = await pool.cancelRequest(request, await signRequest(request, lp), metadata(buyer));
+        truffleAssert.eventEmitted(cancelRequestResult, "RequestCancelled", null, "Asset wasn't locked");
+
+        await truffleAssert.reverts(
+            pool.writeOption(request, await signRequest(request, lp), metadata(buyer)),
+            "WasabiPool: Request was filled or cancelled",
+            "WasabiPool: Request was filled or cancelled");
+    });
+
     it("Withdraw ERC721", async () => {
         await truffleAssert.reverts(
             pool.withdrawERC721.sendTransaction(testNft.address, [1001], metadata(lp)),

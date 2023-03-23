@@ -19,11 +19,8 @@ You should have already installed the following things beforehand:
 
 ## 2. Setup
 
-- Make a copy of ``.env example`` and rename it into ``.env``
-- Open the .env and fill up the given variables.
 - You can get your [Nownodes](https://nownodes.io/) or
   [Tatum](https://tatum.io/) API's from their website.
-- The mnemonics from the .env will be used for truffle console and creating local development blockchain using ganache.
 
 ## 3. Running Tests
 - Once you have completed all the steps from the [setup section](./README.md#2-setup), go ahead and install the rest of the dependencies.

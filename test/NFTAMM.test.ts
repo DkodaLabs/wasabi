@@ -33,6 +33,7 @@ contract("OptionFMVPurchaser", accounts => {
     const lp = accounts[2];
     const buyer = accounts[3];
     const someoneElse = accounts[5];
+    const duration = 10000;
 
     const premium = 1;
     const strike = 10;
@@ -89,9 +90,12 @@ contract("OptionFMVPurchaser", accounts => {
 
     it("Issue Option", async () => {
         await token.approve(pool.address, toEth(premium), metadata(buyer));
+        const id = 1;
         let blockNumber = await web3.eth.getBlockNumber();
-        let maxBlockToExecute = blockNumber + 5;
-        request = makeRequest(pool.address, OptionType.CALL, strike, premium, 263000, 1001, maxBlockToExecute);
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + duration;
+        let orderExpiry = timestamp + duration;
+        request = makeRequest(id, pool.address, OptionType.CALL, strike, premium, expiry, 1001, orderExpiry);
 
         const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
@@ -109,12 +113,13 @@ contract("OptionFMVPurchaser", accounts => {
         const deployer = await nftAmm.owner();
 
         let blockNumber = await web3.eth.getBlockNumber();
-        let maxBlockToExecute = blockNumber + 5;
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let orderExpiry = timestamp + duration;
 
         await option.setApprovalForAll(arbitrageTool.address, true, metadata(buyer));
 
         const floor = 13;
-        const ammRequest = makeAmmRequest(testNft.address, floor, maxBlockToExecute);
+        const ammRequest = makeAmmRequest(testNft.address, floor, orderExpiry);
         const arbitrageResult = await arbitrageTool.arbitrage(
             optionId,
             poolAddress,

@@ -93,10 +93,13 @@ contract("WasabiConduit ERC20", accounts => {
     });
 
     it("Write Option (only owner)", async () => {
+        const id = 1;
         let blockNumber = await web3.eth.getBlockNumber();
-        let maxBlockToExecute = blockNumber + 5;
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + 10000;
+        let orderExpiry = timestamp + 10000;
         const premium = 1;
-        request = makeRequest(pool.address, OptionType.CALL, 10, premium, 263000, 1001, maxBlockToExecute);
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry);
 
         await token.approve(conduit.address, toEth(premium * 10), metadata(buyer));
 
@@ -108,6 +111,7 @@ contract("WasabiConduit ERC20", accounts => {
         const expectedOptionId = await pool.getOptionIdForToken(request.tokenId);
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
+        request.id = request.id + 1;
         await truffleAssert.reverts(
             conduit.buyOption(request, await signRequest(request, lp), metadata(buyer)),
             "Token is locked",
@@ -140,8 +144,12 @@ contract("WasabiConduit ERC20", accounts => {
         let initialPoolBalance = await token.balanceOf(poolAddress);
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1003, 1002], "Pool doesn't have the correct tokens");
 
+        request.id = request.id + 1;
         let blockNumber = await web3.eth.getBlockNumber();
-        request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1002, blockNumber + 5);
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + 10000;
+        let orderExpiry = timestamp + 10000;
+        request = makeRequest(request.id, pool.address, OptionType.CALL, 10, 1, expiry, 1002, orderExpiry);
         await token.approve(pool.address, request.premium, metadata(buyer));
         const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");

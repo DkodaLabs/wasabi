@@ -35,8 +35,8 @@ contract OptionFMVPurchaser is Ownable, ReentrancyGuard {
 
         require(optionData.optionType == _request.optionType, 'Option type not equal');
         require(optionData.strikePrice == _request.strikePrice, 'Strike price not equal');
-        require(optionData.expiry == _request.duration, 'Expiry not equal');
-        require(_request.maxBlockToExecute >= block.number, "Max block to execute has passed");
+        require(optionData.expiry == _request.expiry, 'Expiry not equal');
+        require(_request.orderExpiry >= block.timestamp, "WasabiPool: Order has expired");
 
         ERC20 token = ERC20(demoEth);
         require(token.balanceOf(address(this)) >= _request.premium, "Don't enough to pay the premium");

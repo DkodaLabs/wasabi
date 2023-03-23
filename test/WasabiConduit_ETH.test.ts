@@ -63,9 +63,13 @@ contract("WasabiConduit ETH", accounts => {
     });
 
     it("Write Option (only owner)", async () => {
+        const id = 1;
         let blockNumber = await web3.eth.getBlockNumber();
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + 10000;
+        let orderExpiry = timestamp + 10000;
         const premium = 1;
-        request = makeRequest(pool.address, OptionType.CALL, 10, premium, 263000, 1001, blockNumber + 5);
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry);
 
         optionId = await conduit.buyOption.call(request, await signRequest(request, lp), metadata(buyer, premium));
         await conduit.buyOption(request, await signRequest(request, lp), metadata(buyer, premium));
@@ -76,6 +80,7 @@ contract("WasabiConduit ETH", accounts => {
         const expectedOptionId = await pool.getOptionIdForToken(request.tokenId);
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
+        request.id = request.id + 1;
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, 1)),
             "Token is locked",

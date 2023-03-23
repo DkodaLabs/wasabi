@@ -30,6 +30,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
     const lp = accounts[2];
     const buyer = accounts[3];
     const someoneElse = accounts[5];
+    const duration = 10000;
 
     before("Prepare State", async function () {
         token = await DemoETH.deployed();
@@ -84,12 +85,16 @@ contract("ERC20WasabiPool: CallOption", accounts => {
     });
     
     it("Validate Option Requests", async () => {
+        let id = 1;
         let blockNumber = await web3.eth.getBlockNumber();
-        let maxBlockToExecute = blockNumber + 5;
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + duration;
+        let orderExpiry = timestamp + duration;
+
         const premium = 1;
         const allowed = premium * 2;
 
-        request = makeRequest(pool.address, OptionType.CALL, 10, premium, 263000, 1001, maxBlockToExecute); // no premium in request
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry); // no premium in request
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
             "Not enough premium is supplied",
@@ -97,34 +102,35 @@ contract("ERC20WasabiPool: CallOption", accounts => {
 
         await token.approve(pool.address, toEth(allowed), metadata(buyer));
 
-        maxBlockToExecute = blockNumber - 2;
-        request = makeRequest(pool.address, OptionType.CALL, 0, premium, 263000, 1001, maxBlockToExecute); // no strike price in request
+        orderExpiry = timestamp - 1000;
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry); // no premium in request
         await truffleAssert.reverts(
             pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1)),
-            "Max block to execute has passed",
-            "Max block to execute has passed");
+            "WasabiPool: Order has expired",
+            "WasabiPool: Order has expired");
 
-        maxBlockToExecute = blockNumber + 5;
+        orderExpiry = timestamp + duration;
 
-        request = makeRequest(pool.address, OptionType.CALL, 0, premium, 263000, 1001, maxBlockToExecute); // no strike price in request
+        request = makeRequest(id, pool.address, OptionType.CALL, 0, premium, expiry, 1001, orderExpiry); // no premium in request
         await truffleAssert.reverts(
             pool.writeOption(request, await signRequest(request, lp), metadata(buyer)),
             "Strike price must be set",
             "Strike price must be set");
         
-        request = makeRequest(pool.address, OptionType.CALL, 10, 0, 263000, 1001, maxBlockToExecute); // no premium in request
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, 0, expiry, 1001, orderExpiry); // no premium in request
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
             "Not enough premium is supplied",
             "Cannot write option when premium is 0");
 
-        request = makeRequest(pool.address, OptionType.CALL, 10, allowed + 0.1, 263000, 1001, maxBlockToExecute);
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, allowed + 0.1, expiry, 1001, orderExpiry);
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)), // not sending enough premium
             "Not enough premium is supplied",
             "Premium paid doesn't match the premium of the request");
 
-        const request2 = makeRequest(pool.address, OptionType.CALL, 9, premium, 263000, 1001, maxBlockToExecute);
+        id = 2;
+        const request2 = makeRequest(id, pool.address, OptionType.CALL, 9, premium, expiry, 1001, orderExpiry);
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request2, someoneElse), metadata(buyer)),
             "Signature not valid",
@@ -141,7 +147,8 @@ contract("ERC20WasabiPool: CallOption", accounts => {
             "Signature not valid",
             "Must be signed by owner");
 
-        request = makeRequest(pool.address, OptionType.CALL, 10, premium, 263000, 1001, maxBlockToExecute);
+        id = 3;
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry);
     });
 
     it("Write Option (only owner)", async () => {
@@ -157,6 +164,7 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         const expectedOptionId = await pool.getOptionIdForToken(request.tokenId);
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
+        request.id = 4;
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
             "Token is locked",
@@ -190,8 +198,13 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         let initialPoolBalance = await token.balanceOf(poolAddress);
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1003, 1002], "Pool doesn't have the correct tokens");
 
+        const id = 4;
         let blockNumber = await web3.eth.getBlockNumber();
-        request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1002, blockNumber + 5);
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + duration;
+        let orderExpiry = timestamp + duration;
+
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, 1, expiry, 1002, orderExpiry);
         await token.approve(pool.address, request.premium, metadata(buyer));
         const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
@@ -211,6 +224,30 @@ contract("ERC20WasabiPool: CallOption", accounts => {
 
         await truffleAssert.reverts(pool.getOptionData(optionId), "Option doesn't belong to this pool", "Option data not cleared correctly");
         await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
+    });
+
+    it("Cancel Request", async () => {
+        assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1003, 1002], "Pool doesn't have the correct tokens");
+
+        const id = 5;
+        let blockNumber = await web3.eth.getBlockNumber();
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + duration;
+        let orderExpiry = timestamp + duration;
+
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, 1, expiry, 1002, orderExpiry);
+        await token.approve(pool.address, request.premium, metadata(buyer));
+        await truffleAssert.reverts(
+            pool.cancelRequest(request.id, metadata(buyer)),
+            "WasabiPool: only admin or owner cancel",
+            "OWasabiPool: only admin or owner cancel");
+        const cancelRequestResult = await pool.cancelRequest(request.id, metadata(lp));
+        truffleAssert.eventEmitted(cancelRequestResult, "RequestCancelled", null, "Asset wasn't locked");
+
+        await truffleAssert.reverts(
+            pool.writeOption(request, await signRequest(request, lp), metadata(buyer)),
+            "WasabiPool: Request was filled or cancelled",
+            "WasabiPool: Request was filled or cancelled");
     });
 
     it("Withdraw ERC721", async () => {

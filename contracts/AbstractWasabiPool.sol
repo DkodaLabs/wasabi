@@ -35,6 +35,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     EnumerableSet.UintSet private optionIds;
     mapping(uint256 => uint256) private tokenIdToOptionId;
     mapping(uint256 => WasabiStructs.OptionData) private options;
+    mapping(uint256 => bool) idToFilledOrCancelled;
 
     receive() external payable virtual {}
 
@@ -128,15 +129,18 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
     /// @inheritdoc IWasabiPool
     function writeOption(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) external payable nonReentrant {
+        require(
+            !idToFilledOrCancelled[_request.id],
+            "WasabiPool: Request was filled or cancelled"
+        );
         validate(_request, _signature);
 
         uint256 optionId = factory.issueOption(_msgSender());
-        uint256 expiration = block.timestamp + _request.duration;
         WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
             _request.optionType,
             _request.strikePrice,
             _request.premium,
-            expiration,
+            _request.expiry,
             _request.tokenId
         );
         options[optionId] = optionData;
@@ -146,6 +150,8 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             tokenIdToOptionId[_request.tokenId] = optionId;
         }
         optionIds.add(optionId);
+        idToFilledOrCancelled[_request.id] = true;
+
         emit OptionIssued(optionId);
     }
 
@@ -159,7 +165,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         require(admin == signer || owner() == signer, "WasabiPool: Signature not valid");
 
         // 2. Validate Meta
-        require(_request.maxBlockToExecute >= block.number, "WasabiPool: Max block to execute has passed");
+        require(_request.orderExpiry >= block.timestamp, "WasabiPool: Order has expired");
         require(_request.poolAddress == address(this), "WasabiPool: Signature doesn't belong to this pool");
         validateAndWithdrawPayment(_request.premium, "WasabiPool: Not enough premium is supplied");
 
@@ -170,9 +176,9 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         require(_request.strikePrice >= poolConfiguration.minStrikePrice, "WasabiPool: Strike price is too small");
         require(_request.strikePrice <= poolConfiguration.maxStrikePrice, "WasabiPool: Strike price is too large");
 
-        require(_request.duration > 0, "WasabiPool: Duration must be set");
-        require(_request.duration >= poolConfiguration.minDuration, "WasabiPool: Duration is too small");
-        require(_request.duration <= poolConfiguration.maxDuration, "WasabiPool: Duration is too large");
+        require(_request.expiry > 0, "WasabiPool: Expiry must be set");
+        require(_request.expiry >= poolConfiguration.minDuration + block.timestamp, "WasabiPool: Expiry is too small");
+        require(_request.expiry <= poolConfiguration.maxDuration + block.timestamp, "WasabiPool: Expiry is too large");
 
         // 4. Type specific validation
         if (_request.optionType == WasabiStructs.OptionType.CALL) {
@@ -334,6 +340,19 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
                 ++i;
             }
         }
+    }
+
+    /// @inheritdoc IWasabiPool
+    function cancelRequest(uint256 _requestId) external {
+        require(admin == _msgSender() || owner() == _msgSender(), "WasabiPool: only admin or owner cancel");
+        require(
+            !idToFilledOrCancelled[_requestId],
+            "WasabiPool: Request was filled or cancelled"
+        );
+
+        idToFilledOrCancelled[_requestId] = true;
+
+        emit RequestCancelled(_requestId);
     }
 
     /// @inheritdoc IERC165

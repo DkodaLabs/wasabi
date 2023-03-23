@@ -5,7 +5,7 @@ library MockStructs {
     struct AMMOrder {
         address collection;
         uint256 price;
-        uint256 maxBlockToExecute;
+        uint256 orderExpiry;
     }
 
     /**
@@ -16,6 +16,6 @@ library MockStructs {
             abi.encode(
                 _order.collection,
                 _order.price,
-                _order.maxBlockToExecute));
+                _order.orderExpiry));
     }
 }

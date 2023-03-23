@@ -77,6 +77,7 @@ contract WasabiConduit is
         WasabiStructs.OptionRequest calldata _request,
         bytes calldata _signature
     ) public payable returns (uint256) {
+
         IWasabiPool pool = IWasabiPool(_request.poolAddress);
 
         if (pool.getLiquidityAddress() != address(0)) {

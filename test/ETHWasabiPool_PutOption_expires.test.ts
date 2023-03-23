@@ -66,8 +66,12 @@ contract("ETHWasabiPool: Expiring PutOption execution", accounts => {
     });
 
     it("Write Option (only owner)", async () => {
+        const id = 1;
         let blockNumber = await web3.eth.getBlockNumber();
-        request = makeRequest(pool.address, OptionType.PUT, strikePrice, premium, duration, 0, blockNumber + 5);
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + duration;
+        let orderExpiry = timestamp + duration;
+        request = makeRequest(id, pool.address, OptionType.PUT, strikePrice, premium, expiry, 0, orderExpiry);
         const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
         await assertIncreaseInBalance(pool.address, toBN(toEth(initialPoolBalance)), toBN(request.premium));
@@ -81,7 +85,7 @@ contract("ETHWasabiPool: Expiring PutOption execution", accounts => {
         const availableBalanceBeforeExpiration = await pool.availableBalance();
 
         await testNft.approve(pool.address, tokenToSell, metadata(buyer));
-        await advanceTime(Number(request.duration) * 2);
+        await advanceTime(duration * 2);
         await truffleAssert.reverts(
             pool.executeOptionWithSell(optionId, tokenToSell, metadata(buyer)),
             "Option has expired",

@@ -23,6 +23,11 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     event AdminChanged(address admin);
 
     /**
+     * @dev Emitted when `request` is cancelled.
+     */
+    event RequestCancelled(uint256 id);
+
+    /**
      * @dev Emitted when an ERC721 is received
      */
     event ERC721Received(uint256 tokenId);
@@ -93,6 +98,10 @@ interface IWasabiPool is IERC165, IERC721Receiver {
      */
     function executeOptionWithSell(uint256 _optionId, uint256 _tokenId) external payable;
 
+    /**
+     * @dev Cancels the request for the given _requestId.
+     */
+    function cancelRequest(uint256 _requestId) external;
     /**
      * @dev Withdraws ERC721 tokens from the pool.
      */

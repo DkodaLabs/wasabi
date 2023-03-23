@@ -28,6 +28,7 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
     const buyer = accounts[3];
     const admin = accounts[4]; // Dkoda
     const someoneElse = accounts[5];
+    const duration = 1000;
 
     before("Prepare State", async function () {
         testNft = await TestERC721.deployed();
@@ -93,36 +94,41 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
     });
     
     it("Validate Option Requests", async () => {
-        let blockNumber = await web3.eth.getBlockNumber();
-        let maxBlockToExecute = blockNumber - 2;
 
-        request = makeRequest(pool.address, OptionType.CALL, 0, 1, 263000, 1001, maxBlockToExecute); // no strike price in request
+        let id = 1;
+        let blockNumber = await web3.eth.getBlockNumber();
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + duration;
+        let orderExpiry = timestamp - 1000;
+
+        request = makeRequest(id, pool.address, OptionType.CALL, 0, 1, expiry, 1001, orderExpiry); // no strike price in request
         await truffleAssert.reverts(
             pool.writeOption(request, await signRequest(request, admin), metadata(buyer, 1)),
-            "Max block to execute has passed",
-            "Max block to execute has passed");
+            "WasabiPool: Order has expired",
+            "WasabiPool: Order has expired");
 
-        maxBlockToExecute = blockNumber + 5;
+        orderExpiry = timestamp + duration;
 
-        request = makeRequest(pool.address, OptionType.CALL, 0, 1, 263000, 1001, maxBlockToExecute); // no strike price in request
+        request = makeRequest(id, pool.address, OptionType.CALL, 0, 1, expiry, 1001, orderExpiry); // no strike price in request
         await truffleAssert.reverts(
             pool.writeOption(request, await signRequest(request, admin), metadata(buyer, 1)),
             "Strike price must be set",
             "Strike price must be set");
         
-        request = makeRequest(pool.address, OptionType.CALL, 10, 0, 263000, 1001, maxBlockToExecute); // no premium in request
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, 0, expiry, 1001, orderExpiry); // no premium in request
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, admin), metadata(buyer)),
             "Not enough premium is supplied",
             "Cannot write option when premium is 0");
 
-        request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1001, maxBlockToExecute);
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, 1, expiry, 1001, orderExpiry);
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, admin), metadata(buyer, 0.5)), // not sending enough premium
             "Not enough premium is supplied",
             "Premium paid doesn't match the premium of the request");
 
-        const request2 = makeRequest(pool.address, OptionType.CALL, 9, 1, 263000, 1001, maxBlockToExecute);
+        id = 2;
+        const request2 = makeRequest(id, pool.address, OptionType.CALL, 9, 1, expiry, 1001, orderExpiry);
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request2, someoneElse), metadata(buyer, 1)),
             "Signature not valid",
@@ -138,6 +144,7 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
         optionId = log.args.optionId;
         assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
 
+        request.id = 2;
         await truffleAssert.reverts(
             pool.writeOption.sendTransaction(request, await signRequest(request, admin), metadata(buyer, 1)),
             "Token is locked",
@@ -167,8 +174,12 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
         let initialPoolBalance = toBN(await web3.eth.getBalance(pool.address));
         assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1003, 1002], "Pool doesn't have the correct tokens");
 
+        const id = 3;
         let blockNumber = await web3.eth.getBlockNumber();
-        request = makeRequest(pool.address, OptionType.CALL, 10, 1, 263000, 1002, blockNumber + 10);
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + duration;
+        let orderExpiry = timestamp + duration;
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, 1, expiry, 1002, orderExpiry);
         const writeOptionResult = await pool.writeOption(request, await signRequest(request, admin), metadata(buyer, 1));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
         assert.equal(

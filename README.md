@@ -17,13 +17,8 @@ You should have already installed the following things beforehand:
 - [Git Bash](https://git-scm.com/downloads)
 - [Download and Install VSCode](https://code.visualstudio.com/download)
 
-## 2. Setup
-
-- You can get your [Nownodes](https://nownodes.io/) or
-  [Tatum](https://tatum.io/) API's from their website.
-
-## 3. Running Tests
-- Once you have completed all the steps from the [setup section](./README.md#2-setup), go ahead and install the rest of the dependencies.
+## 2. Running Tests
+- Once you have completed all the steps from the [setup section](./README.md#1-Prerequisite), go ahead and install the rest of the dependencies.
 
 ```node
 npm install

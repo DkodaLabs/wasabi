@@ -17,16 +17,8 @@ You should have already installed the following things beforehand:
 - [Git Bash](https://git-scm.com/downloads)
 - [Download and Install VSCode](https://code.visualstudio.com/download)
 
-## 2. Setup
-
-- Make a copy of ``.env example`` and rename it into ``.env``
-- Open the .env and fill up the given variables.
-- You can get your [Nownodes](https://nownodes.io/) or
-  [Tatum](https://tatum.io/) API's from their website.
-- The mnemonics from the .env will be used for truffle console and creating local development blockchain using ganache.
-
-## 3. Running Tests
-- Once you have completed all the steps from the [setup section](./README.md#2-setup), go ahead and install the rest of the dependencies.
+## 2. Running Tests
+- Once you have completed all the steps from the [Prerequisite](./README.md#1-Prerequisite), go ahead and install the rest of the dependencies.
 
 ```node
 npm install

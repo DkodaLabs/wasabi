@@ -99,9 +99,9 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function executeOptionWithSell(uint256 _optionId, uint256 _tokenId) external payable;
 
     /**
-     * @dev Cancels the request for the given id.
+     * @dev Cancels the request for the given _requestId.
      */
-    function cancelRequest(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) external;
+    function cancelRequest(uint256 _requestId) external;
     /**
      * @dev Withdraws ERC721 tokens from the pool.
      */

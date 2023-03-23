@@ -343,19 +343,16 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     }
 
     /// @inheritdoc IWasabiPool
-    function cancelRequest(
-        WasabiStructs.OptionRequest calldata _request,
-        bytes calldata _signature
-    ) external {
+    function cancelRequest(uint256 _requestId) external {
+        require(admin == _msgSender() || owner() == _msgSender(), "WasabiPool: only admin or owner cancel");
         require(
-            !idToFilledOrCancelled[_request.id],
+            !idToFilledOrCancelled[_requestId],
             "WasabiPool: Request was filled or cancelled"
         );
-        validate(_request, _signature);
 
-        idToFilledOrCancelled[_request.id] = true;
+        idToFilledOrCancelled[_requestId] = true;
 
-        emit RequestCancelled(_request.id);
+        emit RequestCancelled(_requestId);
     }
 
     /// @inheritdoc IERC165

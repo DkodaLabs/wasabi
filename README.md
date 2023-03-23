@@ -18,7 +18,7 @@ You should have already installed the following things beforehand:
 - [Download and Install VSCode](https://code.visualstudio.com/download)
 
 ## 2. Running Tests
-- Once you have completed all the steps from the [setup section](./README.md#1-Prerequisite), go ahead and install the rest of the dependencies.
+- Once you have completed all the steps from the [Prerequisite](./README.md#1-Prerequisite), go ahead and install the rest of the dependencies.
 
 ```node
 npm install

@@ -185,7 +185,9 @@ contract WasabiConduit is
             "Order was finalized or cancelled"
         );
 
-        validateBid(_optionId, _poolAddress, _bid, _signature);
+        IWasabiPool pool = IWasabiPool(_poolAddress);
+        validateOptionForBid(_optionId, pool, _bid);
+        validateBid(pool, _bid, _signature);
 
         uint256 price = _bid.price;
 
@@ -219,25 +221,9 @@ contract WasabiConduit is
             IWasabiPoolFactory(factory).isValidPool(_msgSender()),
             "Pool is not valid"
         );
-        // Validate Signature
-        require(
-            verifyBid(_bid, _signature, owner()) ||
-                verifyBid(_bid, _signature, _bid.buyer),
-            "Incorrect signature"
-        );
-        require(
-            _bid.tokenAddress != address(0),
-            "Bidder didn't provide a ERC20 token"
-        );
-
-        require(_bid.orderExpiry >= block.timestamp, "Order expired");
-        require(_bid.price > 0, "Price needs to be greater than 0");
 
         IWasabiPool pool = IWasabiPool(_msgSender());
-        require(
-            pool.getNftAddress() == _bid.collection,
-            "Collections don't match"
-        );
+        validateBid(pool, _bid, _signature);
 
         IERC20 erc20 = IERC20(_bid.tokenAddress);
         erc20.transferFrom(_bid.buyer, _msgSender(), _bid.price);
@@ -271,47 +257,23 @@ contract WasabiConduit is
     }
 
     /**
-     * @dev Validates if the _bid with _signature
+     * @dev Validates the bid against the given option
      *
      * @param _optionId the id of option
-     * @param _poolAddress the address of pool
+     * @param _pool the pool where the option was issued from
      * @param _bid the _bid to validate
-     * @param _signature the _signature to validate the bid with
      */
-    function validateBid(
+    function validateOptionForBid(
         uint256 _optionId,
-        address _poolAddress,
-        WasabiStructs.Bid calldata _bid,
-        bytes calldata _signature
+        IWasabiPool _pool,
+        WasabiStructs.Bid calldata _bid
     ) internal view {
         require(
             option.ownerOf(_optionId) == _msgSender(),
             "Seller is not owner"
         );
 
-        // Validate Signature
-        require(
-            verifyBid(_bid, _signature, owner()) ||
-                verifyBid(_bid, _signature, _bid.buyer),
-            "Incorrect signature"
-        );
-        require(
-            _bid.tokenAddress != address(0),
-            "Bidder didn't provide a ERC20 token"
-        );
-
-        require(_bid.orderExpiry >= block.timestamp, "Order expired");
-        require(_bid.price > 0, "Price needs to be greater than 0");
-
-        IWasabiPool pool = IWasabiPool(_poolAddress);
-        require(
-            pool.getNftAddress() == _bid.collection,
-            "Collections don't match"
-        );
-
-        WasabiStructs.OptionData memory optionData = pool.getOptionData(
-            _optionId
-        );
+        WasabiStructs.OptionData memory optionData = _pool.getOptionData(_optionId);
 
         require(
             optionData.optionType == _bid.optionType,
@@ -326,6 +288,35 @@ contract WasabiConduit is
             ? optionData.expiry - _bid.expiry
             : _bid.expiry - optionData.expiry;
         require(diff <= _bid.expiryAllowance, "Not within expiry range");
+    }
+
+    /**
+     * @dev Validates the bid
+     *
+     * @param _pool the pool the option was issued from
+     * @param _bid the _bid to validate
+     * @param _signature the _signature to validate the bid with
+     */
+    function validateBid(
+        IWasabiPool _pool,
+        WasabiStructs.Bid calldata _bid,
+        bytes calldata _signature
+    ) internal view {
+        // Validate Signature
+        require(
+            verifyBid(_bid, _signature, owner()) ||
+                verifyBid(_bid, _signature, _bid.buyer),
+            "Incorrect signature"
+        );
+        require(
+            _bid.tokenAddress != address(0),
+            "Bidder didn't provide a ERC20 token"
+        );
+
+        require(_bid.orderExpiry >= block.timestamp, "Order expired");
+        require(_bid.price > 0, "Price needs to be greater than 0");
+
+        require(_pool.getNftAddress() == _bid.collection, "Collections don't match");
     }
 
     /// @inheritdoc IWasabiConduit

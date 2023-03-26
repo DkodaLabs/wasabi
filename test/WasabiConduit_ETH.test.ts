@@ -127,7 +127,7 @@ contract("WasabiConduit ETH", accounts => {
         };
 
         const signature = await signAskWithEIP712(ask, conduit.address, someoneElsePrivateKey);
-        const cancelAskResult = await conduit.cancelAsk(ask, signature);
+        const cancelAskResult = await conduit.cancelAsk(ask, signature, metadata(someoneElse));
         truffleAssert.eventEmitted(cancelAskResult, "AskCancelled", null, "Ask wasn't cancelled");
 
         await truffleAssert.reverts(

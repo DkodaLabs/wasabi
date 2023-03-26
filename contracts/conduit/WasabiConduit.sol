@@ -327,6 +327,7 @@ contract WasabiConduit is
     ) external {
         // Validate Signature
         require(verifyAsk(_ask, _signature, _ask.seller), "Incorrect signature");
+        require(_msgSender() == _ask.seller, "Only the signer can cancel");
 
         bytes memory id = getAskId(_ask);
         require(
@@ -345,6 +346,7 @@ contract WasabiConduit is
     ) external {
         // Validate Signature
         require(verifyBid(_bid, _signature, _bid.buyer), "Incorrect signature");
+        require(_msgSender() == _bid.buyer, "Only the signer can cancel");
 
         bytes memory id = getBidId(_bid);
         require(

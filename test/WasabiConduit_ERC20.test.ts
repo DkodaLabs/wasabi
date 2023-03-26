@@ -299,7 +299,13 @@ contract("WasabiConduit ERC20", accounts => {
         };
 
         const signature = await signAskWithEIP712(ask, conduit.address, buyerPrivateKey);
-        const cancelAskResult = await conduit.cancelAsk(ask, signature);
+
+        await truffleAssert.reverts(
+            conduit.cancelAsk(ask, signature, metadata(someoneElse)),
+            "Only the signer can cancel",
+            "Can execute cancelled ask"
+        );
+        const cancelAskResult = await conduit.cancelAsk(ask, signature, metadata(buyer));
         truffleAssert.eventEmitted(cancelAskResult, "AskCancelled", null, "Ask wasn't cancelled");
 
         await truffleAssert.reverts(
@@ -333,7 +339,7 @@ contract("WasabiConduit ERC20", accounts => {
         };
 
         const signature = await signBidWithEIP712(bid, conduit.address, someoneElsePrivateKey); // buyer signs it
-        const cancelBidResult = await conduit.cancelBid(bid, signature);
+        const cancelBidResult = await conduit.cancelBid(bid, signature, metadata(someoneElse));
         truffleAssert.eventEmitted(cancelBidResult, "BidCancelled", null, "Bid wasn't cancelled");
 
         await truffleAssert.reverts(

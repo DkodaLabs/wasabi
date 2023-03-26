@@ -74,7 +74,7 @@ interface IWasabiConduit {
     /**
      * @dev Pool Accepts the _bid
      */
-    function poolAcceptBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature) external;
+    function poolAcceptBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature, uint256 _optionId) external;
 
     /**
      * @dev Cancel the _ask

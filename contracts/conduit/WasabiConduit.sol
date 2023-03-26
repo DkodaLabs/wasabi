@@ -207,7 +207,7 @@ contract WasabiConduit is
     }
 
     /// @inheritdoc IWasabiConduit
-    function poolAcceptBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature) external {
+    function poolAcceptBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature, uint256 _optionId) external {
         bytes memory id = getBidId(_bid);
 
         require(
@@ -243,6 +243,8 @@ contract WasabiConduit is
         erc20.transferFrom(_bid.buyer, _msgSender(), _bid.price);
 
         idToFinalizedOrCancelled[id] = true;
+
+        emit BidTaken(_optionId, _bid.id, _bid.buyer, _msgSender());
     }
 
     /**

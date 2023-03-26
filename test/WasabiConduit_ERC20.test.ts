@@ -248,7 +248,7 @@ contract("WasabiConduit ERC20", accounts => {
         };
 
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
-        await truffleAssert.reverts(conduit.poolAcceptBid(bid, signature, metadata(lp)), "Pool is not valid");
+        await truffleAssert.reverts(conduit.poolAcceptBid(bid, signature, 0, metadata(lp)), "Pool is not valid");
     });
 
     it("Cancel ask", async () => {

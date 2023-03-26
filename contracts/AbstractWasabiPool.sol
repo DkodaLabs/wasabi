@@ -251,7 +251,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         options[_optionId] = optionData;
         optionIds.add(_optionId);
 
-        IWasabiConduit(factory.getConduitAddress()).poolAcceptBid(_bid, _signature);
+        IWasabiConduit(factory.getConduitAddress()).poolAcceptBid(_bid, _signature, _optionId);
         return _optionId;
     }
 

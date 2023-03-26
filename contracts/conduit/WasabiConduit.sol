@@ -317,6 +317,7 @@ contract WasabiConduit is
         require(_bid.price > 0, "Price needs to be greater than 0");
 
         require(_pool.getNftAddress() == _bid.collection, "Collections don't match");
+        require(_pool.getLiquidityAddress() == _bid.optionTokenAddress, "Option liquidity doesn't match");
     }
 
     /// @inheritdoc IWasabiConduit

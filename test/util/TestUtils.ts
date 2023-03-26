@@ -149,6 +149,7 @@ export const signBid = async (
         strikePrice: "uint256",
         expiry: "uint256",
         expiryAllowance: "uint256",
+        optionTokenAddress: "address"
       },
     },
     request
@@ -257,6 +258,7 @@ export const signBidWithEIP712 = async (
         { name: "strikePrice", type: "uint256" },
         { name: "expiry", type: "uint256" },
         { name: "expiryAllowance", type: "uint256" },
+        { name: "optionTokenAddress", type: "address" },
       ],
     },
     primaryType: "Bid",

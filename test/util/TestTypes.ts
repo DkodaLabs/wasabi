@@ -47,6 +47,7 @@ export interface Bid {
     strikePrice: number | BN | string;
     expiry: number | BN | string;
     expiryAllowance: number | BN | string;
+    optionTokenAddress: string;
 }
 
 export interface Ask {

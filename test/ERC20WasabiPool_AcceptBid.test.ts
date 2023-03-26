@@ -98,6 +98,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             strikePrice: toEth(strikePrice),
             expiry: Number(blockTimestamp) + 20000,
             expiryAllowance: 0,
+            optionTokenAddress: token.address
         };
 
         const tokenIds = await pool.getAllTokenIds();
@@ -139,6 +140,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             strikePrice: toEth(strikePrice),
             expiry: Number(blockTimestamp) + 20000,
             expiryAllowance: 0,
+            optionTokenAddress: token.address
         };
 
         // Factory Owner Sets Conduit Address
@@ -172,6 +174,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             strikePrice: toEth(strikePrice),
             expiry: Number(blockTimestamp) + 20000,
             expiryAllowance: 0,
+            optionTokenAddress: token.address
         };
 
         // Factory Owner Sets Conduit Address
@@ -200,6 +203,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             strikePrice: toEth(strikePrice),
             expiry: Number(blockTimestamp) + 20000,
             expiryAllowance: 0,
+            optionTokenAddress: token.address
         };
         let tokenId = 0;
 
@@ -228,6 +232,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             strikePrice: toEth(strikePrice),
             expiry: Number(blockTimestamp) + 20000,
             expiryAllowance: 0,
+            optionTokenAddress: token.address
         };
 
         let tokenId = 0;

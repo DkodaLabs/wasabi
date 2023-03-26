@@ -195,6 +195,35 @@ contract("WasabiConduit ERC20", accounts => {
         assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), price * afterRoyaltyPayoutPercent, 'Seller incorrect balance change')
     });
 
+    it("Accept bid: Invalid liquidity address", async () => {
+        const price = 1;
+        let optionOwner = await option.ownerOf(optionId);
+
+        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+        const optionData: OptionData = await pool.getOptionData(optionId);
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const bid: Bid = {
+            id: 2,
+            price: toEth(price),
+            tokenAddress: token.address,
+            collection: testNft.address,
+            orderExpiry: Number(blockTimestamp) + 20,
+            buyer,
+            optionType: optionData.optionType,
+            strikePrice: optionData.strikePrice,
+            expiry: optionData.expiry,
+            expiryAllowance: 0,
+            optionTokenAddress: '0x0000000000000000000000000000000000000000',
+        };
+
+        const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
+        truffleAssert.reverts(
+            conduit.acceptBid(optionId, pool.address, bid, signature, metadata(optionOwner)),
+            "Option liquidity doesn't match"
+        )
+    });
+
     it("Accept bid", async () => {
         const price = 1;
         let optionOwner = await option.ownerOf(optionId);
@@ -214,6 +243,7 @@ contract("WasabiConduit ERC20", accounts => {
             strikePrice: optionData.strikePrice,
             expiry: optionData.expiry,
             expiryAllowance: 0,
+            optionTokenAddress: token.address,
         };
 
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
@@ -245,6 +275,7 @@ contract("WasabiConduit ERC20", accounts => {
             strikePrice: toEth(strikePrice),
             expiry: Number(blockTimestamp) + 20000,
             expiryAllowance: 0,
+            optionTokenAddress: token.address,
         };
 
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
@@ -298,6 +329,7 @@ contract("WasabiConduit ERC20", accounts => {
             strikePrice: optionData.strikePrice,
             expiry: optionData.expiry,
             expiryAllowance: 0,
+            optionTokenAddress: token.address,
         };
 
         const signature = await signBidWithEIP712(bid, conduit.address, someoneElsePrivateKey); // buyer signs it

@@ -16,7 +16,7 @@ abstract contract ConduitSignatureVerifier {
         );
     bytes32 constant BID_TYPEHASH =
         keccak256(
-            "Bid(uint256 id,uint256 price,address tokenAddress,address collection,uint256 orderExpiry,address buyer,uint8 optionType,uint256 strikePrice,uint256 expiry,uint256 expiryAllowance)"
+            "Bid(uint256 id,uint256 price,address tokenAddress,address collection,uint256 orderExpiry,address buyer,uint8 optionType,uint256 strikePrice,uint256 expiry,uint256 expiryAllowance,address optionTokenAddress)"
         );
 
     bytes32 constant ASK_TYPEHASH =
@@ -67,7 +67,8 @@ abstract contract ConduitSignatureVerifier {
                     _bid.optionType,
                     _bid.strikePrice,
                     _bid.expiry,
-                    _bid.expiryAllowance
+                    _bid.expiryAllowance,
+                    _bid.optionTokenAddress
                 )
             );
     }

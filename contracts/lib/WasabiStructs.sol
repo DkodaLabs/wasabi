@@ -44,6 +44,7 @@ library WasabiStructs {
         uint256 strikePrice;
         uint256 expiry;
         uint256 expiryAllowance;
+        address optionTokenAddress;
     }
 
     struct Ask {

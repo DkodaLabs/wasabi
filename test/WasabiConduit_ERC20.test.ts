@@ -1,7 +1,7 @@
 const truffleAssert = require('truffle-assertions');
 
 import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, fromWei, signBidWithEIP712, signAskWithEIP712, expectRevertCustomError } from "./util/TestUtils";
-import { Ask, Bid, OptionData, OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
+import { Ask, Bid, OptionData, PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { TestAzukiInstance } from "../types/truffle-contracts/TestAzuki.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -27,7 +27,7 @@ contract("WasabiConduit ERC20", accounts => {
     let poolAddress: string;
     let pool: ERC20WasabiPoolInstance;
     let optionId: BN;
-    let request: OptionRequest;
+    let request: PoolAsk;
     let conduit: WasabiConduitInstance;
     let afterRoyaltyPayoutPercent: number;
     let testAzukiInstance: TestAzukiInstance;

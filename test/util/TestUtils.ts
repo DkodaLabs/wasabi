@@ -1,5 +1,5 @@
 import {
-  OptionRequest,
+  PoolAsk,
   OptionType,
   WasabiPoolConfiguration,
   AMMOrder,
@@ -44,7 +44,7 @@ export const makeRequest = (
   expiry: number,
   tokenId = 0,
   orderExpiry = 0
-): OptionRequest => {
+): PoolAsk => {
   return {
     id,
     poolAddress,
@@ -94,12 +94,12 @@ export const metadata = (
 };
 
 export const signRequest = async (
-  request: OptionRequest,
+  request: PoolAsk,
   address: string
 ): Promise<string> => {
   const encoded = await web3.eth.abi.encodeParameter(
     {
-      OptionRequest: {
+      PoolAsk: {
         id: "uint256",
         poolAddress: "address",
         optionType: "uint256",

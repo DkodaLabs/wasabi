@@ -15,7 +15,7 @@ library WasabiStructs {
         uint256 tokenId; // Tokens to deposit for CALL options
     }
 
-    struct OptionRequest {
+    struct PoolAsk {
         uint256 id;
         address poolAddress;
         OptionType optionType;

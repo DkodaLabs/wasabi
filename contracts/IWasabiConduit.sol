@@ -12,7 +12,7 @@ interface IWasabiConduit {
      * @dev Buys multiple options
      */
     function buyOptions(
-        WasabiStructs.OptionRequest[] calldata _requests,
+        WasabiStructs.PoolAsk[] calldata _requests,
         WasabiStructs.Ask[] calldata _asks,
         bytes[] calldata _signatures
     ) external payable returns (uint256[] memory);
@@ -21,7 +21,7 @@ interface IWasabiConduit {
      * @dev Buys an option
      */
     function buyOption(
-        WasabiStructs.OptionRequest calldata _request,
+        WasabiStructs.PoolAsk calldata _request,
         bytes calldata _signature
     ) external payable returns (uint256);
 

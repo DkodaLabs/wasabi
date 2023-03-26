@@ -130,7 +130,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     }
 
     /// @inheritdoc IWasabiPool
-    function writeOption(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) external payable nonReentrant {
+    function writeOption(WasabiStructs.PoolAsk calldata _request, bytes calldata _signature) external payable nonReentrant {
         if (idToFilledOrCancelled[_request.id]) {
             revert OrderFilledOrCancelled();
         }
@@ -157,9 +157,9 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     }
 
     /**
-     * @dev Validates the given OptionRequest in order to issue an option
+     * @dev Validates the given PoolAsk in order to issue an option
      */
-    function validate(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) internal {
+    function validate(WasabiStructs.PoolAsk calldata _request, bytes calldata _signature) internal {
         // 1. Validate Signature
         address signer = Signing.getSigner(_request, _signature);
         if (signer == address(0) || (signer != admin && signer != owner())) {

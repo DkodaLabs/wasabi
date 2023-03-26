@@ -8,7 +8,7 @@ import {
     DemoETHInstance
 } from "../types/truffle-contracts";
 import { OptionExecuted, OptionIssued } from "../types/truffle-contracts/IWasabiPool";
-import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
+import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth } from "./util/TestUtils";
 
 const Signing = artifacts.require("Signing");
@@ -27,7 +27,7 @@ contract("Erc20WasabiPool: PutOption", accounts => {
     let tokenToSell: BN;
     let pool: ETHWasabiPoolInstance;
     let optionId: BN;
-    let request: OptionRequest;
+    let request: PoolAsk;
 
     const lp = accounts[2];
     const buyer = accounts[3];

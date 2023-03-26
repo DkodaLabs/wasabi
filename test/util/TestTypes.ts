@@ -21,7 +21,7 @@ export interface OptionData {
     tokenId: BN;
 }
 
-export interface OptionRequest {
+export interface PoolAsk {
     id: number;
     poolAddress: string;
     optionType: number | BN | string;

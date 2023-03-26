@@ -45,7 +45,7 @@ contract WasabiConduit is
 
     /// @inheritdoc IWasabiConduit
     function buyOptions(
-        WasabiStructs.OptionRequest[] calldata _requests,
+        WasabiStructs.PoolAsk[] calldata _requests,
         WasabiStructs.Ask[] calldata _asks,
         bytes[] calldata _signatures
     ) external payable returns (uint256[] memory) {
@@ -74,7 +74,7 @@ contract WasabiConduit is
 
     /// @inheritdoc IWasabiConduit
     function buyOption(
-        WasabiStructs.OptionRequest calldata _request,
+        WasabiStructs.PoolAsk calldata _request,
         bytes calldata _signature
     ) public payable returns (uint256) {
 

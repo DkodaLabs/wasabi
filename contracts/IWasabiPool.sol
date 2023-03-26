@@ -105,7 +105,7 @@ interface IWasabiPool is IERC165, IERC721Receiver {
      * @dev Writes an option for the given rule and buyer.
      * TODO: return the option id
      */
-    function writeOption(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) external payable;
+    function writeOption(WasabiStructs.PoolAsk calldata _request, bytes calldata _signature) external payable;
 
     /**
      * @dev Executes the option for the given id.

@@ -6,7 +6,7 @@ import "../lib/Signing.sol";
 
 contract TestSignature {
     function getSigner(
-        WasabiStructs.OptionRequest calldata _request,
+        WasabiStructs.PoolAsk calldata _request,
         bytes memory signature
     ) public pure returns (address) {
         return Signing.getSigner(_request, signature);

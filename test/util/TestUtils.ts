@@ -374,3 +374,21 @@ export const advanceTime = (seconds: number) => {
     );
   });
 };
+
+export async function expectRevertCustomError(promise: Promise<any>, customError: string, errorMessage?: string) {
+  try {
+    await promise;
+    expect.fail(errorMessage || `Expected to fail with custom error [${customError}], but it didn't.`);
+  } catch (reason) {
+      if (reason) {
+        // @ts-ignore
+        const reasonId = reason.data.result || reason.data;
+        const expectedId = web3.eth.abi.encodeFunctionSignature(`${customError}()`);
+        assert.equal(
+          reasonId,
+          expectedId,
+          `Expected to fail with custom error [${customError}], but failed with ${reasonId}`
+        )
+      }
+  }
+}

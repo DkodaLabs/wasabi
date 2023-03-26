@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceTime } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceTime, expectRevertCustomError } from "./util/TestUtils";
 import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -118,9 +118,9 @@ contract("WasabiConduit Multibuy ERC20", accounts => {
             assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
             requests[i].id = requests[i].id + 2;
-            await truffleAssert.reverts(
+            await expectRevertCustomError(
                 conduit.buyOption(requests[i], await signRequest(requests[i], lp), metadata(buyer)),
-                "Token is locked",
+                "RequestNftIsLocked",
                 "Cannot (re)write an option for a locked asset");
         }
     });
@@ -152,9 +152,9 @@ contract("WasabiConduit Multibuy ERC20", accounts => {
     });
 
     it("Withdraw ERC721", async () => {
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.withdrawERC721.sendTransaction(testNft.address, [1001], metadata(lp)),
-            "Token is not in the pool",
+            "NftIsInvalid",
             "Token is locked or is not in the pool");
         await truffleAssert.reverts(
             pool.withdrawERC721.sendTransaction(testNft.address, [1003], {from: buyer}),

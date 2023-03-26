@@ -11,11 +11,30 @@ import "./lib/WasabiStructs.sol";
  * @dev Required interface of an WasabiPool compliant contract.
  */
 interface IWasabiPool is IERC165, IERC721Receiver {
+    /**
+     * @dev Thrown when an order that has been filled or cancelled is being acted upon
+     */
+    error OrderFilledOrCancelled();
 
     /**
-     * @dev Thrown when an invalid token is received
+     * @dev Thrown when a signature is invalid
      */
-    error InvalidToken();
+    error InvalidSignature();
+
+    /**
+     * @dev Thrown when there is no sufficient available liquidity left in the pool for issuing a PUT option
+     */
+    error InsufficientAvailableLiquidity();
+
+    /**
+     * @dev Thrown when the requested NFT for a CALL is already locked for another option
+     */
+    error RequestNftIsLocked();
+
+    /**
+     * @dev Thrown when the NFT is not in the pool or invalid
+     */
+    error NftIsInvalid();
 
     /**
      * @dev Emitted when `admin` is changed.
@@ -186,4 +205,9 @@ interface IWasabiPool is IERC165, IERC721Receiver {
      * @dev Returns 'true' if the option for the given id is valid and active, 'false' otherwise
      */
     function isValid(uint256 _optionId) view external returns(bool);
+
+    /**
+     * @dev Checks if _tokenId unlocked
+     */
+    function isAvailableTokenId(uint256 _tokenId) external view returns(bool);
 }

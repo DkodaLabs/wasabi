@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, signBidWithEIP712 } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, signBidWithEIP712, expectRevertCustomError } from "./util/TestUtils";
 import { OptionRequest, OptionType, ZERO_ADDRESS ,Bid } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -208,7 +208,9 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         await conduit.setPoolFactoryAddress(poolFactory.address);
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
 
-        await truffleAssert.reverts(pool.acceptBidWithTokenId(bid, signature, tokenId, metadata(lp)), "WasabiPool: tokenId is not valid");
+        await expectRevertCustomError(
+            pool.acceptBidWithTokenId(bid, signature, tokenId, metadata(lp)),
+            "NftIsInvalid");
     });
 
     it("Accept Call Bid with not owner - (only owner)", async () => {

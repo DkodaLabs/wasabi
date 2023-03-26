@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, fromWei, signBidWithEIP712, signAskWithEIP712 } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, fromWei, signBidWithEIP712, signAskWithEIP712, expectRevertCustomError } from "./util/TestUtils";
 import { Ask, Bid, OptionData, OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { TestAzukiInstance } from "../types/truffle-contracts/TestAzuki.js";
@@ -112,9 +112,9 @@ contract("WasabiConduit ERC20", accounts => {
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
         request.id = request.id + 1;
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             conduit.buyOption(request, await signRequest(request, lp), metadata(buyer)),
-            "Token is locked",
+            "RequestNftIsLocked",
             "Cannot (re)write an option for a locked asset");
     });
 

@@ -37,13 +37,15 @@ contract ETHWasabiPool is AbstractWasabiPool {
     }
 
     /// @inheritdoc IWasabiPool
-    function withdrawETH(uint256 amount) external payable onlyOwner {
-        require(amount > 0, "WasabiPool: Need to withdraw more than 0");
-        require(availableBalance() >= amount, "WasabiPool: Not enough ETH available to withdraw");
+    function withdrawETH(uint256 _amount) external payable onlyOwner {
+        require(_amount > 0, "WasabiPool: Need to withdraw more than 0");
+        if (availableBalance() < _amount) {
+            revert InsufficientAvailableLiquidity();
+        }
         address payable to = payable(_msgSender());
-        to.transfer(amount);
+        to.transfer(_amount);
 
-        emit ETHWithdrawn(amount);
+        emit ETHWithdrawn(_amount);
     }
 
     /// @inheritdoc IWasabiPool

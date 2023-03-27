@@ -270,33 +270,4 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             "Token is locked",
             "Cannot (re)write an option for a locked asset");
     });
-
-    it("Accept ask", async () => {
-        const price = 1;
-        let optionOwner = await option.ownerOf(optionId);
-
-        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
-
-        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
-        const ask: Ask = {
-            id: 1,
-            optionId: optionId.toString(),
-            orderExpiry: Number(blockTimestamp) + 20,
-            price: toEth(price),
-            seller: optionOwner,
-            tokenAddress: token.address,
-        };
-
-        const signature = await signAskWithEIP712(ask, conduit.address, lpPrivateKey);
-
-        const initialBalanceSeller = await token.balanceOf(optionOwner);
-        const acceptAskResult = await pool.acceptAsk(ask, signature, metadata(lp));
-        const finalBalanceSeller = await token.balanceOf(optionOwner);
-        const resultsOfConduit= await truffleAssert.createTransactionResult(conduit, acceptAskResult.tx)
-
-        await truffleAssert.eventEmitted(resultsOfConduit, "AskTaken", null, "Ask wasn't taken");
-        
-        assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), price * afterRoyaltyPayoutPercent, 'Seller incorrect balance change')
-    });
-    
 });

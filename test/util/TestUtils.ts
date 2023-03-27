@@ -1,5 +1,5 @@
 import {
-  OptionRequest,
+  PoolAsk,
   OptionType,
   WasabiPoolConfiguration,
   AMMOrder,
@@ -9,13 +9,24 @@ import {
 } from "./TestTypes";
 
 import * as ethUtil from "eth-sig-util";
-import { type } from "os";
-import { WasabiConduitInstance } from "../../types/truffle-contracts";
 
 export const fromWei = (value: string | BN): number => {
   return Number(web3.utils.fromWei(value, "ether"));
 };
 
+export const withBid = (value: number | BN | string): BN => {
+  return toBN(value).mul(toBN(1));
+};
+
+export const withBidNumber = (value: number): number => {
+  return value;
+};
+export const toEthWithBid = (value: string | number): string => {
+  return web3.utils.toWei(`${Number(value)}`, "ether");
+};
+export const minusBid = (value: string | number): string => {
+  return web3.utils.toWei(`${Number(value)}`, "ether");
+};
 export const toEth = (value: string | number): string => {
   return web3.utils.toWei(`${value}`, "ether");
 };
@@ -44,7 +55,7 @@ export const makeRequest = (
   expiry: number,
   tokenId = 0,
   orderExpiry = 0
-): OptionRequest => {
+): PoolAsk => {
   return {
     id,
     poolAddress,
@@ -94,12 +105,12 @@ export const metadata = (
 };
 
 export const signRequest = async (
-  request: OptionRequest,
+  request: PoolAsk,
   address: string
 ): Promise<string> => {
   const encoded = await web3.eth.abi.encodeParameter(
     {
-      OptionRequest: {
+      PoolAsk: {
         id: "uint256",
         poolAddress: "address",
         optionType: "uint256",
@@ -149,6 +160,7 @@ export const signBid = async (
         strikePrice: "uint256",
         expiry: "uint256",
         expiryAllowance: "uint256",
+        optionTokenAddress: "address"
       },
     },
     request
@@ -257,6 +269,7 @@ export const signBidWithEIP712 = async (
         { name: "strikePrice", type: "uint256" },
         { name: "expiry", type: "uint256" },
         { name: "expiryAllowance", type: "uint256" },
+        { name: "optionTokenAddress", type: "address" },
       ],
     },
     primaryType: "Bid",
@@ -374,3 +387,21 @@ export const advanceTime = (seconds: number) => {
     );
   });
 };
+
+export async function expectRevertCustomError(promise: Promise<any>, customError: string, errorMessage?: string) {
+  try {
+    await promise;
+    expect.fail(errorMessage || `Expected to fail with custom error [${customError}], but it didn't.`);
+  } catch (reason) {
+      if (reason) {
+        // @ts-ignore
+        const reasonId = reason.data.result || reason.data;
+        const expectedId = web3.eth.abi.encodeFunctionSignature(`${customError}()`);
+        assert.equal(
+          reasonId,
+          expectedId,
+          `Expected to fail with custom error [${customError}], but failed with ${reasonId}`
+        )
+      }
+  }
+}

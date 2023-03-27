@@ -1,7 +1,7 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, makeRequest, makeConfig, metadata, signRequest, signAskWithEIP712 } from "./util/TestUtils";
-import { Ask, OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
+import { toEth, makeRequest, makeConfig, metadata, signRequest, signAskWithEIP712, expectRevertCustomError } from "./util/TestUtils";
+import { Ask, PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
@@ -22,7 +22,7 @@ contract("WasabiConduit ETH", accounts => {
     let poolAddress: string;
     let pool: ETHWasabiPoolInstance;
     let optionId: BN;
-    let request: OptionRequest;
+    let request: PoolAsk;
     let conduit: WasabiConduitInstance;
 
     const admin = accounts[0];
@@ -81,9 +81,9 @@ contract("WasabiConduit ETH", accounts => {
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
         request.id = request.id + 1;
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, 1)),
-            "Token is locked",
+            "RequestNftIsLocked",
             "Cannot (re)write an option for a locked asset");
     });
 
@@ -127,7 +127,7 @@ contract("WasabiConduit ETH", accounts => {
         };
 
         const signature = await signAskWithEIP712(ask, conduit.address, someoneElsePrivateKey);
-        const cancelAskResult = await conduit.cancelAsk(ask, signature);
+        const cancelAskResult = await conduit.cancelAsk(ask, signature, metadata(someoneElse));
         truffleAssert.eventEmitted(cancelAskResult, "AskCancelled", null, "Ask wasn't cancelled");
 
         await truffleAssert.reverts(

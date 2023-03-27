@@ -1,7 +1,7 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceBlock } from "./util/TestUtils";
-import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceBlock, expectRevertCustomError } from "./util/TestUtils";
+import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
@@ -21,7 +21,7 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
     let poolAddress: string;
     let pool: ETHWasabiPoolInstance;
     let optionId: BN;
-    let request: OptionRequest;
+    let request: PoolAsk;
 
     const types = [OptionType.CALL];
     const lp = accounts[2];
@@ -129,9 +129,9 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
 
         id = 2;
         const request2 = makeRequest(id, pool.address, OptionType.CALL, 9, 1, expiry, 1001, orderExpiry);
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption.sendTransaction(request, await signRequest(request2, someoneElse), metadata(buyer, 1)),
-            "Signature not valid",
+            "InvalidSignature",
             "Signed object and provided object are different");
     });
 
@@ -145,9 +145,9 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
         assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
 
         request.id = 2;
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption.sendTransaction(request, await signRequest(request, admin), metadata(buyer, 1)),
-            "Token is locked",
+            "RequestNftIsLocked",
             "Cannot (re)write an option for a locked asset");
     });
 
@@ -196,14 +196,13 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
         assert.equal(transferLog.args.to, ZERO_ADDRESS, "Token wasn't burned");
         assert.equal(transferLog.args.tokenId.toString(), optionId.toString(), "Incorrect option was burned");
 
-        await truffleAssert.reverts(pool.getOptionData(optionId), "Option doesn't belong to this pool", "Option data not cleared correctly");
         await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
     });
 
     it("Withdraw ERC721", async () => {
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.withdrawERC721.sendTransaction(testNft.address, [1001], metadata(lp)),
-            "Token is not in the pool",
+            "NftIsInvalid",
             "Token is locked or is not in the pool");
         await truffleAssert.reverts(
             pool.withdrawERC721.sendTransaction(testNft.address, [1002], metadata(admin)),

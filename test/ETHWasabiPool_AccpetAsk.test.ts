@@ -2,7 +2,7 @@ const truffleAssert = require('truffle-assertions');
 
 import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance, WasabiConduitInstance} from "../types/truffle-contracts";
 import { OptionIssued } from "../types/truffle-contracts/IWasabiPool";
-import { OptionRequest, OptionType, ZERO_ADDRESS, Ask } from "./util/TestTypes";
+import { PoolAsk, OptionType, ZERO_ADDRESS, Ask } from "./util/TestTypes";
 import { advanceTime, assertIncreaseInBalance, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth, signAskWithEIP712 } from "./util/TestUtils";
 
 const Signing = artifacts.require("Signing");
@@ -19,7 +19,7 @@ contract("ETHWasabiPool: AcceptAsk", accounts => {
     let testNft: TestERC721Instance;
     let pool: ETHWasabiPoolInstance;
     let optionId: BN | string;
-    let request: OptionRequest;
+    let request: PoolAsk;
     let afterRoyaltyPayoutPercent: number;
 
     const lp = accounts[2];

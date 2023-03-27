@@ -4,14 +4,44 @@
 
 * Read our [White Paper](Wasabi%20Whitepaper.pdf) to see how the general idea works
 
-## Local Development
+## 1. Prerequisite
+You should have already installed the following things beforehand:
 
-1. [Download and Install VSCode](https://code.visualstudio.com/download)
+- [Node JS](https://nodejs.org/en/)
+- Truffle
 
-## Running Tests
+  ```node
+  npm i -g truffle
+  ```
 
-To run tests run
+- [Git Bash](https://git-scm.com/downloads)
+- [Download and Install VSCode](https://code.visualstudio.com/download)
+
+## 2. Running Tests
+- Once you have completed all the steps from the [Prerequisite](./README.md#1-Prerequisite), go ahead and install the rest of the dependencies.
+
+```node
+npm install
 ```
+- This will install all the other dependencies listed on `package.json`
+
+To generate `types` the following scripts can be used.
+
+```
+// For generating the types.
+npm run generate-types
+
+// For compiling and generating the types.
+npm run postinstall
+```
+
+
+- To compile and test the contract, the following scripts can be used. 
+
+```
+// For compiling the contracts.
+truffle compile
+
+// For testing the contracts.
 truffle test
 ```
-

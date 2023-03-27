@@ -1,7 +1,7 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, fromWei, signBidWithEIP712, signAskWithEIP712 } from "./util/TestUtils";
-import { Ask, Bid, OptionData, OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, fromWei, signBidWithEIP712, signAskWithEIP712, expectRevertCustomError } from "./util/TestUtils";
+import { Ask, Bid, OptionData, PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { TestAzukiInstance } from "../types/truffle-contracts/TestAzuki.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -27,7 +27,7 @@ contract("WasabiConduit ERC20", accounts => {
     let poolAddress: string;
     let pool: ERC20WasabiPoolInstance;
     let optionId: BN;
-    let request: OptionRequest;
+    let request: PoolAsk;
     let conduit: WasabiConduitInstance;
     let afterRoyaltyPayoutPercent: number;
     let testAzukiInstance: TestAzukiInstance;
@@ -61,7 +61,7 @@ contract("WasabiConduit ERC20", accounts => {
         await testNft.mint(metadata(buyer));
         await testNft.mint(metadata(buyer));
 
-        afterRoyaltyPayoutPercent = 1 - (await option.royaltyPercent()).toNumber() / 100;
+        afterRoyaltyPayoutPercent = 1;
     });
     
     it("Create Pool", async () => {
@@ -112,9 +112,9 @@ contract("WasabiConduit ERC20", accounts => {
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
         request.id = request.id + 1;
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             conduit.buyOption(request, await signRequest(request, lp), metadata(buyer)),
-            "Token is locked",
+            "RequestNftIsLocked",
             "Cannot (re)write an option for a locked asset");
     });
 
@@ -195,6 +195,35 @@ contract("WasabiConduit ERC20", accounts => {
         assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), price * afterRoyaltyPayoutPercent, 'Seller incorrect balance change')
     });
 
+    it("Accept bid: Invalid liquidity address", async () => {
+        const price = 1;
+        let optionOwner = await option.ownerOf(optionId);
+
+        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+        const optionData: OptionData = await pool.getOptionData(optionId);
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const bid: Bid = {
+            id: 2,
+            price: toEth(price),
+            tokenAddress: token.address,
+            collection: testNft.address,
+            orderExpiry: Number(blockTimestamp) + 20,
+            buyer,
+            optionType: optionData.optionType,
+            strikePrice: optionData.strikePrice,
+            expiry: optionData.expiry,
+            expiryAllowance: 0,
+            optionTokenAddress: '0x0000000000000000000000000000000000000000',
+        };
+
+        const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
+        truffleAssert.reverts(
+            conduit.acceptBid(optionId, pool.address, bid, signature, metadata(optionOwner)),
+            "Option liquidity doesn't match"
+        )
+    });
+
     it("Accept bid", async () => {
         const price = 1;
         let optionOwner = await option.ownerOf(optionId);
@@ -214,6 +243,7 @@ contract("WasabiConduit ERC20", accounts => {
             strikePrice: optionData.strikePrice,
             expiry: optionData.expiry,
             expiryAllowance: 0,
+            optionTokenAddress: token.address,
         };
 
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
@@ -245,10 +275,11 @@ contract("WasabiConduit ERC20", accounts => {
             strikePrice: toEth(strikePrice),
             expiry: Number(blockTimestamp) + 20000,
             expiryAllowance: 0,
+            optionTokenAddress: token.address,
         };
 
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
-        await truffleAssert.reverts(conduit.poolAcceptBid(bid, signature, metadata(lp)), "Pool is not valid");
+        await truffleAssert.reverts(conduit.poolAcceptBid(bid, signature, 0, metadata(lp)), "Pool is not valid");
     });
 
     it("Cancel ask", async () => {
@@ -268,7 +299,13 @@ contract("WasabiConduit ERC20", accounts => {
         };
 
         const signature = await signAskWithEIP712(ask, conduit.address, buyerPrivateKey);
-        const cancelAskResult = await conduit.cancelAsk(ask, signature);
+
+        await truffleAssert.reverts(
+            conduit.cancelAsk(ask, signature, metadata(someoneElse)),
+            "Only the signer can cancel",
+            "Can execute cancelled ask"
+        );
+        const cancelAskResult = await conduit.cancelAsk(ask, signature, metadata(buyer));
         truffleAssert.eventEmitted(cancelAskResult, "AskCancelled", null, "Ask wasn't cancelled");
 
         await truffleAssert.reverts(
@@ -298,10 +335,11 @@ contract("WasabiConduit ERC20", accounts => {
             strikePrice: optionData.strikePrice,
             expiry: optionData.expiry,
             expiryAllowance: 0,
+            optionTokenAddress: token.address,
         };
 
         const signature = await signBidWithEIP712(bid, conduit.address, someoneElsePrivateKey); // buyer signs it
-        const cancelBidResult = await conduit.cancelBid(bid, signature);
+        const cancelBidResult = await conduit.cancelBid(bid, signature, metadata(someoneElse));
         truffleAssert.eventEmitted(cancelBidResult, "BidCancelled", null, "Bid wasn't cancelled");
 
         await truffleAssert.reverts(

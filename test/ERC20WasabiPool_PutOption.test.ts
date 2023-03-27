@@ -8,8 +8,8 @@ import {
     DemoETHInstance
 } from "../types/truffle-contracts";
 import { OptionExecuted, OptionIssued } from "../types/truffle-contracts/IWasabiPool";
-import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { assertIncreaseInBalance, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth } from "./util/TestUtils";
+import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
+import { assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth } from "./util/TestUtils";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -27,7 +27,7 @@ contract("Erc20WasabiPool: PutOption", accounts => {
     let tokenToSell: BN;
     let pool: ETHWasabiPoolInstance;
     let optionId: BN;
-    let request: OptionRequest;
+    let request: PoolAsk;
 
     const lp = accounts[2];
     const buyer = accounts[3];
@@ -126,9 +126,9 @@ contract("Erc20WasabiPool: PutOption", accounts => {
             "Cannot write CALL options");
 
         request = makeRequest(id, pool.address, OptionType.PUT, initialPoolBalance * 5, premium, expiry, 0, orderExpiry); // strike price too high
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
-            "Not enough ETH available to lock",
+            "InsufficientAvailableLiquidity",
             "Cannot write option strike price is higher than available balance");
 
         request = makeRequest(id, pool.address, OptionType.PUT, strikePrice, premium * 2, expiry, 0, orderExpiry);
@@ -139,16 +139,18 @@ contract("Erc20WasabiPool: PutOption", accounts => {
 
         request = makeRequest(id, pool.address, OptionType.PUT, strikePrice, premium, expiry, 0, orderExpiry);
 
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption.sendTransaction(request, await signRequest(request, buyer), metadata(buyer, premium)),
-            "Signature not valid",
-            "Only caller or admin can issue options");
+            'InvalidSignature',
+            "Only caller or admin can issue options"
+        );
 
         const request2 = makeRequest(id, pool.address, OptionType.PUT, strikePrice, 0.1, expiry, 0, orderExpiry);
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption.sendTransaction(request2, await signRequest(request, lp), metadata(buyer, premium)),
-            "Signature not valid",
-            "Signed object and provided object are different");
+            'InvalidSignature',
+            "Signed object and provided object are different"
+        );
     });
 
     it("Write Option (only owner)", async () => {
@@ -224,10 +226,9 @@ contract("Erc20WasabiPool: PutOption", accounts => {
     });
 
     it("Withdraw ERC721", async () => {
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.withdrawERC721.sendTransaction(testNft.address, [otherToken], metadata(lp)),
-            "Token is not in the pool",
-            "Token is not in the pool");
+            "NftIsInvalid");
         await truffleAssert.reverts(
             pool.withdrawERC721.sendTransaction(testNft.address, [tokenToSell], {from: buyer}),
             "caller is not the owner",

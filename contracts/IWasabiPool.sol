@@ -11,11 +11,30 @@ import "./lib/WasabiStructs.sol";
  * @dev Required interface of an WasabiPool compliant contract.
  */
 interface IWasabiPool is IERC165, IERC721Receiver {
+    /**
+     * @dev Thrown when an order that has been filled or cancelled is being acted upon
+     */
+    error OrderFilledOrCancelled();
 
     /**
-     * @dev Thrown when an invalid token is received
+     * @dev Thrown when a signature is invalid
      */
-    error InvalidToken();
+    error InvalidSignature();
+
+    /**
+     * @dev Thrown when there is no sufficient available liquidity left in the pool for issuing a PUT option
+     */
+    error InsufficientAvailableLiquidity();
+
+    /**
+     * @dev Thrown when the requested NFT for a CALL is already locked for another option
+     */
+    error RequestNftIsLocked();
+
+    /**
+     * @dev Thrown when the NFT is not in the pool or invalid
+     */
+    error NftIsInvalid();
 
     /**
      * @dev Emitted when `admin` is changed.
@@ -73,12 +92,12 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     event PoolSettingsChanged();
 
     /**
-     * @dev Returns the address of the commodity
+     * @dev Returns the address of the nft
      */
-    function getCommodityAddress() external view returns(address);
+    function getNftAddress() external view returns(address);
 
     /**
-     * @dev Returns the address of the commodity
+     * @dev Returns the address of the nft
      */
     function getLiquidityAddress() external view returns(address);
 
@@ -86,7 +105,7 @@ interface IWasabiPool is IERC165, IERC721Receiver {
      * @dev Writes an option for the given rule and buyer.
      * TODO: return the option id
      */
-    function writeOption(WasabiStructs.OptionRequest calldata _request, bytes calldata _signature) external payable;
+    function writeOption(WasabiStructs.PoolAsk calldata _request, bytes calldata _signature) external payable;
 
     /**
      * @dev Executes the option for the given id.
@@ -186,4 +205,9 @@ interface IWasabiPool is IERC165, IERC721Receiver {
      * @dev Returns 'true' if the option for the given id is valid and active, 'false' otherwise
      */
     function isValid(uint256 _optionId) view external returns(bool);
+
+    /**
+     * @dev Checks if _tokenId unlocked
+     */
+    function isAvailableTokenId(uint256 _tokenId) external view returns(bool);
 }

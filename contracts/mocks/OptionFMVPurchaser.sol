@@ -23,7 +23,7 @@ contract OptionFMVPurchaser is Ownable, ReentrancyGuard {
     function buyOption(
         uint256 _optionId,
         address _poolAddress,
-        WasabiStructs.OptionRequest calldata _request,
+        WasabiStructs.PoolAsk calldata _request,
         bytes calldata _signature
     ) external nonReentrant {
         // 1. Validate Signature

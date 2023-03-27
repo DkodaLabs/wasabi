@@ -29,6 +29,7 @@ contract("ConduitSignatureVerifier ERC20", (accounts) => {
       strikePrice: 1000,
       expiry: Number(blockTimestamp) + 20000,
       expiryAllowance: 0,
+      optionTokenAddress: "0x0000000000000000000000000000000000000000"
     };
 
     const signatureForBid = await signBidWithEIP712(
@@ -59,6 +60,7 @@ contract("ConduitSignatureVerifier ERC20", (accounts) => {
       strikePrice: 1000,
       expiry: Number(blockTimestamp) + 20000,
       expiryAllowance: 0,
+      optionTokenAddress: "0x0000000000000000000000000000000000000000"
     };
 
     const signatureForBid = await signBidWithEIP712(

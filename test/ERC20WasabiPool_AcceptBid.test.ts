@@ -1,7 +1,7 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, signBidWithEIP712, signAskWithEIP712, fromWei } from "./util/TestUtils";
-import { OptionRequest, OptionType, ZERO_ADDRESS ,Bid, Ask} from "./util/TestTypes";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, signBidWithEIP712, expectRevertCustomError } from "./util/TestUtils";
+import { PoolAsk, OptionType, ZERO_ADDRESS ,Bid } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiConduitInstance } from "../types/truffle-contracts";
@@ -26,8 +26,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
     let poolAddress: string;
     let pool: ERC20WasabiPoolInstance;
     let optionId: BN;
-    let request: OptionRequest;
-    let afterRoyaltyPayoutPercent: number;
+    let request: PoolAsk;
 
     const owner = accounts[0];
     const lp = accounts[2];
@@ -44,10 +43,10 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         poolFactory = await WasabiPoolFactory.deployed();
         conduit = await WasabiConduitFactory.deployed();
         await option.setFactory(poolFactory.address);
-        await conduit.setOption(option.address);
         await conduit.setPoolFactoryAddress(poolFactory.address);
-        poolFactory.setConduitAddress(conduit.address);
-
+        await conduit.setOption(option.address);
+        await poolFactory.setConduitAddress(conduit.address);
+        
         await token.mint(metadata(buyer));
         await token.mint(metadata(lp));
 
@@ -59,7 +58,6 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         await testNft.mint(metadata(buyer));
         await testNft.mint(metadata(buyer));
 
-        afterRoyaltyPayoutPercent = 1 - (await option.royaltyPercent()).toNumber() / 100;
     });
     
     it("Create Pool", async () => {
@@ -105,6 +103,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             strikePrice: toEth(strikePrice),
             expiry: Number(blockTimestamp) + 20000,
             expiryAllowance: 0,
+            optionTokenAddress: token.address
         };
 
         const tokenIds = await pool.getAllTokenIds();
@@ -146,6 +145,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             strikePrice: toEth(strikePrice),
             expiry: Number(blockTimestamp) + 20000,
             expiryAllowance: 0,
+            optionTokenAddress: token.address
         };
 
         // Factory Owner Sets Conduit Address
@@ -179,6 +179,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             strikePrice: toEth(strikePrice),
             expiry: Number(blockTimestamp) + 20000,
             expiryAllowance: 0,
+            optionTokenAddress: token.address
         };
 
         // Factory Owner Sets Conduit Address
@@ -207,6 +208,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             strikePrice: toEth(strikePrice),
             expiry: Number(blockTimestamp) + 20000,
             expiryAllowance: 0,
+            optionTokenAddress: token.address
         };
         let tokenId = 0;
 
@@ -215,7 +217,9 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         await conduit.setPoolFactoryAddress(poolFactory.address);
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
 
-        await truffleAssert.reverts(pool.acceptBidWithTokenId(bid, signature, tokenId, metadata(lp)), "WasabiPool: tokenId is not valid");
+        await expectRevertCustomError(
+            pool.acceptBidWithTokenId(bid, signature, tokenId, metadata(lp)),
+            "NftIsInvalid");
     });
 
     it("Accept Call Bid with not owner - (only owner)", async () => {
@@ -233,6 +237,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             strikePrice: toEth(strikePrice),
             expiry: Number(blockTimestamp) + 20000,
             expiryAllowance: 0,
+            optionTokenAddress: token.address
         };
 
         let tokenId = 0;

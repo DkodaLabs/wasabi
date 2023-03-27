@@ -2,8 +2,8 @@ const truffleAssert = require('truffle-assertions');
 
 import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance } from "../types/truffle-contracts";
 import { OptionIssued } from "../types/truffle-contracts/IWasabiPool";
-import { OptionRequest, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { advanceTime, assertIncreaseInBalance, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth } from "./util/TestUtils";
+import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
+import { advanceTime, assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth } from "./util/TestUtils";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -19,7 +19,7 @@ contract("ETHWasabiPool: Expiring PutOption execution", accounts => {
     let tokenToSell: BN;
     let pool: ETHWasabiPoolInstance;
     let optionId: BN | string;
-    let request: OptionRequest;
+    let request: PoolAsk;
 
     const lp = accounts[2];
     const buyer = accounts[3];
@@ -110,9 +110,9 @@ contract("ETHWasabiPool: Expiring PutOption execution", accounts => {
         await assertIncreaseInBalance(lp, lpInitialBalance, toBN(availableBalance).sub(gasOfTxn(withdrawETHResult.receipt)));
         assert.equal(await web3.eth.getBalance(pool.address), '0', "Incorrect balance in pool");
 
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.withdrawETH(availableBalance, metadata(lp)),
-            "Not enough ETH available to withdraw",
+            "InsufficientAvailableLiquidity",
             "Cannot withdraw ETH if there is none");
     });
 });

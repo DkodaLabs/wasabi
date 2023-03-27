@@ -21,7 +21,7 @@ export interface OptionData {
     tokenId: BN;
 }
 
-export interface OptionRequest {
+export interface PoolAsk {
     id: number;
     poolAddress: string;
     optionType: number | BN | string;
@@ -47,6 +47,7 @@ export interface Bid {
     strikePrice: number | BN | string;
     expiry: number | BN | string;
     expiryAllowance: number | BN | string;
+    optionTokenAddress: string;
 }
 
 export interface Ask {

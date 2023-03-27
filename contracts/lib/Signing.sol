@@ -11,7 +11,7 @@ library Signing {
     /**
      * @dev Returns the message hash for the given request
      */
-    function getMessageHash(WasabiStructs.OptionRequest calldata _request) public pure returns (bytes32) {
+    function getMessageHash(WasabiStructs.PoolAsk calldata _request) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 _request.id,
@@ -65,7 +65,7 @@ library Signing {
     }
 
     function getSigner(
-        WasabiStructs.OptionRequest calldata _request,
+        WasabiStructs.PoolAsk calldata _request,
         bytes memory signature
     ) public pure returns (address) {
         bytes32 messageHash = getMessageHash(_request);

@@ -8,7 +8,7 @@ interface IWasabiPoolFactory {
     /**
      * @dev Emitted when there is a new pool created
      */
-    event NewPool(address poolAddress, address indexed commodityAddress, address indexed owner);
+    event NewPool(address poolAddress, address indexed nftAddress, address indexed owner);
 
     /**
      * @dev Isses option to the given target
@@ -28,10 +28,15 @@ interface IWasabiPoolFactory {
     /**
      * @dev Checks if the pool for the given address is enabled.
      */
-    function isValidPool(address _poolAddress) external returns(bool);
+    function isValidPool(address _poolAddress) external view returns(bool);
 
     /**
-     * @dev Returns WasabiConduit Contract Address.
+     * @dev Returns IWasabiConduit Contract Address.
      */
-    function getConduitAddress() external returns(address);
+    function getConduitAddress() external view returns(address);
+
+    /**
+     * @dev Returns IWasabiFeeManager Contract Address.
+     */
+    function getFeeManager() external view returns(address);
 }

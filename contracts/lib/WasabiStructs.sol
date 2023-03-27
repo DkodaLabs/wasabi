@@ -13,9 +13,10 @@ library WasabiStructs {
         uint256 premium;
         uint256 expiry;
         uint256 tokenId; // Tokens to deposit for CALL options
+        bool active;
     }
 
-    struct OptionRequest {
+    struct PoolAsk {
         uint256 id;
         address poolAddress;
         OptionType optionType;
@@ -44,6 +45,7 @@ library WasabiStructs {
         uint256 strikePrice;
         uint256 expiry;
         uint256 expiryAllowance;
+        address optionTokenAddress;
     }
 
     struct Ask {

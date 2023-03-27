@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceTime } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, signRequest,gasOfTxn, assertIncreaseInBalance, advanceTime } from "./util/TestUtils";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -32,6 +32,8 @@ contract("OptionFMVPurchaser", accounts => {
     const buyer = accounts[3];
     const someoneElse = accounts[5];
     const duration = 10000;
+    const lpPrivateKey = "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1";
+
 
     before("Prepare State", async function () {
         optionFMVPurchaser = await OptionFMVPurchaser.deployed();
@@ -86,7 +88,8 @@ contract("OptionFMVPurchaser", accounts => {
     });
 
     it("Issue Option", async () => {
-        const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer));
+        const signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        const writeOptionResult = await pool.writeOption(request, signature, metadata(buyer));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
         assert.equal(await token.balanceOf(pool.address), request.premium, "Incorrect balance in pool");
 
@@ -100,6 +103,7 @@ contract("OptionFMVPurchaser", accounts => {
 
     it("Buyback", async () => {
         const deployer = await optionFMVPurchaser.owner();
+        console.log(deployer, "XX");
         const optionData = await pool.getOptionData(optionId);
 
         const id = 1;

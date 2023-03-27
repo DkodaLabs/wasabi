@@ -327,6 +327,51 @@ export const signAskWithEIP712 = async (
   return signature;
 };
 
+
+export const signPoolAskWithEIP712 = async (
+  request: PoolAsk,
+  verifyingContract: string,
+  privateKey: string
+) => {
+  const domain = {
+    name: "PoolAskSignature",
+    version: "1",
+    chainId: await web3.eth.getChainId(),
+    verifyingContract,
+  };
+
+  const typeData = {
+    types: {
+      EIP712Domain: [
+        { name: "name", type: "string" },
+        { name: "version", type: "string" },
+        { name: "chainId", type: "uint256" },
+        { name: "verifyingContract", type: "address" },
+      ],
+      PoolAsk: [
+        { name: "id", type: "uint256" },
+        { name: "poolAddress", type: "address" },
+        { name: "optionType", type: "uint8" },
+        { name: "strikePrice", type: "uint256" },
+        { name: "premium", type: "uint256" },
+        { name: "expiry", type: "uint256" },
+        { name: "tokenId", type: "uint256" },
+        { name: "orderExpiry", type: "uint256" },
+      ],
+    },
+    primaryType: "PoolAsk",
+    domain,
+    message: request,
+  };
+  const signature = ethUtil.signTypedData(
+    Buffer.from(privateKey, "hex"),
+    {
+      data: typeData as any,
+    }
+  );
+  return signature;
+};
+
 export const gasOfTxn = (receipt: TransactionReceipt): BN => {
   const gasUsed = toBN(receipt.gasUsed);
   const gasPrice = toBN(receipt.effectiveGasPrice);

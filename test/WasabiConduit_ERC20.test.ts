@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, fromWei, signBidWithEIP712, signAskWithEIP712, expectRevertCustomError } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, fromWei, signBidWithEIP712, signAskWithEIP712, expectRevertCustomError } from "./util/TestUtils";
 import { Ask, Bid, OptionData, PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { TestAzukiInstance } from "../types/truffle-contracts/TestAzuki.js";
@@ -37,6 +37,9 @@ contract("WasabiConduit ERC20", accounts => {
     const someoneElse = accounts[5];
     const buyerPrivateKey = "c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c";
     const someoneElsePrivateKey = "659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63";
+    const lpPrivateKey = "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1";
+
+    let signature;
 
     before("Prepare State", async function () {
         conduit = await WasabiConduit.deployed();
@@ -103,8 +106,11 @@ contract("WasabiConduit ERC20", accounts => {
 
         await token.approve(conduit.address, toEth(premium * 10), metadata(buyer));
 
-        optionId = await conduit.buyOption.call(request, await signRequest(request, lp), metadata(buyer));
-        await conduit.buyOption(request, await signRequest(request, lp), metadata(buyer));
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        optionId = await conduit.buyOption.call(request, signature, metadata(buyer));
+
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        await conduit.buyOption(request, signature, metadata(buyer));
         assert.equal(await token.balanceOf(pool.address), request.premium, "Incorrect balance in pool");
 
         assert.equal(await option.ownerOf(optionId), buyer, "Buyer not the owner of option");
@@ -112,8 +118,9 @@ contract("WasabiConduit ERC20", accounts => {
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
         request.id = request.id + 1;
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await expectRevertCustomError(
-            conduit.buyOption(request, await signRequest(request, lp), metadata(buyer)),
+            conduit.buyOption(request, signature, metadata(buyer)),
             "RequestNftIsLocked",
             "Cannot (re)write an option for a locked asset");
     });
@@ -151,7 +158,9 @@ contract("WasabiConduit ERC20", accounts => {
         let orderExpiry = timestamp + 10000;
         request = makeRequest(request.id, pool.address, OptionType.CALL, 10, 1, expiry, 1002, orderExpiry);
         await token.approve(pool.address, request.premium, metadata(buyer));
-        const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer));
+
+        const signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        const writeOptionResult = await pool.writeOption(request, signature, metadata(buyer));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
         assert.equal(
             (await token.balanceOf(poolAddress)).toString(),

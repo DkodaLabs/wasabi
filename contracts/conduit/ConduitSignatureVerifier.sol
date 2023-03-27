@@ -48,7 +48,7 @@ abstract contract ConduitSignatureVerifier {
     /**
      * @dev Creates the hash of the Bid for this validator
      *
-     * @param _bid hash
+     * @param _bid to hash
      * @return the bid domain
      */
     function hashForBid(
@@ -165,7 +165,7 @@ abstract contract ConduitSignatureVerifier {
     /**
      * @dev Checks the signer of the given signature for the given ask is the given signer
      *
-     * @param _ask the bid to validate
+     * @param _ask the ask to validate
      * @param _signature the signature to validate
      * @param _signer the signer to validate
      * @return true if the signature belongs to the signer, false otherwise

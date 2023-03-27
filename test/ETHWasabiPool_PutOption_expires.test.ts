@@ -3,7 +3,7 @@ const truffleAssert = require('truffle-assertions');
 import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance } from "../types/truffle-contracts";
 import { OptionIssued } from "../types/truffle-contracts/IWasabiPool";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { advanceTime, assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth } from "./util/TestUtils";
+import { advanceTime, assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeConfig, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -24,6 +24,7 @@ contract("ETHWasabiPool: Expiring PutOption execution", accounts => {
     const lp = accounts[2];
     const buyer = accounts[3];
     const someoneElse = accounts[5];
+    const lpPrivateKey = "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1";
 
     const initialPoolBalance = 20;
     const strikePrice = 10;
@@ -72,7 +73,8 @@ contract("ETHWasabiPool: Expiring PutOption execution", accounts => {
         let expiry = timestamp + duration;
         let orderExpiry = timestamp + duration;
         request = makeRequest(id, pool.address, OptionType.PUT, strikePrice, premium, expiry, 0, orderExpiry);
-        const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1));
+        const signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        const writeOptionResult = await pool.writeOption(request, signature, metadata(buyer, 1));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
         await assertIncreaseInBalance(pool.address, toBN(toEth(initialPoolBalance)), toBN(request.premium));
 

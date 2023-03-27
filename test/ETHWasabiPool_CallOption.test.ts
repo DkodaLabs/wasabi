@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceTime, expectRevertCustomError, withBid, withBidNumber } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, gasOfTxn, assertIncreaseInBalance, advanceTime, expectRevertCustomError, withBid, withBidNumber } from "./util/TestUtils";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -26,7 +26,11 @@ contract("ETHWasabiPool: CallOption", accounts => {
     const lp = accounts[2];
     const buyer = accounts[3];
     const someoneElse = accounts[5];
+    const lpPrivateKey = "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1";
+    const someoneElsePrivateKey = "659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63";
     const duration = 1000;
+
+    let signature;
 
     before("Prepare State", async function () {
         testNft = await TestERC721.deployed();
@@ -66,40 +70,46 @@ contract("ETHWasabiPool: CallOption", accounts => {
         let orderExpiry = timestamp - 1000;
 
         request = makeRequest(id, pool.address, OptionType.CALL, 0, 1, expiry, 1001, orderExpiry); // no strike price in request
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await truffleAssert.reverts(
-            pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1)),
+            pool.writeOption(request, signature, metadata(buyer, 1)),
             "WasabiPool: Order has expired",
             "WasabiPool: Order has expired");
 
         orderExpiry = timestamp + duration;
 
         request = makeRequest(id, pool.address, OptionType.CALL, 0, 1, expiry, 1001, orderExpiry); // no strike price in request
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await truffleAssert.reverts(
-            pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1)),
+            pool.writeOption(request, signature, metadata(buyer, 1)),
             "Strike price must be set",
             "Strike price must be set");
         
         request = makeRequest(id, pool.address, OptionType.CALL, 10, 0, expiry, 1001, orderExpiry); // no premium in request
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await truffleAssert.reverts(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer)),
             "Not enough premium is supplied",
             "Cannot write option when premium is 0");
         
         request = makeRequest(id, pool.address, OptionType.PUT, 10, 1, expiry, 1001, orderExpiry); // incorrect option type
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await truffleAssert.reverts(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, 1)),
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer, 1)),
             "Option type is not allowed",
             "Cannot issue PUT option");
 
         request = makeRequest(id, pool.address, OptionType.CALL, 10, 1, expiry, 1001, orderExpiry);
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await truffleAssert.reverts(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, 0.5)), // not sending enough premium
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer, 0.5)), // not sending enough premium
             "Not enough premium is supplied",
             "Premium paid doesn't match the premium of the request");
 
         const request2 = makeRequest(id + 1, pool.address, OptionType.CALL, 9, 1, expiry, 1001, orderExpiry);
+        signature = await signPoolAskWithEIP712(request2, pool.address, someoneElsePrivateKey);
         await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request, await signRequest(request2, someoneElse), metadata(buyer, 1)),
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer, 1)),
             "InvalidSignature",
             "Signed object and provided object are different");
 
@@ -109,14 +119,16 @@ contract("ETHWasabiPool: CallOption", accounts => {
             "InvalidSignature",
             "Invalid signature");
 
+        signature = await signPoolAskWithEIP712(request, pool.address, someoneElsePrivateKey);
         await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request, await signRequest(request, someoneElse), metadata(buyer, 1)),
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer, 1)),
             "InvalidSignature",
             "Must be signed by owner");
     });
 
     it("Write Option (only owner)", async () => {
-        const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1));
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        const writeOptionResult = await pool.writeOption(request, signature, metadata(buyer, 1));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
         assert.equal(await web3.eth.getBalance(pool.address), request.premium, "Incorrect balance in pool");
 
@@ -128,8 +140,10 @@ contract("ETHWasabiPool: CallOption", accounts => {
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
         request.id = request.id + 1;
+
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, 1)),
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer, 1)),
             "RequestNftIsLocked",
             "Cannot (re)write an option for a locked asset");
     });
@@ -163,7 +177,9 @@ contract("ETHWasabiPool: CallOption", accounts => {
         let expiry = timestamp + duration;
         let orderExpiry = timestamp + duration;
         request = makeRequest(request.id + 1, pool.address, OptionType.CALL, 10, 1, expiry, 1002, orderExpiry);
-        const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1));
+
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        const writeOptionResult = await pool.writeOption(request, signature, metadata(buyer, 1));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
         assert.equal(
             await web3.eth.getBalance(pool.address),

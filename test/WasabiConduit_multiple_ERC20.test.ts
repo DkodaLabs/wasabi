@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceTime, expectRevertCustomError } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, gasOfTxn, assertIncreaseInBalance, advanceTime, expectRevertCustomError } from "./util/TestUtils";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -32,6 +32,10 @@ contract("WasabiConduit Multibuy ERC20", accounts => {
     const lp = accounts[2];
     const buyer = accounts[3];
     const someoneElse = accounts[5];
+    const lpPrivateKey = "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1";
+
+    let signature;
+
     const strike = 10;
     const premium = 1;
 
@@ -99,7 +103,8 @@ contract("WasabiConduit Multibuy ERC20", accounts => {
 
         const signatures = [] as string[];
         for (let i = 0; i < requests.length; i++) {
-            signatures.push(await signRequest(requests[i], lp));   
+            signature = await signPoolAskWithEIP712(requests[i], pool.address, lpPrivateKey);
+            signatures.push(signature);   
         }
 
         optionIds = await conduit.buyOptions.call(requests, [], signatures, metadata(buyer));
@@ -118,8 +123,9 @@ contract("WasabiConduit Multibuy ERC20", accounts => {
             assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
             requests[i].id = requests[i].id + 2;
+            signature = await signPoolAskWithEIP712(requests[i], pool.address, lpPrivateKey);
             await expectRevertCustomError(
-                conduit.buyOption(requests[i], await signRequest(requests[i], lp), metadata(buyer)),
+                conduit.buyOption(requests[i], await signature, metadata(buyer)),
                 "RequestNftIsLocked",
                 "Cannot (re)write an option for a locked asset");
         }

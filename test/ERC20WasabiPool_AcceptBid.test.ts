@@ -43,6 +43,9 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         poolFactory = await WasabiPoolFactory.deployed();
         conduit = await WasabiConduitFactory.deployed();
         await option.setFactory(poolFactory.address);
+        await conduit.setPoolFactoryAddress(poolFactory.address);
+        await conduit.setOption(option.address);
+        await poolFactory.setConduitAddress(conduit.address);
         
         await token.mint(metadata(buyer));
 

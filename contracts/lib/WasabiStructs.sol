@@ -13,6 +13,7 @@ library WasabiStructs {
         uint256 premium;
         uint256 expiry;
         uint256 tokenId; // Tokens to deposit for CALL options
+        bool active;
     }
 
     struct PoolAsk {

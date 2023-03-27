@@ -19,7 +19,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     using EnumerableSet for EnumerableSet.UintSet;
 
     // Pool metadata
-    IWasabiPoolFactory private factory;
+    IWasabiPoolFactory public factory;
     IERC721 private optionNFT;
     IERC721 private nft;
     address private admin;
@@ -142,7 +142,8 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             _request.strikePrice,
             _request.premium,
             _request.expiry,
-            _request.tokenId
+            _request.tokenId,
+            true
         );
         options[optionId] = optionData;
 
@@ -258,7 +259,8 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             _bid.strikePrice,
             _bid.price,
             _bid.expiry,
-            _tokenId
+            _tokenId,
+            true
         );
         options[_optionId] = optionData;
         optionIds.add(_optionId);
@@ -327,8 +329,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
                 payAddress(_msgSender(), optionData.strikePrice);
             }
         }
-        delete options[_optionId];
-        optionIds.remove(_optionId);
+        options[_optionId].active = false;
         factory.burnOption(_optionId);
     }
 
@@ -379,7 +380,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         if (!optionIds.contains(_optionId)) {
             return false;
         }
-        return getOptionData(_optionId).expiry >= block.timestamp;
+        return options[_optionId].active && options[_optionId].expiry >= block.timestamp;
     }
 
     /// @inheritdoc IWasabiPool
@@ -418,9 +419,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
     /// @inheritdoc IWasabiPool
     function getOptionData(uint256 _optionId) public view returns(WasabiStructs.OptionData memory) {
-        if (!optionIds.contains(_optionId)) {
-            revert NftIsInvalid();
-        }
         return options[_optionId];
     }
 

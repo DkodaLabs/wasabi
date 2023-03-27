@@ -21,17 +21,19 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
     ETHWasabiPool private immutable templatePool;
     ERC20WasabiPool private immutable templateERC20Pool;
 
-    address private conduit;
+    address public conduit;
+    address public feeManager;
 
     mapping (address => bool) private poolAddresses;
 
     /**
      * @dev Initializes a new WasabiPoolFactory
      */
-    constructor(WasabiOption _options, ETHWasabiPool _templatePool, ERC20WasabiPool _templateERC20Pool) public {
+    constructor(WasabiOption _options, ETHWasabiPool _templatePool, ERC20WasabiPool _templateERC20Pool, address _feeManager) {
         options = _options;
         templatePool = _templatePool;
         templateERC20Pool = _templateERC20Pool;
+        feeManager = _feeManager;
     }
 
     /**
@@ -124,6 +126,13 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
         conduit = _conduit;
     }
 
+    /**
+     * @dev sets the IWasabiFeeManager address
+     */
+    function setFeeManager(address _feeManager) external onlyOwner {
+        feeManager = _feeManager;
+    }
+
     /// @inheritdoc IWasabiPoolFactory
     function issueOption(address _target) external returns (uint256) {
         require(poolAddresses[msg.sender], "Only enabled pools can issue options");
@@ -150,6 +159,11 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
     /// @inheritdoc IWasabiPoolFactory
     function getConduitAddress() external view returns(address) {
         return conduit;
+    }
+
+    /// @inheritdoc IWasabiPoolFactory
+    function getFeeManager() external view returns(address) {
+        return feeManager;
     }
 
     receive() external payable {}

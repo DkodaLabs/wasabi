@@ -3,7 +3,9 @@ pragma solidity >=0.4.25 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import "../IWasabiPoolFactory.sol";
 import "../AbstractWasabiPool.sol";
+import "../fees/IWasabiFeeManager.sol";
 
 /**
  * An ERC20 backed implementation of the IWasabiPool.
@@ -36,12 +38,25 @@ contract ERC20WasabiPool is AbstractWasabiPool {
     /// @inheritdoc AbstractWasabiPool
     function validateAndWithdrawPayment(uint256 _premium, string memory _message) internal override {
         require(token.allowance(_msgSender(), address(this)) >= _premium && _premium > 0, _message);
+
+        IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
+        (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _premium);
+
         token.transferFrom(_msgSender(), address(this), _premium);
+        if (feeAmount > 0) {
+            token.transferFrom(_msgSender(), feeReceiver, feeAmount);
+        }
     }
 
     /// @inheritdoc AbstractWasabiPool
     function payAddress(address _seller, uint256 _amount) internal override {
-        token.transfer(_seller, _amount);
+        IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
+        (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _amount);
+
+        token.transfer(_seller, _amount - feeAmount);
+        if (feeAmount > 0) {
+            token.transferFrom(_msgSender(), feeReceiver, feeAmount);
+        }
     }
     
     /// @inheritdoc IWasabiPool

@@ -2,15 +2,16 @@
 pragma solidity >=0.4.25 <0.9.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
 import "../IWasabiPool.sol";
 import "../IWasabiPoolFactory.sol";
 import "../IWasabiConduit.sol";
 import "../WasabiOption.sol";
 import "./ConduitSignatureVerifier.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract WasabiConduit is
     Ownable,
@@ -38,7 +39,7 @@ contract WasabiConduit is
     WasabiOption private option;
     uint256 private lastToken;
     uint256 public maxOptionsToBuy;
-    mapping(bytes => bool) idToFinalizedOrCancelled;
+    mapping(bytes => bool) public idToFinalizedOrCancelled;
     address private factory;
 
     // bool private useRoylaty
@@ -212,25 +213,29 @@ contract WasabiConduit is
     function poolAcceptBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature, uint256 _optionId) external {
         bytes memory id = getBidId(_bid);
 
+        address poolAddress = _msgSender();
         require(
             !idToFinalizedOrCancelled[id],
             "Order was finalized or cancelled"
         );
         
-        require(
-            IWasabiPoolFactory(factory).isValidPool(_msgSender()),
-            "Pool is not valid"
-        );
+        require(IWasabiPoolFactory(factory).isValidPool(_msgSender()), "Pool is not valid");
 
-        IWasabiPool pool = IWasabiPool(_msgSender());
+        IWasabiPool pool = IWasabiPool(poolAddress);
         validateBid(pool, _bid, _signature);
 
         IERC20 erc20 = IERC20(_bid.tokenAddress);
-        erc20.transferFrom(_bid.buyer, _msgSender(), _bid.price);
+
+        (address royaltyAddress, uint256 royaltyAmount) = option.royaltyInfo(_optionId, _bid.price);
+
+        if (royaltyAmount > 0) {
+            erc20.transferFrom(_bid.buyer, royaltyAddress, royaltyAmount);
+        }
+        erc20.transferFrom(_bid.buyer, poolAddress, _bid.price - royaltyAmount);
 
         idToFinalizedOrCancelled[id] = true;
 
-        emit BidTaken(_optionId, _bid.id, _bid.buyer, _msgSender());
+        emit BidTaken(_optionId, _bid.id, _bid.buyer, poolAddress);
     }
 
     /**

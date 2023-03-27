@@ -6,6 +6,7 @@ const ETHWasabiPool = artifacts.require("ETHWasabiPool");
 const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiConduit = artifacts.require("WasabiConduit");
+const WasabiFeeManager = artifacts.require("WasabiFeeManager");
 
 module.exports = function (deployer, _network, accounts) {
   deployer.deploy(WasabiStructs)
@@ -17,6 +18,7 @@ module.exports = function (deployer, _network, accounts) {
     .then(() => deployer.deploy(ETHWasabiPool))
     .then(() => deployer.deploy(ERC20WasabiPool))
     .then(() => deployer.deploy(WasabiConduit))
+    .then(() => deployer.deploy(WasabiFeeManager))
     .then(() => deployer.link(WasabiValidation, WasabiPoolFactory))
-    .then(() => deployer.deploy(WasabiPoolFactory, WasabiOption.address, ETHWasabiPool.address, ERC20WasabiPool.address));
+    .then(() => deployer.deploy(WasabiPoolFactory, WasabiOption.address, ETHWasabiPool.address, ERC20WasabiPool.address, WasabiFeeManager.address));
 };

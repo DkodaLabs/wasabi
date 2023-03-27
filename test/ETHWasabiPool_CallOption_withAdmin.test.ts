@@ -196,12 +196,6 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
         assert.equal(transferLog.args.to, ZERO_ADDRESS, "Token wasn't burned");
         assert.equal(transferLog.args.tokenId.toString(), optionId.toString(), "Incorrect option was burned");
 
-
-        await expectRevertCustomError(
-            pool.getOptionData(optionId),
-            "NftIsInvalid",
-            "Option data not cleared correctly"
-        );
         await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
     });
 

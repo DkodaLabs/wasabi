@@ -61,7 +61,7 @@ contract("WasabiConduit ERC20", accounts => {
         await testNft.mint(metadata(buyer));
         await testNft.mint(metadata(buyer));
 
-        afterRoyaltyPayoutPercent = 1 - (await option.royaltyPercent()).toNumber() / 100;
+        afterRoyaltyPayoutPercent = 1;
     });
     
     it("Create Pool", async () => {

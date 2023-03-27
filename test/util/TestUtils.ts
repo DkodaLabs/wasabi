@@ -9,13 +9,24 @@ import {
 } from "./TestTypes";
 
 import * as ethUtil from "eth-sig-util";
-import { type } from "os";
-import { WasabiConduitInstance } from "../../types/truffle-contracts";
 
 export const fromWei = (value: string | BN): number => {
   return Number(web3.utils.fromWei(value, "ether"));
 };
 
+export const withBid = (value: number | BN | string): BN => {
+  return toBN(value).mul(toBN(1));
+};
+
+export const withBidNumber = (value: number): number => {
+  return value;
+};
+export const toEthWithBid = (value: string | number): string => {
+  return web3.utils.toWei(`${Number(value)}`, "ether");
+};
+export const minusBid = (value: string | number): string => {
+  return web3.utils.toWei(`${Number(value)}`, "ether");
+};
 export const toEth = (value: string | number): string => {
   return web3.utils.toWei(`${value}`, "ether");
 };

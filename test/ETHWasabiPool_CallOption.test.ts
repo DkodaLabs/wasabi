@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceTime, expectRevertCustomError } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, gasOfTxn, assertIncreaseInBalance, advanceTime, expectRevertCustomError, withBid, withBidNumber } from "./util/TestUtils";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -179,11 +179,6 @@ contract("ETHWasabiPool: CallOption", accounts => {
         assert.equal(transferLog.args.to, ZERO_ADDRESS, "Token wasn't burned");
         assert.equal(transferLog.args.tokenId.toString(), optionId.toString(), "Incorrect option was burned");
 
-        await expectRevertCustomError(
-            pool.getOptionData(optionId),
-            "NftIsInvalid",
-            "Option data not cleared correctly"
-        );
         await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
     });
 

@@ -6,21 +6,21 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
+import "./IWasabiPoolFactory.sol";
+import "./fees/IWasabiFeeManager.sol";
+
 /**
  * @dev An ERC721 which tracks Wasabi Option positions of accounts
  */
 contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
     address private factory;
     uint256 private _currentId = 100;
-    uint public royaltyPercent;
     string private _baseURIextended;
 
     /**
      * @dev Constructs WasabiOption
      */
-    constructor() ERC721("Wasabi Option NFTs", "WASAB") public {
-        royaltyPercent = 2;
-    }
+    constructor() ERC721("Wasabi Option NFTs", "WASAB") {}
 
     /**
      * @dev Sets the owning factory
@@ -61,14 +61,10 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
     }
 
     /// @inheritdoc IERC2981
-    function royaltyInfo(uint256 _tokenId, uint256 _salePrice) external view returns (address, uint256 royaltyAmount) {
-        _tokenId; // silence solc warning
-        royaltyAmount = (_salePrice / 100) * royaltyPercent;
-        return (owner(), royaltyAmount);
-    }
-
-    function updateRoyalty(uint256 _royaltyPercent) external onlyOwner {
-        royaltyPercent = _royaltyPercent;
+    function royaltyInfo(uint256 _tokenId, uint256 _salePrice) external view returns (address, uint256) {
+        IWasabiPoolFactory _factory = IWasabiPoolFactory(factory);
+        IWasabiFeeManager feeManager = IWasabiFeeManager(_factory.getFeeManager());
+        return feeManager.getFeeDataForOption(_tokenId, _salePrice);
     }
     
     /// @inheritdoc IERC165

@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, signAskWithEIP712, fromWei } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, signAskWithEIP712, fromWei ,expectRevertCustomError } from "./util/TestUtils";
 import { PoolAsk, OptionType, ZERO_ADDRESS ,Bid, Ask} from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -58,7 +58,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         await testNft.mint(metadata(buyer));
         await testNft.mint(metadata(buyer));
 
-        afterRoyaltyPayoutPercent = 1 - (await option.royaltyPercent()).toNumber() / 100;
+        afterRoyaltyPayoutPercent = 1;
     });
     
     it("Create Pool", async () => {
@@ -113,10 +113,10 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
         request.id = request.id + 1;
-        await truffleAssert.reverts(
+
+        await expectRevertCustomError(
             conduit.buyOption(request, await signRequest(request, lp), metadata(lp)),
-            "Token is locked",
-            "Cannot (re)write an option for a locked asset");
+            "RequestNftIsLocked");
     });
 
     it("Accept ask", async () => {

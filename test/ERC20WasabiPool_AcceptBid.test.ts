@@ -245,34 +245,4 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
         await truffleAssert.reverts(pool.acceptBidWithTokenId(bid, signature, tokenId, metadata(buyer)), "Ownable: caller is not the owner");
     });
-
-    it("Write Option (only owner)", async () => {
-        const id = 1;
-        let blockNumber = await web3.eth.getBlockNumber();
-        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
-        let expiry = timestamp + 10000;
-        let orderExpiry = timestamp + 10000;
-        const premium = 1;
-        request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1003, orderExpiry);
-
-        await token.approve(conduit.address, toEth(premium * 10), metadata(lp));
-
-        const prev_pool_balance = await token.balanceOf(pool.address);
-        optionId = await conduit.buyOption.call(request, await signRequest(request, lp), metadata(lp));
-        await conduit.buyOption(request, await signRequest(request, lp), metadata(lp));
-
-        const after_pool_balance = await token.balanceOf(pool.address);
-        
-        assert.equal((prev_pool_balance.add(toBN(request.premium))).toString(), after_pool_balance.toString());
-
-        assert.equal(await option.ownerOf(optionId), lp, "Buyer not the owner of option");
-        const expectedOptionId = await pool.getOptionIdForToken(request.tokenId);
-        assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
-
-        request.id = request.id + 1;
-        await truffleAssert.reverts(
-            conduit.buyOption(request, await signRequest(request, lp), metadata(lp)),
-            "Token is locked",
-            "Cannot (re)write an option for a locked asset");
-    });
 });

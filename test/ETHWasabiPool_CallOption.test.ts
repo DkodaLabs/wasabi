@@ -71,10 +71,9 @@ contract("ETHWasabiPool: CallOption", accounts => {
 
         request = makeRequest(id, pool.address, OptionType.CALL, 0, 1, expiry, 1001, orderExpiry); // no strike price in request
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption(request, signature, metadata(buyer, 1)),
-            "WasabiPool: Order has expired",
-            "WasabiPool: Order has expired");
+            "HasExpired");
 
         orderExpiry = timestamp + duration;
 

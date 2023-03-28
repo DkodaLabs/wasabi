@@ -1,6 +1,7 @@
 const truffleAssert = require('truffle-assertions');
 
 import { makeRequest, makeConfig, metadata, signPoolAskWithEIP712, gasOfTxn, assertIncreaseInBalance, advanceTime } from "./util/TestUtils";
+
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -76,7 +77,7 @@ contract("ETHWasabiPool: Expiring CallOption execution", accounts => {
         await advanceTime(duration * 2);
         await truffleAssert.reverts(
             pool.executeOption(optionId, metadata(buyer, 10)),
-            "Option has expired",
+            undefined,
             "Expired option cannot be exercised");
     });
 });

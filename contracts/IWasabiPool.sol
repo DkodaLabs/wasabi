@@ -52,6 +52,11 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     error InvalidOptionType();
 
     /**
+     * @dev Thrown when an expired order or option is being exercised
+     */
+    error HasExpired();
+
+    /**
      * @dev Emitted when `admin` is changed.
      */
     event AdminChanged(address admin);
@@ -117,10 +122,18 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function getLiquidityAddress() external view returns(address);
 
     /**
-     * @dev Writes an option for the given rule and buyer.
-     * TODO: return the option id
+     * @dev Writes an option for the given ask.
      */
-    function writeOption(WasabiStructs.PoolAsk calldata _request, bytes calldata _signature) external payable;
+    function writeOption(
+        WasabiStructs.PoolAsk calldata _request, bytes calldata _signature
+    ) external payable returns (uint256);
+
+    /**
+     * @dev Writes an option for the given rule and buyer.
+     */
+    function writeOptionTo(
+        WasabiStructs.PoolAsk calldata _request, bytes calldata _signature, address _receiver
+    ) external payable returns (uint256);
 
     /**
      * @dev Executes the option for the given id.

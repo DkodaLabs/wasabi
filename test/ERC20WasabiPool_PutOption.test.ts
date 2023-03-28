@@ -106,10 +106,9 @@ contract("Erc20WasabiPool: PutOption", accounts => {
         orderExpiry = timestamp - 1000;
         request = makeRequest(id, pool.address, OptionType.PUT, 0, premium, expiry, 1001, orderExpiry); // no strike price in request
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption(request, signature, metadata(buyer)),
-            "WasabiPool: Order has expired",
-            "WasabiPool: Order has expired");
+            "HasExpired");
 
         orderExpiry = timestamp + duration;
 

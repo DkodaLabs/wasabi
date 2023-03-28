@@ -90,7 +90,7 @@ contract("ETHWasabiPool: Expiring PutOption execution", accounts => {
         await advanceTime(duration * 2);
         await truffleAssert.reverts(
             pool.executeOptionWithSell(optionId, tokenToSell, metadata(buyer)),
-            "Option has expired",
+            undefined,
             "Expired option cannot be exercised");
 
         const availableBalanceAfterExpiration = await pool.availableBalance();

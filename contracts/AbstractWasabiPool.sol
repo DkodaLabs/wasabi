@@ -294,6 +294,26 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     }
 
     /**
+     * @dev accepts the ask for LPs
+     */
+    function acceptAsk (
+        WasabiStructs.Ask calldata _ask,
+        bytes calldata _signature
+    ) external onlyOwner {
+
+        if (_ask.tokenAddress == this.getLiquidityAddress()) {
+            require(availableBalance() >= _ask.price, "WasabiPool: Not enough available balance to pay");
+        }
+
+        if (_ask.tokenAddress == address(0)) {
+            IWasabiConduit(factory.getConduitAddress()).acceptAsk{value: _ask.price}(_ask, _signature);
+        } else {
+            IERC20 erc20 = IERC20(_ask.tokenAddress);
+            erc20.approve(factory.getConduitAddress(), _ask.price);
+            IWasabiConduit(factory.getConduitAddress()).acceptAsk(_ask, _signature);
+        }
+    }
+    /**
      * @dev An abstract function to check available balance in this pool.
      */
     function availableBalance() view public virtual returns(uint256);

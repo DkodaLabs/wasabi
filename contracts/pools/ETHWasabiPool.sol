@@ -29,12 +29,15 @@ contract ETHWasabiPool is AbstractWasabiPool {
     }
 
     /// @inheritdoc AbstractWasabiPool
-    function validateAndWithdrawPayment(uint256 _premium, string memory _message) internal override {
-        require(msg.value == _premium && _premium > 0, _message);
-        
+    function validateAndWithdrawPayment(uint256 _premium, string memory _message) internal override {        
         IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
         (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _premium);
-        payable(feeReceiver).transfer(feeAmount);
+
+        require(msg.value >= (_premium + feeAmount) && _premium > 0, _message);
+
+        if (feeAmount > 0) {
+            payable(feeReceiver).transfer(feeAmount);
+        }
     }
 
     /// @inheritdoc AbstractWasabiPool
@@ -43,7 +46,9 @@ contract ETHWasabiPool is AbstractWasabiPool {
         (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _amount);
 
         payable(_seller).transfer(_amount - feeAmount);
-        payable(feeReceiver).transfer(feeAmount);
+        if (feeAmount > 0) {
+            payable(feeReceiver).transfer(feeAmount);
+        }
     }
 
     /// @inheritdoc IWasabiPool

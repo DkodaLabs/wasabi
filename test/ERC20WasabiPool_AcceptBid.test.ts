@@ -46,6 +46,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         await poolFactory.setConduitAddress(conduit.address);
         
         await token.mint(metadata(buyer));
+        await token.mint(metadata(lp));
 
         await testNft.mint(metadata(lp));
         await testNft.mint(metadata(lp));
@@ -54,6 +55,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         await testNft.mint(metadata(someoneElse));
         await testNft.mint(metadata(buyer));
         await testNft.mint(metadata(buyer));
+
     });
     
     it("Create Pool", async () => {
@@ -241,5 +243,4 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
         await truffleAssert.reverts(pool.acceptBidWithTokenId(bid, signature, tokenId, metadata(buyer)), "Ownable: caller is not the owner");
     });
-    
 });

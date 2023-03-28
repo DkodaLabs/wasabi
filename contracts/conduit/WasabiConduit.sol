@@ -79,15 +79,20 @@ contract WasabiConduit is
         bytes calldata _signature
     ) public payable returns (uint256) {
 
+        IWasabiFeeManager feeManager = IWasabiFeeManager(IWasabiPoolFactory(factory).getFeeManager());
+        (, uint256 feeAmount) = feeManager.getFeeData(_request.poolAddress, _request.premium);
+        uint256 amount = _request.premium + feeAmount;
+
         IWasabiPool pool = IWasabiPool(_request.poolAddress);
 
         if (pool.getLiquidityAddress() != address(0)) {
             IERC20 erc20 = IERC20(pool.getLiquidityAddress());
-            erc20.transferFrom(_msgSender(), address(this), _request.premium);
-            erc20.approve(_request.poolAddress, _request.premium);
+            erc20.transferFrom(_msgSender(), address(this), amount);
+            erc20.approve(_request.poolAddress, amount);
             pool.writeOption(_request, _signature);
         } else {
-            pool.writeOption{value: msg.value}(_request, _signature);
+            require(msg.value >= amount, "Not enough ETH supplied");
+            pool.writeOption{value: amount}(_request, _signature);
         }
 
         option.safeTransferFrom(address(this), _msgSender(), lastToken);

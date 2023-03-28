@@ -34,7 +34,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     EnumerableSet.UintSet private optionIds;
     mapping(uint256 => uint256) private tokenIdToOptionId;
     mapping(uint256 => WasabiStructs.OptionData) private options;
-    mapping(uint256 => bool) idToFilledOrCancelled;
+    mapping(uint256 => bool) public idToFilledOrCancelled;
 
     receive() external payable virtual {}
 
@@ -153,7 +153,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         optionIds.add(optionId);
         idToFilledOrCancelled[_request.id] = true;
 
-        emit OptionIssued(optionId);
+        emit OptionIssued(optionId, _request.id);
     }
 
     /**
@@ -264,7 +264,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         options[_optionId] = optionData;
         optionIds.add(_optionId);
 
-        emit OptionIssued(_optionId);
+        emit OptionIssued(_optionId, 0);
         IWasabiConduit(factory.getConduitAddress()).poolAcceptBid(_bid, _signature, _optionId);
         return _optionId;
     }
@@ -292,6 +292,26 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         return acceptBidWithTokenId(_bid, _signature, _tokenId);
     }
 
+    /**
+     * @dev accepts the ask for LPs
+     */
+    function acceptAsk (
+        WasabiStructs.Ask calldata _ask,
+        bytes calldata _signature
+    ) external onlyOwner {
+
+        if (_ask.tokenAddress == this.getLiquidityAddress()) {
+            require(availableBalance() >= _ask.price, "WasabiPool: Not enough available balance to pay");
+        }
+
+        if (_ask.tokenAddress == address(0)) {
+            IWasabiConduit(factory.getConduitAddress()).acceptAsk{value: _ask.price}(_ask, _signature);
+        } else {
+            IERC20 erc20 = IERC20(_ask.tokenAddress);
+            erc20.approve(factory.getConduitAddress(), _ask.price);
+            IWasabiConduit(factory.getConduitAddress()).acceptAsk(_ask, _signature);
+        }
+    }
     /**
      * @dev An abstract function to check available balance in this pool.
      */
@@ -359,13 +379,13 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     }
 
     /// @inheritdoc IWasabiPool
-    function cancelRequest(uint256 _requestId) external {
+    function cancelPoolAsk(uint256 _requestId) external {
         require(admin == _msgSender() || owner() == _msgSender(), "WasabiPool: only admin or owner cancel");
         if (idToFilledOrCancelled[_requestId]) {
             revert OrderFilledOrCancelled();
         }
         idToFilledOrCancelled[_requestId] = true;
-        emit RequestCancelled(_requestId);
+        emit PoolAskCancelled(_requestId);
     }
 
     /// @inheritdoc IERC165

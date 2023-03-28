@@ -76,8 +76,6 @@ contract ERC20WasabiPool is AbstractWasabiPool {
 
     /// @inheritdoc IWasabiPool
     function withdrawERC20(IERC20 _token, uint256 _amount) external onlyOwner {
-        require(_amount > 0, "WasabiPool: Need to withdraw more than 0");
-
         bool isPoolToken = _token == token;
 
         if (isPoolToken && availableBalance() < _amount) {
@@ -93,7 +91,6 @@ contract ERC20WasabiPool is AbstractWasabiPool {
     
     /// @inheritdoc IWasabiPool
     function withdrawETH(uint256 _amount) external override payable onlyOwner {
-        require(_amount > 0, "WasabiPool: Need to withdraw more than 0");
         if (address(this).balance < _amount) {
             revert InsufficientAvailableLiquidity();
         }

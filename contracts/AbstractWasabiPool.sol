@@ -168,19 +168,28 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
         // 2. Validate Meta
         require(_request.orderExpiry >= block.timestamp, "WasabiPool: Order has expired");
+        
         require(_request.poolAddress == address(this), "WasabiPool: Signature doesn't belong to this pool");
         validateAndWithdrawPayment(_request.premium, "WasabiPool: Not enough premium is supplied");
 
         // 3. Request Validation
-        require(allowedTypes[_request.optionType], "WasabiPool: Option type is not allowed");
+        if (!allowedTypes[_request.optionType]) {
+            revert InvalidOptionType();
+        }
 
-        require(_request.strikePrice > 0, "WasabiPool: Strike price must be set");
-        require(_request.strikePrice >= poolConfiguration.minStrikePrice, "WasabiPool: Strike price is too small");
-        require(_request.strikePrice <= poolConfiguration.maxStrikePrice, "WasabiPool: Strike price is too large");
+        if (_request.strikePrice == 0 ||
+            _request.strikePrice < poolConfiguration.minStrikePrice ||
+            _request.strikePrice > poolConfiguration.maxStrikePrice)
+        {
+            revert InvalidStrike();
+        }
 
-        require(_request.expiry > 0, "WasabiPool: Expiry must be set");
-        require(_request.expiry >= poolConfiguration.minDuration + block.timestamp, "WasabiPool: Expiry is too small");
-        require(_request.expiry <= poolConfiguration.maxDuration + block.timestamp, "WasabiPool: Expiry is too large");
+        if (_request.expiry == 0 ||
+            _request.expiry < poolConfiguration.minDuration + block.timestamp ||
+            _request.expiry > poolConfiguration.maxDuration + block.timestamp)
+        {
+            revert InvalidExpiry();
+        }
 
         // 4. Type specific validation
         if (_request.optionType == WasabiStructs.OptionType.CALL) {
@@ -300,8 +309,8 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         bytes calldata _signature
     ) external onlyOwner {
 
-        if (_ask.tokenAddress == this.getLiquidityAddress()) {
-            require(availableBalance() >= _ask.price, "WasabiPool: Not enough available balance to pay");
+        if (_ask.tokenAddress == this.getLiquidityAddress() && availableBalance() < _ask.price) {
+            revert InsufficientAvailableLiquidity();
         }
 
         if (_ask.tokenAddress == address(0)) {

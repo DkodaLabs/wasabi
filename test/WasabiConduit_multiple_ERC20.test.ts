@@ -49,6 +49,7 @@ contract("WasabiConduit Multibuy ERC20", accounts => {
         await option.setFactory(poolFactory.address);
         await conduit.setOption(option.address);
         await conduit.setMaxOptionsToBuy(2);
+        await conduit.setPoolFactoryAddress(poolFactory.address);
         
         await token.mint(metadata(buyer));
 

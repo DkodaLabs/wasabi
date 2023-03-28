@@ -37,6 +37,21 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     error NftIsInvalid();
 
     /**
+     * @dev Thrown when the expiry of an ask is invalid for the pool
+     */
+    error InvalidExpiry();
+
+    /**
+     * @dev Thrown when the strike price of an ask is invalid for the pool
+     */
+    error InvalidStrike();
+
+    /**
+     * @dev Thrown when the option type of an ask is invalid for the pool
+     */
+    error InvalidOptionType();
+
+    /**
      * @dev Emitted when `admin` is changed.
      */
     event AdminChanged(address admin);

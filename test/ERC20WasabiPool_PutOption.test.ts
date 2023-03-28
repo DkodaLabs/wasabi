@@ -115,10 +115,9 @@ contract("Erc20WasabiPool: PutOption", accounts => {
 
         request = makeRequest(id, pool.address, OptionType.PUT, 0, premium, expiry, 0, orderExpiry); // no strike price in request
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey)
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption.sendTransaction(request, signature, metadata(buyer)),
-            "Strike price must be set",
-            "Strike price must be set");
+            "InvalidStrike");
         
         request = makeRequest(id, pool.address, OptionType.PUT, strikePrice, 0, expiry, 0, orderExpiry); // no premium in request
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey)
@@ -129,9 +128,10 @@ contract("Erc20WasabiPool: PutOption", accounts => {
 
         request = makeRequest(id, pool.address, OptionType.CALL, strikePrice, premium, expiry, 0, orderExpiry); // only PUT allowed
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey)
-        await truffleAssert.reverts(
+
+        await expectRevertCustomError(
             pool.writeOption.sendTransaction(request, signature, metadata(buyer)),
-            "Option type is not allowed",
+            "InvalidOptionType",
             "Cannot write CALL options");
 
         request = makeRequest(id, pool.address, OptionType.PUT, initialPoolBalance * 5, premium, expiry, 0, orderExpiry); // strike price too high

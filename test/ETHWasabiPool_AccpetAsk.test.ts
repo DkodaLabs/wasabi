@@ -3,7 +3,7 @@ const truffleAssert = require('truffle-assertions');
 import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance, WasabiConduitInstance} from "../types/truffle-contracts";
 import { OptionIssued } from "../types/truffle-contracts/IWasabiPool";
 import { PoolAsk, OptionType, ZERO_ADDRESS, Ask } from "./util/TestTypes";
-import { advanceTime, assertIncreaseInBalance, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth, signAskWithEIP712 } from "./util/TestUtils";
+import { advanceTime, assertIncreaseInBalance, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth, signAskWithEIP712, expectRevertCustomError } from "./util/TestUtils";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -126,7 +126,9 @@ contract("ETHWasabiPool: AcceptAsk", accounts => {
 
         const signature = await signAskWithEIP712(ask, conduit.address, lpPrivateKey);
 
-        await truffleAssert.reverts(pool.acceptAsk(ask, signature, metadata(lp)), "WasabiPool: Not enough available balance to pay");
+        await expectRevertCustomError(
+            pool.acceptAsk(ask, signature, metadata(lp)),
+            "InsufficientAvailableLiquidity");
     });
 
     it("Accept ask", async () => {

@@ -12,6 +12,7 @@ import "../IWasabiPoolFactory.sol";
 import "../IWasabiConduit.sol";
 import "../WasabiOption.sol";
 import "./ConduitSignatureVerifier.sol";
+import "../fees/IWasabiFeeManager.sol";
 
 contract WasabiConduit is
     Ownable,
@@ -41,8 +42,6 @@ contract WasabiConduit is
     uint256 public maxOptionsToBuy;
     mapping(bytes => bool) public idToFinalizedOrCancelled;
     address private factory;
-
-    // bool private useRoylaty
 
     /// @inheritdoc IWasabiConduit
     function buyOptions(
@@ -79,7 +78,8 @@ contract WasabiConduit is
         bytes calldata _signature
     ) public payable returns (uint256) {
 
-        IWasabiFeeManager feeManager = IWasabiFeeManager(IWasabiPoolFactory(factory).getFeeManager());
+        IWasabiPoolFactory poolFactory = IWasabiPoolFactory(factory);
+        IWasabiFeeManager feeManager = IWasabiFeeManager(poolFactory.getFeeManager());
         (, uint256 feeAmount) = feeManager.getFeeData(_request.poolAddress, _request.premium);
         uint256 amount = _request.premium + feeAmount;
 

@@ -110,10 +110,9 @@ contract("ETHWasabiPool: CallOption (with Admin)", accounts => {
         orderExpiry = timestamp + duration;
 
         request = makeRequest(id, pool.address, OptionType.CALL, 0, 1, expiry, 1001, orderExpiry); // no strike price in request
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption(request, await signRequest(request, admin), metadata(buyer, 1)),
-            "Strike price must be set",
-            "Strike price must be set");
+            "InvalidStrike");
         
         request = makeRequest(id, pool.address, OptionType.CALL, 10, 0, expiry, 1001, orderExpiry); // no premium in request
         await truffleAssert.reverts(

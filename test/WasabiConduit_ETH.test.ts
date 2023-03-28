@@ -40,6 +40,7 @@ contract("WasabiConduit ETH", accounts => {
         poolFactory = await WasabiPoolFactory.deployed();
         await option.setFactory(poolFactory.address);
 
+        await conduit.setPoolFactoryAddress(poolFactory.address);
         await conduit.setOption(option.address);
 
         await testNft.mint(metadata(lp));

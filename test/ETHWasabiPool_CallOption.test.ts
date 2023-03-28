@@ -74,10 +74,9 @@ contract("ETHWasabiPool: CallOption", accounts => {
         orderExpiry = timestamp + duration;
 
         request = makeRequest(id, pool.address, OptionType.CALL, 0, 1, expiry, 1001, orderExpiry); // no strike price in request
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1)),
-            "Strike price must be set",
-            "Strike price must be set");
+            "InvalidStrike");
         
         request = makeRequest(id, pool.address, OptionType.CALL, 10, 0, expiry, 1001, orderExpiry); // no premium in request
         await truffleAssert.reverts(
@@ -86,9 +85,9 @@ contract("ETHWasabiPool: CallOption", accounts => {
             "Cannot write option when premium is 0");
         
         request = makeRequest(id, pool.address, OptionType.PUT, 10, 1, expiry, 1001, orderExpiry); // incorrect option type
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, 1)),
-            "Option type is not allowed",
+            "InvalidOptionType",
             "Cannot issue PUT option");
 
         request = makeRequest(id, pool.address, OptionType.CALL, 10, 1, expiry, 1001, orderExpiry);

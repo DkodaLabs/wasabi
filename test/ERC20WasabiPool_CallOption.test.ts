@@ -106,10 +106,9 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         orderExpiry = timestamp + duration;
 
         request = makeRequest(id, pool.address, OptionType.CALL, 0, premium, expiry, 1001, orderExpiry); // no premium in request
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption(request, await signRequest(request, lp), metadata(buyer)),
-            "Strike price must be set",
-            "Strike price must be set");
+            "InvalidStrike");
         
         request = makeRequest(id, pool.address, OptionType.CALL, 10, 0, expiry, 1001, orderExpiry); // no premium in request
         await truffleAssert.reverts(

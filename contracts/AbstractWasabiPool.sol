@@ -8,10 +8,9 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./IWasabiPoolFactory.sol";
 import "./IWasabiConduit.sol";
-import "./lib/WasabiStructs.sol";
-import "./lib/WasabiValidation.sol";
-import "./lib/Signing.sol";
 import "./IWasabiPool.sol";
+import "./lib/WasabiValidation.sol";
+import "./lib/PoolAskVerifier.sol";
 /**
  * An base abstract implementation of the IWasabiPool which handles issuing and exercising options alond with state management.
  */
@@ -172,7 +171,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
      */
     function validate(WasabiStructs.PoolAsk calldata _request, bytes calldata _signature) internal {
         // 1. Validate Signature
-        address signer = Signing.getSigner(_request, _signature);
+        address signer = PoolAskVerifier.getSignerForPoolAsk(_request, _signature);
         if (signer == address(0) || (signer != admin && signer != owner())) {
             revert InvalidSignature();
         }

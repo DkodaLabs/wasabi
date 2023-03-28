@@ -3,7 +3,7 @@ const truffleAssert = require('truffle-assertions');
 import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance } from "../types/truffle-contracts";
 import { OptionExecuted, OptionIssued } from "../types/truffle-contracts/IWasabiPool";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeConfig, makeRequest, metadata, signRequest, toBN, toEth } from "./util/TestUtils";
+import { assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeConfig, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -24,11 +24,15 @@ contract("ETHWasabiPool: PutOption", accounts => {
     const lp = accounts[2];
     const buyer = accounts[3];
     const someoneElse = accounts[5];
+    const lpPrivateKey = "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1";
+    const someoneElsePrivateKey = "659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63";
     const duration = 10000;
 
     const initialPoolBalance = 20;
     const strikePrice = 10;
     const premium = 1;
+
+    let signature;
 
     before("Prepare State", async function () {
         testNft = await TestERC721.deployed();
@@ -73,55 +77,64 @@ contract("ETHWasabiPool: PutOption", accounts => {
         let orderExpiry = timestamp - 1000;
 
         request = makeRequest(id, pool.address, OptionType.CALL, 0, 1, expiry, 1001, orderExpiry); // no strike price in request
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await expectRevertCustomError(
-            pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1)),
+            pool.writeOption(request, signature, metadata(buyer, 1)),
             "HasExpired");
 
         orderExpiry = timestamp + duration;
 
         request = makeRequest(id, pool.address, OptionType.PUT, 0, premium, expiry, 0, orderExpiry); // no strike price in request
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, premium)),
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer, premium)),
             "InvalidStrike");
         
         request = makeRequest(id, pool.address, OptionType.PUT, strikePrice, 0, expiry, 0, orderExpiry); // no premium in request
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await truffleAssert.reverts(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer)),
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer)),
             "Not enough premium is supplied",
             "Cannot write option when premium is 0");
 
         request = makeRequest(id, pool.address, OptionType.CALL, strikePrice, premium, expiry, 0, orderExpiry); // only PUT allowed
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, premium)),
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer, premium)),
             "InvalidOptionType",
             "Cannot write CALL options");
 
         request = makeRequest(id, pool.address, OptionType.PUT, initialPoolBalance * 5, premium, expiry, 0, orderExpiry); // strike price too high
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, premium)),
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer, premium)),
             "InsufficientAvailableLiquidity",
             "Cannot write option strike price is higher than available balance");
 
         request = makeRequest(id, pool.address, OptionType.PUT, strikePrice, premium, expiry, 0, orderExpiry);
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await truffleAssert.reverts(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, premium / 2)), // not sending enough premium
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer, premium / 2)), // not sending enough premium
             "Not enough premium is supplied",
             "Premium paid doesn't match the premium of the request");
 
+        signature = await signPoolAskWithEIP712(request, pool.address, someoneElsePrivateKey);
         await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request, await signRequest(request, buyer), metadata(buyer, premium)),
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer, premium)),
             "InvalidSignature",
             "Only caller or admin can issue options");
 
         const request2 = makeRequest(id, pool.address, OptionType.PUT, strikePrice, 0.1, expiry, 0, orderExpiry);
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request2, await signRequest(request, lp), metadata(buyer, premium)),
+            pool.writeOption.sendTransaction(request2, signature, metadata(buyer, premium)),
             "InvalidSignature",
             "Signed object and provided object are different");
     });
 
     it("Write Option (only owner)", async () => {
-        const writeOptionResult = await pool.writeOption(request, await signRequest(request, lp), metadata(buyer, premium));
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        const writeOptionResult = await pool.writeOption(request, signature, metadata(buyer, premium));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Strike price wasn't locked")
 
         assert.equal(await web3.eth.getBalance(pool.address), toEth(initialPoolBalance + premium), "Incorrect total balance in pool");

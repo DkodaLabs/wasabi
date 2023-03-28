@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, makeRequest, makeConfig, metadata, signRequest, signAskWithEIP712, expectRevertCustomError } from "./util/TestUtils";
+import { toEth, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, signAskWithEIP712, expectRevertCustomError } from "./util/TestUtils";
 import { Ask, PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -31,7 +31,9 @@ contract("WasabiConduit ETH", accounts => {
     const someoneElse = accounts[5];
     const buyerPrivateKey = "c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c";
     const someoneElsePrivateKey = "659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63";
+    const lpPrivateKey = "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1";
 
+    let signature;
     before("Prepare State", async function () {
         conduit = await WasabiConduit.deployed();
         testNft = await TestERC721.deployed();
@@ -72,8 +74,9 @@ contract("WasabiConduit ETH", accounts => {
         const premium = 1;
         request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry);
 
-        optionId = await conduit.buyOption.call(request, await signRequest(request, lp), metadata(buyer, premium));
-        await conduit.buyOption(request, await signRequest(request, lp), metadata(buyer, premium));
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        optionId = await conduit.buyOption.call(request, signature, metadata(buyer, premium));
+        await conduit.buyOption(request, signature, metadata(buyer, premium));
 
         assert.equal(await web3.eth.getBalance(pool.address), request.premium, "Incorrect balance in pool");
 
@@ -82,8 +85,9 @@ contract("WasabiConduit ETH", accounts => {
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
         request.id = request.id + 1;
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request, await signRequest(request, lp), metadata(buyer, 1)),
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer, 1)),
             "RequestNftIsLocked",
             "Cannot (re)write an option for a locked asset");
     });

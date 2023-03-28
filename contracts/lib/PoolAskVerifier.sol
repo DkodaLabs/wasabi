@@ -1,25 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.4.25 <0.9.0;
+import "./Signing.sol";
 
-import "./lib/Signing.sol";
 /**
- * @dev A Wasabi pricing configuration signature validator.
+ * @dev Signature Verification for PoolAsk
  */
-contract PricingConfigValidator {
-
-    struct PricingConfiguration {
-        address poolAddress;
-        uint256 premiumMultiplierPercent;
-        uint256 blockNumber;
-    }
+library PoolAskVerifier {
 
     bytes32 constant EIP712DOMAIN_TYPEHASH =
         keccak256(
             "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
         );
-    bytes32 constant TYPEHASH =
+    bytes32 constant POOLASK_TYPEHASH =
         keccak256(
-            "PricingConfig(address poolAddress,uint256 premiumMultiplierPercent,uint256 blockNumber)"
+            "PoolAsk(uint256 id,address poolAddress,uint8 optionType,uint256 strikePrice,uint256 premium,uint256 expiry,uint256 tokenId,uint256 orderExpiry)"
         );
 
     /**
@@ -44,65 +38,71 @@ contract PricingConfigValidator {
     }
 
     /**
-     * @dev Creates the hash of the PricingConfiguration for this validator
+     * @dev Creates the hash of the PoolAsk for this validator
      *
-     * @param _config the configuration to hash
-     * @return the configuration domain
+     * @param _poolAsk to hash
+     * @return the poolAsk domain
      */
-    function hash(
-        PricingConfiguration memory _config
-    ) internal pure returns (bytes32) {
+    function hashForPoolAsk(
+        WasabiStructs.PoolAsk memory _poolAsk
+    ) public pure returns (bytes32) {
         return
             keccak256(
                 abi.encode(
-                    TYPEHASH,
-                    _config.poolAddress,
-                    _config.premiumMultiplierPercent,
-                    _config.blockNumber
+                    POOLASK_TYPEHASH,
+                    _poolAsk.id,
+                    _poolAsk.poolAddress,
+                    _poolAsk.optionType,
+                    _poolAsk.strikePrice,
+                    _poolAsk.premium,
+                    _poolAsk.expiry,
+                    _poolAsk.tokenId,
+                    _poolAsk.orderExpiry
                 )
             );
     }
 
     /**
-     * @dev Gets the signer of the given signature for the given pricing configuration
+     * @dev Gets the signer of the given signature for the given _poolAsk
      *
-     * @param _pricingConfig the pricing configuration to validate
+     * @param _poolAsk the ask to validate
      * @param _signature the signature to validate
      * @return address who signed the signature
      */
-    function getSigner(
-        PricingConfiguration memory _pricingConfig,
+    function getSignerForPoolAsk(
+        WasabiStructs.PoolAsk memory _poolAsk,
         bytes memory _signature
     ) public view returns (address) {
         bytes32 domainSeparator = hashDomain(
             WasabiStructs.EIP712Domain({
-                name: "PricingConfigValidator",
+                name: "PoolAskSignature",
                 version: "1",
                 chainId: getChainID(),
                 verifyingContract: address(this)
             })
         );
         bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", domainSeparator, hash(_pricingConfig))
+            abi.encodePacked("\x19\x01", domainSeparator, hashForPoolAsk(_poolAsk))
         );
         return Signing.recoverSigner(digest, _signature);
     }
 
     /**
-     * @dev Checks the signer of the given signature for the given pricing configuration is the given signer
+     * @dev Checks the signer of the given signature for the given poolAsk is the given signer
      *
-     * @param _pricingConfig the pricing configuration to validate
+     * @param _poolAsk the _poolAsk to validate
      * @param _signature the signature to validate
      * @param _signer the signer to validate
      * @return true if the signature belongs to the signer, false otherwise
      */
-    function verify(
-        PricingConfiguration calldata _pricingConfig,
+    function verifyPoolAsk(
+        WasabiStructs.PoolAsk memory _poolAsk,
         bytes memory _signature,
         address _signer
-    ) external view returns (bool) {
-        return getSigner(_pricingConfig, _signature) == _signer;
+    ) internal view returns (bool) {
+        return getSignerForPoolAsk(_poolAsk, _signature) == _signer;
     }
+
     /**
      * @return the current chain id
      */

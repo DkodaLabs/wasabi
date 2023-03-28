@@ -37,10 +37,12 @@ contract ERC20WasabiPool is AbstractWasabiPool {
 
     /// @inheritdoc AbstractWasabiPool
     function validateAndWithdrawPayment(uint256 _premium, string memory _message) internal override {
-        require(token.allowance(_msgSender(), address(this)) >= _premium && _premium > 0, _message);
-
         IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
         (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _premium);
+
+        require(
+            token.allowance(_msgSender(), address(this)) >= (_premium + feeAmount) && _premium > 0,
+            _message);
 
         token.transferFrom(_msgSender(), address(this), _premium);
         if (feeAmount > 0) {
@@ -55,7 +57,7 @@ contract ERC20WasabiPool is AbstractWasabiPool {
 
         token.transfer(_seller, _amount - feeAmount);
         if (feeAmount > 0) {
-            token.transferFrom(_msgSender(), feeReceiver, feeAmount);
+            token.transferFrom(_seller, feeReceiver, feeAmount);
         }
     }
     

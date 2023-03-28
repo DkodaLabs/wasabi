@@ -103,7 +103,6 @@ contract("OptionFMVPurchaser", accounts => {
 
     it("Buyback", async () => {
         const deployer = await optionFMVPurchaser.owner();
-        console.log(deployer, "XX");
         const optionData = await pool.getOptionData(optionId);
 
         const id = 1;

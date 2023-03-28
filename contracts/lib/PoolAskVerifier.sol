@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.4.25 <0.9.0;
-import "./lib/WasabiStructs.sol";
-import "./lib/Signing.sol";
+import "./Signing.sol";
 
-abstract contract PoolAskVerifier {
-    struct EIP712Domain {
-        string name;
-        string version;
-        uint256 chainId;
-        address verifyingContract;
-    }
+/**
+ * @dev Signature Verification for PoolAsk
+ */
+library PoolAskVerifier {
+
     bytes32 constant EIP712DOMAIN_TYPEHASH =
         keccak256(
             "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
@@ -26,7 +23,7 @@ abstract contract PoolAskVerifier {
      * @return the hashed domain
      */
     function hashDomain(
-        EIP712Domain memory _eip712Domain
+        WasabiStructs.EIP712Domain memory _eip712Domain
     ) internal pure returns (bytes32) {
         return
             keccak256(
@@ -77,7 +74,7 @@ abstract contract PoolAskVerifier {
         bytes memory _signature
     ) public view returns (address) {
         bytes32 domainSeparator = hashDomain(
-            EIP712Domain({
+            WasabiStructs.EIP712Domain({
                 name: "PoolAskSignature",
                 version: "1",
                 chainId: getChainID(),

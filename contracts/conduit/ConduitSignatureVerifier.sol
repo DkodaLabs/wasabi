@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.4.25 <0.9.0;
-import "../lib/WasabiStructs.sol";
 import "../lib/Signing.sol";
 
+/**
+ * @dev Signature Verification for Bid and Ask
+ */
 abstract contract ConduitSignatureVerifier {
-    struct EIP712Domain {
-        string name;
-        string version;
-        uint256 chainId;
-        address verifyingContract;
-    }
+
     bytes32 constant EIP712DOMAIN_TYPEHASH =
         keccak256(
             "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
@@ -31,7 +28,7 @@ abstract contract ConduitSignatureVerifier {
      * @return the hashed domain
      */
     function hashDomain(
-        EIP712Domain memory _eip712Domain
+        WasabiStructs.EIP712Domain memory _eip712Domain
     ) internal pure returns (bytes32) {
         return
             keccak256(
@@ -108,7 +105,7 @@ abstract contract ConduitSignatureVerifier {
         bytes memory _signature
     ) public view returns (address) {
         bytes32 domainSeparator = hashDomain(
-            EIP712Domain({
+            WasabiStructs.EIP712Domain({
                 name: "ConduitSignature",
                 version: "1",
                 chainId: getChainID(),
@@ -133,7 +130,7 @@ abstract contract ConduitSignatureVerifier {
         bytes memory _signature
     ) public view returns (address) {
         bytes32 domainSeparator = hashDomain(
-            EIP712Domain({
+            WasabiStructs.EIP712Domain({
                 name: "ConduitSignature",
                 version: "1",
                 chainId: getChainID(),

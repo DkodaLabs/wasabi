@@ -2,17 +2,10 @@
 pragma solidity >=0.4.25 <0.9.0;
 
 import "./lib/Signing.sol";
-
 /**
  * @dev A Wasabi pricing configuration signature validator.
  */
 contract PricingConfigValidator {
-    struct EIP712Domain {
-        string name;
-        string version;
-        uint256 chainId;
-        address verifyingContract;
-    }
 
     struct PricingConfiguration {
         address poolAddress;
@@ -36,7 +29,7 @@ contract PricingConfigValidator {
      * @return the hashed domain
      */
     function hashDomain(
-        EIP712Domain memory _eip712Domain
+        WasabiStructs.EIP712Domain memory _eip712Domain
     ) internal pure returns (bytes32) {
         return
             keccak256(
@@ -82,7 +75,7 @@ contract PricingConfigValidator {
         bytes memory _signature
     ) public view returns (address) {
         bytes32 domainSeparator = hashDomain(
-            EIP712Domain({
+            WasabiStructs.EIP712Domain({
                 name: "PricingConfigValidator",
                 version: "1",
                 chainId: getChainID(),

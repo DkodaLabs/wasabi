@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signRequest, signAskWithEIP712, fromWei ,expectRevertCustomError } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signAskWithEIP712, fromWei ,expectRevertCustomError, signPoolAskWithEIP712 } from "./util/TestUtils";
 import { PoolAsk, OptionType, ZERO_ADDRESS ,Bid, Ask} from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -17,7 +17,7 @@ const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
 const DemoETH = artifacts.require("DemoETH");
 
-contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
+contract("ERC20WasabiPool: Accept Ask From Pool", accounts => {
     let token: DemoETHInstance;
     let poolFactory: WasabiPoolFactoryInstance;
     let conduit: WasabiConduitInstance;
@@ -101,8 +101,9 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         await token.approve(conduit.address, toEth(premium * 10), metadata(lp));
 
         const prev_pool_balance = await token.balanceOf(pool.address);
-        optionId = await conduit.buyOption.call(request, await signRequest(request, lp), metadata(lp));
-        await conduit.buyOption(request, await signRequest(request, lp), metadata(lp));
+        let signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        optionId = await conduit.buyOption.call(request, signature, metadata(lp));
+        await conduit.buyOption(request, signature, metadata(lp));
 
         const after_pool_balance = await token.balanceOf(pool.address);
         
@@ -113,9 +114,9 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         assert.equal(expectedOptionId.toNumber(), optionId.toNumber(), "Option of token not correct");
 
         request.id = request.id + 1;
-
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await expectRevertCustomError(
-            conduit.buyOption(request, await signRequest(request, lp), metadata(lp)),
+            conduit.buyOption(request, signature, metadata(lp)),
             "RequestNftIsLocked");
     });
 

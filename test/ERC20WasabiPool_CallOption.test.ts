@@ -98,10 +98,9 @@ contract("ERC20WasabiPool: CallOption", accounts => {
 
         orderExpiry = timestamp - 1000;
         request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry); // no premium in request
-        await truffleAssert.reverts(
+        await expectRevertCustomError(
             pool.writeOption(request, await signRequest(request, lp), metadata(buyer, 1)),
-            "WasabiPool: Order has expired",
-            "WasabiPool: Order has expired");
+            "HasExpired");
 
         orderExpiry = timestamp + duration;
 

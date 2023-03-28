@@ -38,7 +38,6 @@ contract WasabiConduit is
     event AskCancelled(uint256 orderId, address seller);
 
     WasabiOption private option;
-    uint256 private lastToken;
     uint256 public maxOptionsToBuy;
     mapping(bytes => bool) public idToFinalizedOrCancelled;
     address private factory;
@@ -57,19 +56,20 @@ contract WasabiConduit is
             "Need to provide the same amount of signatures and requests"
         );
 
-        uint256[] memory tokenIds = new uint[](size);
+        uint256[] memory optionIds = new uint[](size);
         for (uint256 index = 0; index < _requests.length; index++) {
             uint256 tokenId = buyOption(_requests[index], _signatures[index]);
-            tokenIds[index] = tokenId;
+            optionIds[index] = tokenId;
         }
         for (uint256 index = 0; index < _asks.length; index++) {
+            uint256 sigIndex = index + _requests.length;
             uint256 tokenId = acceptAsk(
                 _asks[index],
-                _signatures[index + _requests.length]
+                _signatures[sigIndex]
             );
-            tokenIds[index] = tokenId;
+            optionIds[sigIndex] = tokenId;
         }
-        return tokenIds;
+        return optionIds;
     }
 
     /// @inheritdoc IWasabiConduit
@@ -89,14 +89,11 @@ contract WasabiConduit is
             IERC20 erc20 = IERC20(pool.getLiquidityAddress());
             erc20.transferFrom(_msgSender(), address(this), amount);
             erc20.approve(_request.poolAddress, amount);
-            pool.writeOption(_request, _signature);
+            return pool.writeOptionTo(_request, _signature, _msgSender());
         } else {
             require(msg.value >= amount, "Not enough ETH supplied");
-            pool.writeOption{value: amount}(_request, _signature);
+            return pool.writeOptionTo{value: amount}(_request, _signature, _msgSender());
         }
-
-        option.safeTransferFrom(address(this), _msgSender(), lastToken);
-        return lastToken;
     }
 
     /**
@@ -105,10 +102,9 @@ contract WasabiConduit is
     function onERC721Received(
         address /* operator */,
         address /* from */,
-        uint256 tokenId,
+        uint256 /* tokenId */,
         bytes memory /* data */
     ) public virtual override returns (bytes4) {
-        lastToken = tokenId;
         return this.onERC721Received.selector;
     }
 

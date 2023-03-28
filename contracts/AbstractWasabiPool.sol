@@ -130,13 +130,15 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     }
 
     /// @inheritdoc IWasabiPool
-    function writeOption(WasabiStructs.PoolAsk calldata _request, bytes calldata _signature) external payable nonReentrant {
+    function writeOptionTo(
+        WasabiStructs.PoolAsk calldata _request, bytes calldata _signature, address _receiver
+    ) public payable nonReentrant returns (uint256) {
         if (idToFilledOrCancelled[_request.id]) {
             revert OrderFilledOrCancelled();
         }
         validate(_request, _signature);
 
-        uint256 optionId = factory.issueOption(_msgSender());
+        uint256 optionId = factory.issueOption(_receiver);
         WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
             _request.optionType,
             _request.strikePrice,
@@ -155,6 +157,14 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         idToFilledOrCancelled[_request.id] = true;
 
         emit OptionIssued(optionId, _request.id);
+        return optionId;
+    }
+
+    /// @inheritdoc IWasabiPool
+    function writeOption(
+        WasabiStructs.PoolAsk calldata _request, bytes calldata _signature
+    ) external payable returns (uint256) {
+        return writeOptionTo(_request, _signature, _msgSender());
     }
 
     /**
@@ -168,7 +178,9 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         }
 
         // 2. Validate Meta
-        require(_request.orderExpiry >= block.timestamp, "WasabiPool: Order has expired");
+        if (_request.orderExpiry < block.timestamp) {
+            revert HasExpired();
+        }
         
         require(_request.poolAddress == address(this), "WasabiPool: Signature doesn't belong to this pool");
         validateAndWithdrawPayment(_request.premium, "WasabiPool: Not enough premium is supplied");
@@ -231,7 +243,9 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         require(_msgSender() == optionNFT.ownerOf(_optionId), "WasabiPool: Only the token owner can execute the option");
 
         WasabiStructs.OptionData memory optionData = options[_optionId];
-        require(optionData.expiry >= block.timestamp, "WasabiPool: Option has expired");
+        if (optionData.expiry < block.timestamp) {
+            revert HasExpired();
+        }
 
         if (optionData.optionType == WasabiStructs.OptionType.CALL) {
             validateAndWithdrawPayment(optionData.strikePrice, "WasabiPool: Strike price needs to be supplied to execute a CALL option");

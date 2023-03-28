@@ -57,7 +57,7 @@ contract ERC20WasabiPool is AbstractWasabiPool {
 
         token.transfer(_seller, _amount - feeAmount);
         if (feeAmount > 0) {
-            token.transferFrom(_seller, feeReceiver, feeAmount);
+            token.transfer(feeReceiver, feeAmount);
         }
     }
     

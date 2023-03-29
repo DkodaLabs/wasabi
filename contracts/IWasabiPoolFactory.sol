@@ -5,6 +5,16 @@ pragma solidity >=0.4.25 <0.9.0;
  * @dev Required interface of an WasabiPoolFactory compliant contract.
  */
 interface IWasabiPoolFactory {
+
+    /**
+     * @dev The States of Pools
+     */
+    enum PoolStates {
+        INVALID,
+        ACTIVE,
+        DISABLED
+    }
+
     /**
      * @dev Emitted when there is a new pool created
      */
@@ -21,9 +31,9 @@ interface IWasabiPoolFactory {
     function burnOption(uint256 _optionId) external;
 
     /**
-     * @dev Disables/enables the specified pool.
+     * @dev INVALID/ACTIVE/DISABLE the specified pool.
      */
-    function togglePool(address _poolAddress, bool _enabled) external;
+    function togglePool(address _poolAddress, PoolStates _poolState) external;
 
     /**
      * @dev Checks if the pool for the given address is enabled.

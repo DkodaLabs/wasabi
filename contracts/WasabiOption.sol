@@ -13,7 +13,8 @@ import "./fees/IWasabiFeeManager.sol";
  * @dev An ERC721 which tracks Wasabi Option positions of accounts
  */
 contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
-    address private factory;
+    
+    mapping(address => bool) private factoryAddresses;
     uint256 private _currentId = 100;
     string private _baseURIextended;
 
@@ -26,14 +27,14 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
      * @dev Sets the owning factory
      */
     function setFactory(address _factory) external onlyOwner {
-        factory = _factory;
+        factoryAddresses[_factory] = true;
     }
 
     /**
      * @dev Mints a new WasabiOption
      */
     function newMint(address to) external returns (uint256 mintedId) {
-        require(msg.sender == factory, "Only the factory can mint tokens");
+        require(factoryAddresses[msg.sender], "Only the factory can mint tokens");
 
         _safeMint(to, _currentId);
         mintedId = _currentId;
@@ -44,7 +45,7 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
      * @dev Burns the specified option
      */
     function burn(uint256 _optionId) external {
-        require(msg.sender == factory, "Only the factory can burn tokens");
+        require(factoryAddresses[msg.sender], "Only the factory can burn tokens");
         _burn(_optionId);
     }
 
@@ -62,9 +63,9 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
 
     /// @inheritdoc IERC2981
     function royaltyInfo(uint256 _tokenId, uint256 _salePrice) external view returns (address, uint256) {
-        IWasabiPoolFactory _factory = IWasabiPoolFactory(factory);
-        IWasabiFeeManager feeManager = IWasabiFeeManager(_factory.getFeeManager());
-        return feeManager.getFeeDataForOption(_tokenId, _salePrice);
+        // IWasabiPoolFactory _factory = IWasabiPoolFactory(factory);
+        // IWasabiFeeManager feeManager = IWasabiFeeManager(_factory.getFeeManager());
+        // return feeManager.getFeeDataForOption(_tokenId, _salePrice);
     }
     
     /// @inheritdoc IERC165

@@ -1,12 +1,13 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, signAskWithEIP712, expectRevertCustomError } from "./util/TestUtils";
+import { toEth, fromWei, gasOfTxn, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, signAskWithEIP712, expectRevertCustomError, toBN } from "./util/TestUtils";
 import { Ask, PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
 import { ETHWasabiPoolInstance } from "../types/truffle-contracts/ETHWasabiPool.js";
 import { WasabiConduitInstance } from "../types/truffle-contracts/WasabiConduit";
+import { WasabiFeeManagerInstance } from "../types/truffle-contracts/WasabiFeeManager";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -14,6 +15,7 @@ const WasabiOption = artifacts.require("WasabiOption");
 const ETHWasabiPool = artifacts.require("ETHWasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
 const WasabiConduit = artifacts.require("WasabiConduit");
+const WasabiFeeManager = artifacts.require("WasabiFeeManager");
 
 contract("WasabiConduit ETH", accounts => {
     let poolFactory: WasabiPoolFactoryInstance;
@@ -24,6 +26,8 @@ contract("WasabiConduit ETH", accounts => {
     let optionId: BN;
     let request: PoolAsk;
     let conduit: WasabiConduitInstance;
+    let feeManager: WasabiFeeManagerInstance;
+    let royaltyPayoutPercent = 20;
 
     const admin = accounts[0];
     const lp = accounts[2];
@@ -44,6 +48,10 @@ contract("WasabiConduit ETH", accounts => {
 
         await conduit.setPoolFactoryAddress(poolFactory.address);
         await conduit.setOption(option.address);
+        feeManager = await WasabiFeeManager.deployed();
+
+        // Set Fee
+        await feeManager.setFraction(royaltyPayoutPercent);
 
         await testNft.mint(metadata(lp));
         await testNft.mint(metadata(lp));
@@ -74,9 +82,10 @@ contract("WasabiConduit ETH", accounts => {
         const premium = 1;
         request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry);
 
+        const amount = (premium * (1000 + royaltyPayoutPercent)) / 1000;
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
-        optionId = await conduit.buyOption.call(request, signature, metadata(buyer, premium));
-        await conduit.buyOption(request, signature, metadata(buyer, premium));
+        optionId = await conduit.buyOption.call(request, signature, metadata(buyer, amount));
+        await conduit.buyOption(request, signature, metadata(buyer, amount));
 
         assert.equal(await web3.eth.getBalance(pool.address), request.premium, "Incorrect balance in pool");
 
@@ -87,7 +96,7 @@ contract("WasabiConduit ETH", accounts => {
         request.id = request.id + 1;
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request, signature, metadata(buyer, 1)),
+            pool.writeOption.sendTransaction(request, signature, metadata(buyer, amount)),
             "RequestNftIsLocked",
             "Cannot (re)write an option for a locked asset");
     });
@@ -110,9 +119,31 @@ contract("WasabiConduit ETH", accounts => {
 
         const signature = await signAskWithEIP712(ask, conduit.address, buyerPrivateKey);
 
+        // Fee Manager
+        const royaltyReceiver = await feeManager.owner()
+        const initialRoyaltyReceiverBalance = toBN(await web3.eth.getBalance(royaltyReceiver));
+
+        const initialBalanceBuyer = toBN(await web3.eth.getBalance(someoneElse));
+        const initialBalanceSeller = toBN(await web3.eth.getBalance(optionOwner));
+
         const acceptAskResult = await conduit.acceptAsk(ask, signature, metadata(someoneElse, price));
+
+        const finalBalanceBuyer = toBN(await web3.eth.getBalance(someoneElse));
+        const finalBalanceSeller = toBN(await web3.eth.getBalance(optionOwner));
+        const finalRoyaltyReceiverBalance = toBN(await web3.eth.getBalance(royaltyReceiver));
+
         truffleAssert.eventEmitted(acceptAskResult, "AskTaken", null, "Ask wasn't taken");
         assert.equal(await option.ownerOf(optionId), someoneElse, "Option not owned after buying");
+
+        const royaltyAmount = price * royaltyPayoutPercent / 1000;
+        const sellerAmount = price - royaltyAmount;
+
+        assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller).toString()), sellerAmount, 'Seller incorrect balance change')
+        assert.equal(fromWei(initialBalanceBuyer.sub(finalBalanceBuyer).toString()), price + fromWei(gasOfTxn(acceptAskResult.receipt)), 'Seller incorrect balance change')
+
+        // // Fee Manager
+        assert.equal(fromWei(finalRoyaltyReceiverBalance.sub(initialRoyaltyReceiverBalance).toString()), royaltyAmount, 'Fee receiver incorrect balance change')
+
     });
 
     it("Cancel ask", async () => {

@@ -14,6 +14,7 @@ import "./fees/IWasabiFeeManager.sol";
  */
 contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
     
+    address private lastFactory;
     mapping(address => bool) private factoryAddresses;
     uint256 private _currentId = 100;
     string private _baseURIextended;
@@ -28,6 +29,7 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
      */
     function setFactory(address _factory) external onlyOwner {
         factoryAddresses[_factory] = true;
+        lastFactory = _factory;
     }
 
     /**
@@ -63,9 +65,9 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
 
     /// @inheritdoc IERC2981
     function royaltyInfo(uint256 _tokenId, uint256 _salePrice) external view returns (address, uint256) {
-        // IWasabiPoolFactory _factory = IWasabiPoolFactory(factory);
-        // IWasabiFeeManager feeManager = IWasabiFeeManager(_factory.getFeeManager());
-        // return feeManager.getFeeDataForOption(_tokenId, _salePrice);
+        IWasabiPoolFactory _factory = IWasabiPoolFactory(lastFactory);
+        IWasabiFeeManager feeManager = IWasabiFeeManager(_factory.getFeeManager());
+        return feeManager.getFeeDataForOption(_tokenId, _salePrice);
     }
     
     /// @inheritdoc IERC165

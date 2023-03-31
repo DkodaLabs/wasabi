@@ -9,7 +9,7 @@ interface IWasabiPoolFactory {
     /**
      * @dev The States of Pools
      */
-    enum PoolStates {
+    enum PoolState {
         INVALID,
         ACTIVE,
         DISABLED
@@ -33,7 +33,7 @@ interface IWasabiPoolFactory {
     /**
      * @dev INVALID/ACTIVE/DISABLE the specified pool.
      */
-    function togglePool(address _poolAddress, PoolStates _poolState) external;
+    function togglePool(address _poolAddress, PoolState _poolState) external;
 
     /**
      * @dev Checks if the pool for the given address is enabled.

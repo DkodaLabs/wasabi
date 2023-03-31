@@ -57,7 +57,9 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
         IERC721 nft = IERC721(_nftAddress);
         pool.initialize(this, nft, options, _msgSender(), _poolConfiguration, _types, _admin);
         if (msg.value > 0) {
-            _poolAddress.transfer(msg.value);
+            (bool sent, ) = _poolAddress.call{value: msg.value}("");
+            require(sent, "Failed to send Ether");
+
         }
 
         poolAddresses[_poolAddress] = true;
@@ -98,7 +100,8 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
 
         pool.initialize(this, token, nft, options, _msgSender(), _poolConfiguration, _types, _admin);
         if (msg.value > 0) {
-            _poolAddress.transfer(msg.value);
+            (bool sent, ) = _poolAddress.call{value: msg.value}("");
+            require(sent, "Failed to send Ether");
         }
 
         poolAddresses[_poolAddress] = true;

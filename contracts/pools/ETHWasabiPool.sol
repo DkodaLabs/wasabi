@@ -36,7 +36,8 @@ contract ETHWasabiPool is AbstractWasabiPool {
         require(msg.value >= (_premium + feeAmount) && _premium > 0, _message);
 
         if (feeAmount > 0) {
-            payable(feeReceiver).transfer(feeAmount);
+            (bool _sent, ) = payable(feeReceiver).call{value: feeAmount}("");
+            require(_sent, "Failed to send Ether");
         }
     }
 
@@ -45,9 +46,11 @@ contract ETHWasabiPool is AbstractWasabiPool {
         IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
         (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _amount);
 
-        payable(_seller).transfer(_amount - feeAmount);
+        (bool sent, ) = payable(_seller).call{value: _amount - feeAmount}("");
+        require(sent, "Failed to send Ether");
         if (feeAmount > 0) {
-            payable(feeReceiver).transfer(feeAmount);
+            (bool _sent, ) = payable(feeReceiver).call{value: feeAmount}("");
+            require(_sent, "Failed to send Ether");
         }
     }
 
@@ -57,7 +60,8 @@ contract ETHWasabiPool is AbstractWasabiPool {
             revert InsufficientAvailableLiquidity();
         }
         address payable to = payable(_msgSender());
-        to.transfer(_amount);
+        (bool sent, ) = to.call{value: _amount}("");
+        require(sent, "Failed to send Ether");
 
         emit ETHWithdrawn(_amount);
     }

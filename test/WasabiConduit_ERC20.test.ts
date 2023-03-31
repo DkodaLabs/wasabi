@@ -50,7 +50,7 @@ contract("WasabiConduit ERC20", accounts => {
         poolFactory = await WasabiPoolFactory.deployed();
         testAzukiInstance = await TestAzuki.deployed();
 
-        await option.setFactory(poolFactory.address);
+        await option.toggleFactory(poolFactory.address, true);
         await conduit.setOption(option.address);
         await conduit.setPoolFactoryAddress(poolFactory.address);
         

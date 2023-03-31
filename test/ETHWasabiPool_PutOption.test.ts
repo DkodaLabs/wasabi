@@ -39,7 +39,7 @@ contract("ETHWasabiPool: PutOption", accounts => {
         await Signing.deployed();
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
-        await option.setFactory(poolFactory.address);
+        await option.toggleFactory(poolFactory.address, true);
 
         let mintResult = await testNft.mint(metadata(buyer));
         tokenToSell = mintResult.logs.find(e => e.event == 'Transfer')?.args[2] as BN;

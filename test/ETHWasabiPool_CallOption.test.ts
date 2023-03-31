@@ -37,7 +37,7 @@ contract("ETHWasabiPool: CallOption", accounts => {
         await Signing.deployed();
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
-        await option.setFactory(poolFactory.address);
+        await option.toggleFactory(poolFactory.address, true);
 
         await testNft.mint(metadata(lp));
         await testNft.mint(metadata(lp));

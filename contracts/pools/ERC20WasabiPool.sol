@@ -97,8 +97,9 @@ contract ERC20WasabiPool is AbstractWasabiPool {
 
         address payable to = payable(owner());
         (bool sent, ) = to.call{value: _amount}("");
-        require(sent, "Failed to send Ether");
-
+        if (!sent) {
+            revert IWasabiPool.FailedToSend();
+        }
         emit ETHWithdrawn(_amount);
     }
 }

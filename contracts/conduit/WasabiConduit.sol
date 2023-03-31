@@ -156,11 +156,15 @@ contract WasabiConduit is
             require(msg.value >= price, "Not enough ETH supplied");
             if (royaltyAmount > 0) {
                 (bool sent, ) = payable(royaltyAddress).call{value: royaltyAmount}("");
-                require(sent, "Failed to send Ether");
+                if (!sent) {
+                    revert IWasabiPool.FailedToSend();
+                }
                 price -= royaltyAmount;
             }
             (bool _sent, ) = payable(_ask.seller).call{value: price}("");
-            require(_sent, "Failed to send Ether");
+            if (!_sent) {
+                revert IWasabiPool.FailedToSend();
+            }
         } else {
             IERC20 erc20 = IERC20(_ask.tokenAddress);
             if (royaltyAmount > 0) {

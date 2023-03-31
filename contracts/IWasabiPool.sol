@@ -55,6 +55,11 @@ interface IWasabiPool is IERC165, IERC721Receiver {
      * @dev Thrown when an expired order or option is being exercised
      */
     error HasExpired();
+    
+    /**
+     * @dev Thrown when sending ETH failed
+     */
+    error FailedToSend();
 
     /**
      * @dev Emitted when `admin` is changed.

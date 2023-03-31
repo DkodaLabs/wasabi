@@ -37,7 +37,9 @@ contract ETHWasabiPool is AbstractWasabiPool {
 
         if (feeAmount > 0) {
             (bool _sent, ) = payable(feeReceiver).call{value: feeAmount}("");
-            require(_sent, "Failed to send Ether");
+            if (!_sent) {
+                revert IWasabiPool.FailedToSend();
+            }
         }
     }
 
@@ -47,10 +49,14 @@ contract ETHWasabiPool is AbstractWasabiPool {
         (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _amount);
 
         (bool sent, ) = payable(_seller).call{value: _amount - feeAmount}("");
-        require(sent, "Failed to send Ether");
+        if (!sent) {
+            revert IWasabiPool.FailedToSend();
+        }
         if (feeAmount > 0) {
             (bool _sent, ) = payable(feeReceiver).call{value: feeAmount}("");
-            require(_sent, "Failed to send Ether");
+            if (!_sent) {
+                revert IWasabiPool.FailedToSend();
+            }
         }
     }
 
@@ -61,7 +67,9 @@ contract ETHWasabiPool is AbstractWasabiPool {
         }
         address payable to = payable(_msgSender());
         (bool sent, ) = to.call{value: _amount}("");
-        require(sent, "Failed to send Ether");
+        if (!sent) {
+            revert IWasabiPool.FailedToSend();
+        }
 
         emit ETHWithdrawn(_amount);
     }

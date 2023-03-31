@@ -33,7 +33,7 @@ contract("ETHWasabiPool: Expiring CallOption execution", accounts => {
         testNft = await TestERC721.deployed();
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
-        await option.setFactory(poolFactory.address);
+        await option.toggleFactory(poolFactory.address, true);
 
         let mintResult = await testNft.mint(metadata(lp));
         tokenToSell = (mintResult.logs.find(e => e.event == 'Transfer')?.args[2] as BN).toNumber();

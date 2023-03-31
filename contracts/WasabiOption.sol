@@ -25,11 +25,11 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
     constructor() ERC721("Wasabi Option NFTs", "WASAB") {}
 
     /**
-     * @dev Sets the owning factory
+     * @dev Toggles the owning factory
      */
-    function setFactory(address _factory) external onlyOwner {
-        factoryAddresses[_factory] = true;
-        lastFactory = _factory;
+    function toggleFactory(address _factory, bool _enabled) external onlyOwner {
+        factoryAddresses[_factory] = _enabled;
+        if (_enabled) lastFactory = _factory;
     }
 
     /**

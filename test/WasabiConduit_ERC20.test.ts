@@ -57,7 +57,7 @@ contract("WasabiConduit ERC20", accounts => {
         // Set Fee
         await feeManager.setFraction(royaltyPayoutPercent);
 
-        await option.setFactory(poolFactory.address);
+        await option.toggleFactory(poolFactory.address, true);
         await conduit.setOption(option.address);
         await conduit.setPoolFactoryAddress(poolFactory.address);
         

@@ -29,7 +29,9 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
      */
     function toggleFactory(address _factory, bool _enabled) external onlyOwner {
         factoryAddresses[_factory] = _enabled;
-        if (_enabled) lastFactory = _factory;
+        if (_enabled) {
+            lastFactory = _factory;
+        }
     }
 
     /**
@@ -47,7 +49,7 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
      * @dev Burns the specified option
      */
     function burn(uint256 _optionId) external {
-        require(factoryAddresses[msg.sender], "Only the factory can burn tokens");
+        require(factoryAddresses[msg.sender] == true, "Only the factory can burn tokens");
         _burn(_optionId);
     }
 

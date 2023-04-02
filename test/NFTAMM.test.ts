@@ -49,7 +49,7 @@ contract("OptionFMVPurchaser", accounts => {
         poolFactory = await WasabiPoolFactory.deployed();
         arbitrageTool = await MockArbitrage.deployed();
 
-        await option.setFactory(poolFactory.address);
+        await option.toggleFactory(poolFactory.address, true);
         await token.mint(metadata(buyer));
         await token.issue(nftAmm.address, toEth(10000));
         await token.issue(arbitrageTool.address, toEth(100));

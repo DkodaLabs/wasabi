@@ -29,11 +29,18 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
     /**
      * @dev Initializes a new WasabiPoolFactory
      */
-    constructor(WasabiOption _options, ETHWasabiPool _templatePool, ERC20WasabiPool _templateERC20Pool, address _feeManager) {
+    constructor(
+        WasabiOption _options,
+        ETHWasabiPool _templatePool,
+        ERC20WasabiPool _templateERC20Pool,
+        address _feeManager,
+        address _conduit)
+    {
         options = _options;
         templatePool = _templatePool;
         templateERC20Pool = _templateERC20Pool;
         feeManager = _feeManager;
+        conduit = _conduit;
     }
 
     /**

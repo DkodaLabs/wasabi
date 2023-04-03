@@ -13,6 +13,11 @@ interface IWasabiErrors {
     error OrderFilledOrCancelled();
 
     /**
+     * @dev Thrown when someone tries to make an unauthorized request
+     */
+    error Unauthorized();
+
+    /**
      * @dev Thrown when a signature is invalid
      */
     error InvalidSignature();

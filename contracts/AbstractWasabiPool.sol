@@ -404,7 +404,9 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
     /// @inheritdoc IWasabiPool
     function cancelPoolAsk(uint256 _requestId) external {
-        require(admin == _msgSender() || owner() == _msgSender(), "WasabiPool: only admin or owner cancel");
+        if (_msgSender() != admin && _msgSender() != owner()) {
+            revert IWasabiErrors.Unauthorized();
+        }
         if (idToFilledOrCancelled[_requestId]) {
             revert IWasabiErrors.OrderFilledOrCancelled();
         }

@@ -12,11 +12,39 @@ import "../lib/Signing.sol";
 
 contract NFTAMM is IERC721Receiver, Ownable, ReentrancyGuard {
     address private demoEth;
+    uint256 public limitPerAddress;
+    mapping(address => uint256) public numBought;
 
     event Sale(address from, address to, uint256 tokenId, uint256 price);
 
     constructor(address _demoEth) {
         demoEth = _demoEth;
+        limitPerAddress = 10;
+    }
+
+    function setLimitPerAddress(uint256 _limitPerAddress) external onlyOwner {
+        limitPerAddress = _limitPerAddress;
+    }
+
+    function buyMultiple(MockStructs.AMMOrder calldata _order, bytes calldata _signature, uint256 _count) external nonReentrant {
+        uint256 newTotal = numBought[_msgSender()] + _count;
+
+        require(_count > 0, "Need to buy at least 1");
+        require(newTotal <= limitPerAddress, "Cannot buy that many NFTs");
+
+        validate(_order, _signature);
+
+        IERC721Enumerable nft = IERC721Enumerable(_order.collection);
+        IERC20 token = IERC20(demoEth);
+
+        token.transferFrom(_msgSender(), address(this), _order.price * _count);
+        require(nft.balanceOf(address(this)) >= _count, 'Not enough NFTs to sell');
+        for (uint256 i = 0; i < _count; i++) {
+            uint256 tokenId = nft.tokenOfOwnerByIndex(address(this), i);
+            nft.safeTransferFrom(address(this), _msgSender(), tokenId);
+        }
+
+        numBought[_msgSender()] = newTotal;
     }
 
     function buy(MockStructs.AMMOrder calldata _order, bytes calldata _signature) external nonReentrant returns(uint tokenId) {

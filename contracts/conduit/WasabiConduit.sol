@@ -87,7 +87,7 @@ contract WasabiConduit is
 
         if (pool.getLiquidityAddress() != address(0)) {
             IERC20 erc20 = IERC20(pool.getLiquidityAddress());
-            erc20.transferFrom(_msgSender(), address(this), amount);
+            require(erc20.transferFrom(_msgSender(), address(this), amount), "Token Transfer Failed");
             erc20.approve(_request.poolAddress, amount);
             return pool.writeOptionTo(_request, _signature, _msgSender());
         } else {
@@ -162,10 +162,10 @@ contract WasabiConduit is
         } else {
             IERC20 erc20 = IERC20(_ask.tokenAddress);
             if (royaltyAmount > 0) {
-                erc20.transferFrom(_msgSender(), royaltyAddress, royaltyAmount);
+                require(erc20.transferFrom(_msgSender(), royaltyAddress, royaltyAmount), "Token Transfer Failed");
                 price -= royaltyAmount;
             }
-            erc20.transferFrom(_msgSender(), _ask.seller, price);
+            require(erc20.transferFrom(_msgSender(), _ask.seller, price), "Token Transfer Failed");
         }
         option.safeTransferFrom(_ask.seller, _msgSender(), _ask.optionId);
         idToFinalizedOrCancelled[id] = true;
@@ -200,10 +200,10 @@ contract WasabiConduit is
 
         IERC20 erc20 = IERC20(_bid.tokenAddress);
         if (royaltyAmount > 0) {
-            erc20.transferFrom(_bid.buyer, royaltyAddress, royaltyAmount);
+            require(erc20.transferFrom(_bid.buyer, royaltyAddress, royaltyAmount), "Token Transfer Failed");
             price -= royaltyAmount;
         }
-        erc20.transferFrom(_bid.buyer, _msgSender(), price);
+        require(erc20.transferFrom(_bid.buyer, _msgSender(), price), "Token Transfer Failed");
         option.safeTransferFrom(_msgSender(), _bid.buyer, _optionId);
         idToFinalizedOrCancelled[id] = true;
 
@@ -230,9 +230,9 @@ contract WasabiConduit is
         (address royaltyAddress, uint256 royaltyAmount) = option.royaltyInfo(_optionId, _bid.price);
 
         if (royaltyAmount > 0) {
-            erc20.transferFrom(_bid.buyer, royaltyAddress, royaltyAmount);
+            require(erc20.transferFrom(_bid.buyer, royaltyAddress, royaltyAmount), "Token Transfer Failed");
         }
-        erc20.transferFrom(_bid.buyer, poolAddress, _bid.price - royaltyAmount);
+        require(erc20.transferFrom(_bid.buyer, poolAddress, _bid.price - royaltyAmount), "Token Transfer Failed");
 
         idToFinalizedOrCancelled[id] = true;
 

@@ -77,7 +77,7 @@ contract MockArbitrage is IERC721Receiver, Ownable, ReentrancyGuard {
             if (feePercent > 0) {
                 payout = (100 - feePercent) * payout / 100;
             }
-            token.transfer(_msgSender(), payout);
+            require(token.transfer(_msgSender(), payout), "Token Transfer Failed");
         }
 
         emit Arbitrage(_msgSender(), _optionId, payout);

@@ -64,7 +64,7 @@ contract ETHWasabiPool is AbstractWasabiPool {
 
     /// @inheritdoc IWasabiPool
     function withdrawERC20(IERC20 _token, uint256 _amount) external onlyOwner {
-        _token.transfer(msg.sender, _amount);
+        require(_token.transfer(msg.sender, _amount), "Token Transfer Failed");
     }
 
     /// @inheritdoc IWasabiPool

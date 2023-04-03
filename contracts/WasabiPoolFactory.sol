@@ -112,7 +112,7 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
 
         // Transfer initial ERC20 from sender to pair
         if (_initialDeposit > 0) {
-            token.transferFrom(_msgSender(), _poolAddress, _initialDeposit);
+            require(token.transferFrom(_msgSender(), _poolAddress, _initialDeposit), "Token Transfer Failed");
         }
 
         // Transfer initial NFTs from sender to pair

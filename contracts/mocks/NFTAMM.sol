@@ -26,7 +26,7 @@ contract NFTAMM is IERC721Receiver, Ownable, ReentrancyGuard {
 
         require(nft.balanceOf(address(this)) > 0, 'No tokens to sell');
 
-        token.transferFrom(_msgSender(), address(this), _order.price);
+        require(token.transferFrom(_msgSender(), address(this), _order.price), "Token Transfer Failed");
 
         tokenId = nft.tokenOfOwnerByIndex(address(this), 0);
         nft.safeTransferFrom(address(this), _msgSender(), tokenId);
@@ -41,7 +41,7 @@ contract NFTAMM is IERC721Receiver, Ownable, ReentrancyGuard {
         IERC20 token = IERC20(demoEth);
 
         nft.safeTransferFrom(_msgSender(), address(this), _tokenId);
-        token.transfer(_msgSender(), _order.price);
+        require(token.transfer(_msgSender(), _order.price), "Token Transfer Failed");
 
         emit Sale(_msgSender(), address(this), _tokenId, _order.price);
     }

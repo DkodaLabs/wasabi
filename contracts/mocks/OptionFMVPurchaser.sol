@@ -45,7 +45,7 @@ contract OptionFMVPurchaser is Ownable, ReentrancyGuard {
         require(nft.ownerOf(_optionId) == msg.sender, 'Only owner can sell the option');
 
         nft.safeTransferFrom(msg.sender, _poolAddress, _optionId);
-        token.transfer(msg.sender, _request.premium);
+        require(token.transfer(msg.sender, _request.premium), "Token Transfer Failed");
 
         emit OptionFMVPurchase(msg.sender, _optionId, _request.premium);
     }

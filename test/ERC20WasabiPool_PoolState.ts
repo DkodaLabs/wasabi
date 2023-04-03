@@ -1,7 +1,7 @@
 const truffleAssert = require('truffle-assertions');
 
 import { toEth, toBN, makeRequest, makeConfig, metadata, signAskWithEIP712, fromWei ,expectRevertCustomError, signPoolAskWithEIP712 } from "./util/TestUtils";
-import { PoolAsk, OptionType, ZERO_ADDRESS ,Bid, Ask} from "./util/TestTypes";
+import { PoolAsk, OptionType, Ask, ZERO_ADDRESS, PoolState} from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiConduitInstance } from "../types/truffle-contracts";
@@ -27,7 +27,6 @@ contract("ERC20WasabiPool: Accept Ask From Pool", accounts => {
     let pool: ERC20WasabiPoolInstance;
     let optionId: BN;
     let request: PoolAsk;
-    let afterRoyaltyPayoutPercent: number;
 
     const owner = accounts[0];
     const lp = accounts[2];
@@ -58,7 +57,6 @@ contract("ERC20WasabiPool: Accept Ask From Pool", accounts => {
         await testNft.mint(metadata(buyer));
         await testNft.mint(metadata(buyer));
 
-        afterRoyaltyPayoutPercent = 1;
     });
     
     it("Create Pool", async () => {
@@ -88,6 +86,35 @@ contract("ERC20WasabiPool: Accept Ask From Pool", accounts => {
 
         assert.equal(await pool.getLiquidityAddress(), token.address, 'Token not correct');
     });
+
+    it("Toggle Pool (only Owner)", async () => {
+        
+        await truffleAssert.reverts(poolFactory.togglePool(poolAddress, PoolState.ACTIVE, metadata(owner)), "Pool is in the same state");
+        await truffleAssert.reverts(poolFactory.togglePool(poolAddress, PoolState.INVALID, metadata(buyer)), "Ownable: caller is not the owner");
+        await poolFactory.togglePool(poolAddress, PoolState.INVALID, metadata(owner))
+        assert.equal(await poolFactory.isValidPool(poolAddress), false, "Pool is not in correct state");
+
+    });
+
+    it("INVALID Pools Can't Write Option", async () => {
+        const id = 1;
+        let blockNumber = await web3.eth.getBlockNumber();
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + 10000;
+        let orderExpiry = timestamp + 10000;
+        const premium = 1;
+        request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1003, orderExpiry);
+
+        await token.approve(conduit.address, toEth(premium * 10), metadata(lp));
+
+        let signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+
+        await truffleAssert.reverts(conduit.buyOption(request, signature, metadata(lp)), "Only active pools can issue options");
+
+        //Activate Pool
+        await poolFactory.togglePool(poolAddress, PoolState.ACTIVE, metadata(owner))
+    });
+
 
     it("Write Option (only owner)", async () => {
         const id = 1;
@@ -119,33 +146,18 @@ contract("ERC20WasabiPool: Accept Ask From Pool", accounts => {
             conduit.buyOption(request, signature, metadata(lp)),
             "RequestNftIsLocked");
     });
-
-    it("Accept ask", async () => {
-        const price = 1;
-        let optionOwner = await option.ownerOf(optionId);
-
-        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
-
-        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
-        const ask: Ask = {
-            id: 1,
-            optionId: optionId.toString(),
-            orderExpiry: Number(blockTimestamp) + 20,
-            price: toEth(price),
-            seller: optionOwner,
-            tokenAddress: token.address,
-        };
-
-        const signature = await signAskWithEIP712(ask, conduit.address, lpPrivateKey);
-
-        const initialBalanceSeller = await token.balanceOf(optionOwner);
-        const acceptAskResult = await pool.acceptAsk(ask, signature, metadata(lp));
-        const finalBalanceSeller = await token.balanceOf(optionOwner);
-        const resultsOfConduit= await truffleAssert.createTransactionResult(conduit, acceptAskResult.tx)
-
-        await truffleAssert.eventEmitted(resultsOfConduit, "AskTaken", null, "Ask wasn't taken");
-        
-        assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), price * afterRoyaltyPayoutPercent, 'Seller incorrect balance change')
-    });
     
+    it("INVALID pools can't execute the options", async () => {
+
+        await token.approve(pool.address, request.strikePrice, metadata(lp));
+
+        //Set as INVALID Pool
+        await poolFactory.togglePool(poolAddress, PoolState.INVALID, metadata(owner))
+
+        await truffleAssert.reverts(pool.executeOption(optionId, metadata(lp)), "Invalid pools can't burn options");
+
+        //Set as DISABLED Pool
+        await poolFactory.togglePool(poolAddress, PoolState.DISABLED, metadata(owner))
+        await pool.executeOption(optionId, metadata(lp));
+    });
 });

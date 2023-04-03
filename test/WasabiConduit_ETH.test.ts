@@ -28,6 +28,7 @@ contract("WasabiConduit ETH", accounts => {
     let conduit: WasabiConduitInstance;
     let feeManager: WasabiFeeManagerInstance;
     let royaltyPayoutPercent = 20;
+    const originalPayoutPercent = 1000;
 
     const admin = accounts[0];
     const lp = accounts[2];
@@ -44,7 +45,7 @@ contract("WasabiConduit ETH", accounts => {
         await Signing.deployed();
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
-        await option.setFactory(poolFactory.address);
+        await option.toggleFactory(poolFactory.address, true);
 
         await conduit.setPoolFactoryAddress(poolFactory.address);
         await conduit.setOption(option.address);
@@ -82,7 +83,7 @@ contract("WasabiConduit ETH", accounts => {
         const premium = 1;
         request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry);
 
-        const amount = (premium * (1000 + royaltyPayoutPercent)) / 1000;
+        const amount = (premium * (originalPayoutPercent + royaltyPayoutPercent)) / originalPayoutPercent;
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         optionId = await conduit.buyOption.call(request, signature, metadata(buyer, amount));
         await conduit.buyOption(request, signature, metadata(buyer, amount));
@@ -135,7 +136,7 @@ contract("WasabiConduit ETH", accounts => {
         truffleAssert.eventEmitted(acceptAskResult, "AskTaken", null, "Ask wasn't taken");
         assert.equal(await option.ownerOf(optionId), someoneElse, "Option not owned after buying");
 
-        const royaltyAmount = price * royaltyPayoutPercent / 1000;
+        const royaltyAmount = price * royaltyPayoutPercent / originalPayoutPercent;
         const sellerAmount = price - royaltyAmount;
 
         assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller).toString()), sellerAmount, 'Seller incorrect balance change')

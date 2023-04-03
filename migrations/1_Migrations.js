@@ -24,5 +24,5 @@ module.exports = function (deployer, _network, accounts) {
     .then(() => deployer.deploy(ERC20WasabiPool))
     .then(() => deployer.deploy(WasabiFeeManager))
     .then(() => deployer.link(WasabiValidation, WasabiPoolFactory))
-    .then(() => deployer.deploy(WasabiPoolFactory, WasabiOption.address, ETHWasabiPool.address, ERC20WasabiPool.address, WasabiFeeManager.address));
+    .then(() => deployer.deploy(WasabiPoolFactory, WasabiOption.address, ETHWasabiPool.address, ERC20WasabiPool.address, WasabiFeeManager.address, WasabiConduit.address));
 };

@@ -24,16 +24,23 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
     address public conduit;
     address public feeManager;
 
-    mapping (address => bool) private poolAddresses;
+    mapping (address => PoolState) private poolState;
 
     /**
      * @dev Initializes a new WasabiPoolFactory
      */
-    constructor(WasabiOption _options, ETHWasabiPool _templatePool, ERC20WasabiPool _templateERC20Pool, address _feeManager) {
+    constructor(
+        WasabiOption _options,
+        ETHWasabiPool _templatePool,
+        ERC20WasabiPool _templateERC20Pool,
+        address _feeManager,
+        address _conduit)
+    {
         options = _options;
         templatePool = _templatePool;
         templateERC20Pool = _templateERC20Pool;
         feeManager = _feeManager;
+        conduit = _conduit;
     }
 
     /**
@@ -60,7 +67,7 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
             _poolAddress.transfer(msg.value);
         }
 
-        poolAddresses[_poolAddress] = true;
+        poolState[_poolAddress] = PoolState.ACTIVE;
 
         // Transfer initial NFTs from sender to pair
         uint256 numNFTs = _initialTokenIds.length;
@@ -101,7 +108,7 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
             _poolAddress.transfer(msg.value);
         }
 
-        poolAddresses[_poolAddress] = true;
+        poolState[_poolAddress] = PoolState.ACTIVE;
 
         // Transfer initial ERC20 from sender to pair
         if (_initialDeposit > 0) {
@@ -135,25 +142,25 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
 
     /// @inheritdoc IWasabiPoolFactory
     function issueOption(address _target) external returns (uint256) {
-        require(poolAddresses[msg.sender], "Only enabled pools can issue options");
+        require(poolState[msg.sender] == PoolState.ACTIVE, "Only active pools can issue options");
         return options.newMint(_target);
     }
 
     /// @inheritdoc IWasabiPoolFactory
     function burnOption(uint256 _optionId) external {
-        require(poolAddresses[msg.sender], "Only enabled pools can burn options");
+        require(poolState[msg.sender] != PoolState.INVALID, "Invalid pools can't burn options");
         options.burn(_optionId);
     }
 
     /// @inheritdoc IWasabiPoolFactory
-    function togglePool(address _poolAddress, bool _enabled) external onlyOwner {
-        require(poolAddresses[_poolAddress] != _enabled, 'Pool already in same state');
-        poolAddresses[_poolAddress] = _enabled;
+    function togglePool(address _poolAddress, PoolState _poolState) external onlyOwner {
+        require(poolState[_poolAddress] != _poolState, 'Pool is in the same state');
+        poolState[_poolAddress] = _poolState;
     }
 
     /// @inheritdoc IWasabiPoolFactory
     function isValidPool(address _poolAddress) external view returns(bool) {
-        return poolAddresses[_poolAddress];
+        return poolState[_poolAddress] == PoolState.ACTIVE;
     }
 
     /// @inheritdoc IWasabiPoolFactory

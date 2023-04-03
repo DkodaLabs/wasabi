@@ -13,6 +13,12 @@ export enum OptionType {
     PUT = 1,
 }
 
+export enum PoolState {
+    INVALID = 0,
+    ACTIVE = 1,
+    DISABLED = 2,
+}
+
 export interface OptionData {
     optionType: BN;
     strikePrice: BN;

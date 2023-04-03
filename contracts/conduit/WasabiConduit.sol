@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "../IWasabiPool.sol";
+import "../IWasabiErrors.sol";
 import "../IWasabiPoolFactory.sol";
 import "../IWasabiConduit.sol";
 import "../WasabiOption.sol";
@@ -157,13 +158,13 @@ contract WasabiConduit is
             if (royaltyAmount > 0) {
                 (bool sent, ) = payable(royaltyAddress).call{value: royaltyAmount}("");
                 if (!sent) {
-                    revert IWasabiPool.FailedToSend();
+                    revert IWasabiErrors.FailedToSend();
                 }
                 price -= royaltyAmount;
             }
             (bool _sent, ) = payable(_ask.seller).call{value: price}("");
             if (!_sent) {
-                revert IWasabiPool.FailedToSend();
+                revert IWasabiErrors.FailedToSend();
             }
         } else {
             IERC20 erc20 = IERC20(_ask.tokenAddress);

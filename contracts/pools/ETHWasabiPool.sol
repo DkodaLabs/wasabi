@@ -4,9 +4,10 @@ pragma solidity >=0.4.25 <0.9.0;
 import "../IWasabiPoolFactory.sol";
 import "../fees/IWasabiFeeManager.sol";
 import "../AbstractWasabiPool.sol";
+import "../IWasabiErrors.sol";
 
 /**
- * An ETH backed implementation of the IWasabiPool.
+ * An ETH backed implementation of the IWasabiErrors.
  */
 contract ETHWasabiPool is AbstractWasabiPool {
     receive() external payable override {
@@ -24,7 +25,7 @@ contract ETHWasabiPool is AbstractWasabiPool {
         WasabiStructs.PoolConfiguration calldata _poolConfiguration,
         WasabiStructs.OptionType[] calldata _types,
         address _admin
-    ) external {
+    ) external payable {
         baseInitialize(_factory, _nft, _optionNFT, _owner, _poolConfiguration, _types, _admin);
     }
 
@@ -38,7 +39,7 @@ contract ETHWasabiPool is AbstractWasabiPool {
         if (feeAmount > 0) {
             (bool _sent, ) = payable(feeReceiver).call{value: feeAmount}("");
             if (!_sent) {
-                revert IWasabiPool.FailedToSend();
+                revert IWasabiErrors.FailedToSend();
             }
         }
     }
@@ -50,12 +51,12 @@ contract ETHWasabiPool is AbstractWasabiPool {
 
         (bool sent, ) = payable(_seller).call{value: _amount - feeAmount}("");
         if (!sent) {
-            revert IWasabiPool.FailedToSend();
+            revert IWasabiErrors.FailedToSend();
         }
         if (feeAmount > 0) {
             (bool _sent, ) = payable(feeReceiver).call{value: feeAmount}("");
             if (!_sent) {
-                revert IWasabiPool.FailedToSend();
+                revert IWasabiErrors.FailedToSend();
             }
         }
     }
@@ -63,12 +64,12 @@ contract ETHWasabiPool is AbstractWasabiPool {
     /// @inheritdoc IWasabiPool
     function withdrawETH(uint256 _amount) external payable onlyOwner {
         if (availableBalance() < _amount) {
-            revert InsufficientAvailableLiquidity();
+            revert IWasabiErrors.InsufficientAvailableLiquidity();
         }
         address payable to = payable(_msgSender());
         (bool sent, ) = to.call{value: _amount}("");
         if (!sent) {
-            revert IWasabiPool.FailedToSend();
+            revert IWasabiErrors.FailedToSend();
         }
 
         emit ETHWithdrawn(_amount);

@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "./IWasabiPoolFactory.sol";
-import "./IWasabiPool.sol";
+import "./IWasabiErrors.sol";
 import "./WasabiOption.sol";
 import "./pools/ETHWasabiPool.sol";
 import "./pools/ERC20WasabiPool.sol";
@@ -55,14 +55,8 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
         _poolAddress = payable(address(pool));
         emit NewPool(_poolAddress, _nftAddress, _msgSender());
 
-        if (msg.value > 0) {
-            (bool sent, ) = _poolAddress.call{value: msg.value}("");
-            if (!sent) {
-                revert IWasabiPool.FailedToSend();
-            }
-        }
         IERC721 nft = IERC721(_nftAddress);
-        pool.initialize(this, nft, options, _msgSender(), _poolConfiguration, _types, _admin);
+        pool.initialize{value: msg.value}(this, nft, options, _msgSender(), _poolConfiguration, _types, _admin);
 
         poolAddresses[_poolAddress] = true;
 
@@ -96,18 +90,11 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
 
         _poolAddress = payable(address(pool));
         emit NewPool(_poolAddress, _nftAddress, _msgSender());
-
-        if (msg.value > 0) {
-            (bool sent, ) = _poolAddress.call{value: msg.value}("");
-            if (!sent) {
-                revert IWasabiPool.FailedToSend();
-            }
-        }
         
         IERC721 nft = IERC721(_nftAddress);
         IERC20 token = IERC20(_tokenAddress);
 
-        pool.initialize(this, token, nft, options, _msgSender(), _poolConfiguration, _types, _admin);
+        pool.initialize{value: msg.value}(this, token, nft, options, _msgSender(), _poolConfiguration, _types, _admin);
 
         poolAddresses[_poolAddress] = true;
 

@@ -11,6 +11,7 @@ import "./IWasabiConduit.sol";
 import "./IWasabiPool.sol";
 import "./lib/WasabiValidation.sol";
 import "./lib/PoolAskVerifier.sol";
+import "truffle/Console.sol";
 /**
  * An base abstract implementation of the IWasabiPool which handles issuing and exercising options alond with state management.
  */
@@ -349,6 +350,29 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
      * @dev An abstract function to validate and withdraw payment for any function
      */
     function validateAndWithdrawPayment(uint256 _premium, string memory _message) internal virtual;
+
+    /**
+     * @dev Clears the expired options from the pool
+     */
+    function clearExpiredOptions(uint256[] memory _optionIds) public {
+        if (_optionIds.length > 0) {
+            for (uint256 i = 0; i < _optionIds.length; i++) {
+                uint256 _optionId = _optionIds[i];
+                if (!isValid(_optionId)) {
+                    optionIds.remove(_optionId);
+                }
+            }
+        } else {
+            for (uint256 i = 0; i < optionIds.length();) {
+                uint256 _optionId = optionIds.at(i);
+                if (!isValid(_optionId)) {
+                    optionIds.remove(_optionId);
+                } else {
+                    i ++;
+                }
+            }
+        }
+    }
 
     /**
      * @dev Clears the option from the existing state and optionally exercises it.

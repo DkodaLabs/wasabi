@@ -27,7 +27,7 @@ contract("ERC20WasabiPool: Accept Ask From Pool", accounts => {
     let pool: ERC20WasabiPoolInstance;
     let optionId: BN;
     let request: PoolAsk;
-    let afterRoyaltyPayoutPercent: number;
+    let royaltyDenominator: number;
 
     const owner = accounts[0];
     const lp = accounts[2];
@@ -58,7 +58,7 @@ contract("ERC20WasabiPool: Accept Ask From Pool", accounts => {
         await testNft.mint(metadata(buyer));
         await testNft.mint(metadata(buyer));
 
-        afterRoyaltyPayoutPercent = 1;
+        royaltyDenominator = 1;
     });
     
     it("Create Pool", async () => {
@@ -145,7 +145,7 @@ contract("ERC20WasabiPool: Accept Ask From Pool", accounts => {
 
         await truffleAssert.eventEmitted(resultsOfConduit, "AskTaken", null, "Ask wasn't taken");
         
-        assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), price * afterRoyaltyPayoutPercent, 'Seller incorrect balance change')
+        assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), price * royaltyDenominator, 'Seller incorrect balance change')
     });
     
 });

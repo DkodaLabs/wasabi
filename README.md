@@ -2,7 +2,7 @@
 
 ## Resources
 
-* Read our [White Paper](Wasabi%20Whitepaper.pdf) to see how the general idea works
+* Read our [White Paper](https://docsend.com/view/zzmt4vkze5aky2ya) to see how the general idea works
 
 ## 1. Prerequisite
 You should have already installed the following things beforehand:

@@ -45,9 +45,13 @@ contract ERC20WasabiPool is AbstractWasabiPool {
             token.allowance(_msgSender(), address(this)) >= (_premium + feeAmount) && _premium > 0,
             _message);
 
-        require(token.transferFrom(_msgSender(), address(this), _premium), "Token Transfer Failed");
+        if (!token.transferFrom(_msgSender(), address(this), _premium)) {
+            revert IWasabiErrors.FailedToSend();
+        }
         if (feeAmount > 0) {
-            require(token.transferFrom(_msgSender(), feeReceiver, feeAmount), "Token Transfer Failed");
+            if (!token.transferFrom(_msgSender(), feeReceiver, feeAmount)) {
+                revert IWasabiErrors.FailedToSend();
+            }
         }
     }
 
@@ -56,9 +60,13 @@ contract ERC20WasabiPool is AbstractWasabiPool {
         IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
         (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _amount);
 
-        require(token.transfer(_seller, _amount - feeAmount), "Token Transfer Failed");
+        if (!token.transfer(_seller, _amount - feeAmount)) {
+            revert IWasabiErrors.FailedToSend();
+        }
         if (feeAmount > 0) {
-            require(token.transfer(feeReceiver, feeAmount), "Token Transfer Failed");
+            if (!token.transfer(feeReceiver, feeAmount)) {
+                revert IWasabiErrors.FailedToSend();
+            }
         }
     }
     
@@ -82,7 +90,9 @@ contract ERC20WasabiPool is AbstractWasabiPool {
         if (isPoolToken && availableBalance() < _amount) {
             revert IWasabiErrors.InsufficientAvailableLiquidity();
         }
-        require(_token.transfer(msg.sender, _amount), "Token Transfer Failed");
+        if (!_token.transfer(msg.sender, _amount)) {
+            revert IWasabiErrors.FailedToSend();
+        }
 
         if (isPoolToken) {
             emit ERC20Withdrawn(_amount);

@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../lib/WasabiStructs.sol";
 import "../lib/Signing.sol";
 import "../IWasabiPool.sol";
+import "../IWasabiErrors.sol";
 
 contract OptionFMVPurchaser is Ownable, ReentrancyGuard {
     address private demoEth;
@@ -45,7 +46,9 @@ contract OptionFMVPurchaser is Ownable, ReentrancyGuard {
         require(nft.ownerOf(_optionId) == msg.sender, 'Only owner can sell the option');
 
         nft.safeTransferFrom(msg.sender, _poolAddress, _optionId);
-        require(token.transfer(msg.sender, _request.premium), "Token Transfer Failed");
+        if (!token.transfer(msg.sender, _request.premium)) {
+            revert IWasabiErrors.FailedToSend();
+        }
 
         emit OptionFMVPurchase(msg.sender, _optionId, _request.premium);
     }

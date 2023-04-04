@@ -14,7 +14,7 @@ import "../IWasabiErrors.sol";
 contract NFTAMM is IERC721Receiver, Ownable, ReentrancyGuard {
     address private demoEth;
     uint256 public limitPerAddress;
-    mapping(address => uint256) public numBought;
+    mapping(address => mapping(address => uint256)) public numBought;
 
     event Sale(address from, address to, uint256 tokenId, uint256 price);
 
@@ -28,7 +28,7 @@ contract NFTAMM is IERC721Receiver, Ownable, ReentrancyGuard {
     }
 
     function buyMultiple(MockStructs.AMMOrder calldata _order, bytes calldata _signature, uint256 _count) external nonReentrant {
-        uint256 newTotal = numBought[_msgSender()] + _count;
+        uint256 newTotal = numBought[_msgSender()][_order.collection] + _count;
 
         require(_count > 0, "Need to buy at least 1");
         require(newTotal <= limitPerAddress, "Cannot buy that many NFTs");
@@ -45,7 +45,7 @@ contract NFTAMM is IERC721Receiver, Ownable, ReentrancyGuard {
             nft.safeTransferFrom(address(this), _msgSender(), tokenId);
         }
 
-        numBought[_msgSender()] = newTotal;
+        numBought[_msgSender()][_order.collection] = newTotal;
     }
 
     function buy(MockStructs.AMMOrder calldata _order, bytes calldata _signature) external nonReentrant returns(uint tokenId) {
@@ -53,7 +53,7 @@ contract NFTAMM is IERC721Receiver, Ownable, ReentrancyGuard {
         IERC721Enumerable nft = IERC721Enumerable(_order.collection);
         IERC20 token = IERC20(demoEth);
 
-        require(nft.balanceOf(address(this)) > 0, 'No tokens to sell');
+        require(nft.balanceOf(address(this)) > 0, 'Not enought NFTs to sell');
 
         if (!token.transferFrom(_msgSender(), address(this), _order.price)) {
             revert IWasabiErrors.FailedToSend();
@@ -61,6 +61,8 @@ contract NFTAMM is IERC721Receiver, Ownable, ReentrancyGuard {
 
         tokenId = nft.tokenOfOwnerByIndex(address(this), 0);
         nft.safeTransferFrom(address(this), _msgSender(), tokenId);
+
+        numBought[_msgSender()][_order.collection] = numBought[_msgSender()][_order.collection] + 1;
 
         emit Sale(address(this), _msgSender(), tokenId, _order.price);
     }

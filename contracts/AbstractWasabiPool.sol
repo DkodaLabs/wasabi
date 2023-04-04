@@ -11,7 +11,6 @@ import "./IWasabiConduit.sol";
 import "./IWasabiPool.sol";
 import "./lib/WasabiValidation.sol";
 import "./lib/PoolAskVerifier.sol";
-import "truffle/Console.sol";
 /**
  * An base abstract implementation of the IWasabiPool which handles issuing and exercising options alond with state management.
  */

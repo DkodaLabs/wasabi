@@ -17,7 +17,7 @@ const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
 const DemoETH = artifacts.require("DemoETH");
 
-contract("ERC20WasabiPool: Accept Ask From Pool", accounts => {
+contract("ERC20WasabiPool: Clear Expired Options From Pool", accounts => {
     let token: DemoETHInstance;
     let poolFactory: WasabiPoolFactoryInstance;
     let conduit: WasabiConduitInstance;

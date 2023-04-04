@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.4.25 <0.9.0;
+pragma solidity 0.8.19;
 
 /**
  * @dev Required interface for defining all the errors

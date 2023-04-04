@@ -12,6 +12,7 @@ import "./MockStructs.sol";
 import "./NFTAMM.sol";
 import "../lib/WasabiStructs.sol";
 import "../IWasabiPool.sol";
+import "../IWasabiErrors.sol";
 
 contract MockArbitrage is IERC721Receiver, Ownable, ReentrancyGuard {
     address private demoEth;
@@ -77,7 +78,9 @@ contract MockArbitrage is IERC721Receiver, Ownable, ReentrancyGuard {
             if (feePercent > 0) {
                 payout = (100 - feePercent) * payout / 100;
             }
-            token.transfer(_msgSender(), payout);
+            if (!token.transfer(_msgSender(), payout)) {
+                revert IWasabiErrors.FailedToSend();
+            }
         }
 
         emit Arbitrage(_msgSender(), _optionId, payout);

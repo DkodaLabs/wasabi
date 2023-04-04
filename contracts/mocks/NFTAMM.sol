@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./MockStructs.sol";
 import "../lib/Signing.sol";
+import "../IWasabiErrors.sol";
 
 contract NFTAMM is IERC721Receiver, Ownable, ReentrancyGuard {
     address private demoEth;
@@ -54,7 +55,9 @@ contract NFTAMM is IERC721Receiver, Ownable, ReentrancyGuard {
 
         require(nft.balanceOf(address(this)) > 0, 'No tokens to sell');
 
-        token.transferFrom(_msgSender(), address(this), _order.price);
+        if (!token.transferFrom(_msgSender(), address(this), _order.price)) {
+            revert IWasabiErrors.FailedToSend();
+        }
 
         tokenId = nft.tokenOfOwnerByIndex(address(this), 0);
         nft.safeTransferFrom(address(this), _msgSender(), tokenId);
@@ -69,7 +72,9 @@ contract NFTAMM is IERC721Receiver, Ownable, ReentrancyGuard {
         IERC20 token = IERC20(demoEth);
 
         nft.safeTransferFrom(_msgSender(), address(this), _tokenId);
-        token.transfer(_msgSender(), _order.price);
+        if (!token.transfer(_msgSender(), _order.price)) {
+            revert IWasabiErrors.FailedToSend();
+        }
 
         emit Sale(_msgSender(), address(this), _tokenId, _order.price);
     }

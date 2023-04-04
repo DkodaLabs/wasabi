@@ -4,6 +4,7 @@ pragma solidity >=0.4.25 <0.9.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../IWasabiPoolFactory.sol";
+import "../IWasabiErrors.sol";
 import "../AbstractWasabiPool.sol";
 import "../fees/IWasabiFeeManager.sol";
 
@@ -25,7 +26,7 @@ contract ERC20WasabiPool is AbstractWasabiPool {
         WasabiStructs.PoolConfiguration calldata _poolConfiguration,
         WasabiStructs.OptionType[] calldata _types,
         address _admin
-    ) external {
+    ) external payable {
         baseInitialize(_factory, _nft, _optionNFT, _owner, _poolConfiguration, _types, _admin);
         token = _token;
     }
@@ -79,7 +80,7 @@ contract ERC20WasabiPool is AbstractWasabiPool {
         bool isPoolToken = _token == token;
 
         if (isPoolToken && availableBalance() < _amount) {
-            revert InsufficientAvailableLiquidity();
+            revert IWasabiErrors.InsufficientAvailableLiquidity();
         }
 
         _token.transfer(msg.sender, _amount);
@@ -92,11 +93,14 @@ contract ERC20WasabiPool is AbstractWasabiPool {
     /// @inheritdoc IWasabiPool
     function withdrawETH(uint256 _amount) external override payable onlyOwner {
         if (address(this).balance < _amount) {
-            revert InsufficientAvailableLiquidity();
+            revert IWasabiErrors.InsufficientAvailableLiquidity();
         }
 
         address payable to = payable(owner());
-        to.transfer(_amount);
+        (bool sent, ) = to.call{value: _amount}("");
+        if (!sent) {
+            revert IWasabiErrors.FailedToSend();
+        }
         emit ETHWithdrawn(_amount);
     }
 }

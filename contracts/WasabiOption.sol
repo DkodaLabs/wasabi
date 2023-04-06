@@ -62,6 +62,13 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
     function setBaseURI(string memory baseURI_) external onlyOwner {
         _baseURIextended = baseURI_;
     }
+
+    /**
+     * @dev Returns the address of the pool which created the given option
+     */
+    function getPool(uint256 _optionId) external view returns (address) {
+        return optionPools[_optionId];
+    }
     
     /// @inheritdoc ERC721
     function _baseURI() internal view virtual override returns (string memory) {

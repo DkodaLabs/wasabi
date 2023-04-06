@@ -109,7 +109,7 @@ contract("ERC20WasabiPool: Toggle Pool State", accounts => {
 
         let signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
 
-        await truffleAssert.reverts(conduit.buyOption(request, signature, metadata(lp)), "Only active pools can issue options");
+        await truffleAssert.reverts(conduit.buyOption(request, signature, metadata(lp)), "Only valid pools can mint");
 
         //Activate Pool
         await poolFactory.togglePool(poolAddress, PoolState.ACTIVE, metadata(owner))
@@ -145,19 +145,5 @@ contract("ERC20WasabiPool: Toggle Pool State", accounts => {
         await expectRevertCustomError(
             conduit.buyOption(request, signature, metadata(lp)),
             "RequestNftIsLocked");
-    });
-    
-    it("INVALID pools can't execute the options", async () => {
-
-        await token.approve(pool.address, request.strikePrice, metadata(lp));
-
-        //Set as INVALID Pool
-        await poolFactory.togglePool(poolAddress, PoolState.INVALID, metadata(owner))
-
-        await truffleAssert.reverts(pool.executeOption(optionId, metadata(lp)), "Invalid pools can't burn options");
-
-        //Set as DISABLED Pool
-        await poolFactory.togglePool(poolAddress, PoolState.DISABLED, metadata(owner))
-        await pool.executeOption(optionId, metadata(lp));
     });
 });

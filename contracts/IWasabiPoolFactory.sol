@@ -21,16 +21,6 @@ interface IWasabiPoolFactory {
     event NewPool(address poolAddress, address indexed nftAddress, address indexed owner);
 
     /**
-     * @dev Isses option to the given target
-     */
-    function issueOption(address _target) external returns (uint256);
-
-    /**
-     * @dev Burns the specified option
-     */
-    function burnOption(uint256 _optionId) external;
-
-    /**
      * @dev INVALID/ACTIVE/DISABLE the specified pool.
      */
     function togglePool(address _poolAddress, PoolState _poolState) external;
@@ -39,6 +29,11 @@ interface IWasabiPoolFactory {
      * @dev Checks if the pool for the given address is enabled.
      */
     function isValidPool(address _poolAddress) external view returns(bool);
+
+    /**
+     * @dev Returns the PoolState
+     */
+    function getPoolState(address _poolAddress) external view returns(PoolState);
 
     /**
      * @dev Returns IWasabiConduit Contract Address.

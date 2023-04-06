@@ -63,7 +63,7 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
         emit NewPool(_poolAddress, _nftAddress, _msgSender());
 
         IERC721 nft = IERC721(_nftAddress);
-        pool.initialize{value: msg.value}(this, nft, options, _msgSender(), _poolConfiguration, _types, _admin);
+        pool.initialize{value: msg.value}(this, nft, address(options), _msgSender(), _poolConfiguration, _types, _admin);
 
         poolState[_poolAddress] = PoolState.ACTIVE;
 
@@ -101,7 +101,7 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
         IERC721 nft = IERC721(_nftAddress);
         IERC20 token = IERC20(_tokenAddress);
 
-        pool.initialize{value: msg.value}(this, token, nft, options, _msgSender(), _poolConfiguration, _types, _admin);
+        pool.initialize{value: msg.value}(this, token, nft, address(options), _msgSender(), _poolConfiguration, _types, _admin);
 
         poolState[_poolAddress] = PoolState.ACTIVE;
 
@@ -138,18 +138,6 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
     }
 
     /// @inheritdoc IWasabiPoolFactory
-    function issueOption(address _target) external returns (uint256) {
-        require(poolState[msg.sender] == PoolState.ACTIVE, "Only active pools can issue options");
-        return options.newMint(_target);
-    }
-
-    /// @inheritdoc IWasabiPoolFactory
-    function burnOption(uint256 _optionId) external {
-        require(poolState[msg.sender] != PoolState.INVALID, "Invalid pools can't burn options");
-        options.burn(_optionId);
-    }
-
-    /// @inheritdoc IWasabiPoolFactory
     function togglePool(address _poolAddress, PoolState _poolState) external onlyOwner {
         require(poolState[_poolAddress] != _poolState, 'Pool is in the same state');
         poolState[_poolAddress] = _poolState;
@@ -158,6 +146,11 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
     /// @inheritdoc IWasabiPoolFactory
     function isValidPool(address _poolAddress) external view returns(bool) {
         return poolState[_poolAddress] == PoolState.ACTIVE;
+    }
+
+    /// @inheritdoc IWasabiPoolFactory
+    function getPoolState(address _poolAddress) external view returns(PoolState) {
+        return poolState[_poolAddress];
     }
 
     /// @inheritdoc IWasabiPoolFactory

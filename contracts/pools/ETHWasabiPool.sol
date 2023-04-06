@@ -20,7 +20,7 @@ contract ETHWasabiPool is AbstractWasabiPool {
     function initialize(
         IWasabiPoolFactory _factory,
         IERC721 _nft,
-        IERC721 _optionNFT,
+        address _optionNFT,
         address _owner,
         WasabiStructs.PoolConfiguration calldata _poolConfiguration,
         WasabiStructs.OptionType[] calldata _types,

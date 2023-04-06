@@ -146,6 +146,10 @@ contract("ETHWasabiPool: CallOption", accounts => {
             "Cannot (re)write an option for a locked asset");
     });
 
+    it("Burn option (only pool)", async () => {
+        await truffleAssert.reverts(option.burn(optionId, metadata(buyer)), "Caller can't burn option");
+    });
+
     it("Execute Option (only option holder)", async () => {
         await truffleAssert.reverts(
             pool.executeOption.sendTransaction(optionId, metadata(someoneElse, 10)),

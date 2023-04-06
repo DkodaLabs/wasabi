@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./IWasabiPoolFactory.sol";
 import "./IWasabiConduit.sol";
 import "./IWasabiPool.sol";
+import "./WasabiOption.sol";
 import "./IWasabiErrors.sol";
 import "./lib/WasabiValidation.sol";
 import "./lib/PoolAskVerifier.sol";
@@ -20,7 +21,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
     // Pool metadata
     IWasabiPoolFactory public factory;
-    IERC721 private optionNFT;
+    WasabiOption private optionNFT;
     IERC721 private nft;
     address private admin;
 
@@ -49,7 +50,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     function baseInitialize(
         IWasabiPoolFactory _factory,
         IERC721 _nft,
-        IERC721 _optionNFT,
+        address _optionNFT,
         address _owner,
         WasabiStructs.PoolConfiguration calldata _poolConfiguration,
         WasabiStructs.OptionType[] calldata _types,
@@ -60,7 +61,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         _transferOwnership(_owner);
 
         nft = _nft;
-        optionNFT = _optionNFT;
+        optionNFT = WasabiOption(_optionNFT);
         poolConfiguration = _poolConfiguration;
 
         uint length = _types.length;
@@ -138,7 +139,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         }
         validate(_request, _signature);
 
-        uint256 optionId = factory.issueOption(_receiver);
+        uint256 optionId = optionNFT.mint(_receiver, address(factory));
         WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
             _request.optionType,
             _request.strikePrice,
@@ -262,7 +263,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         bytes calldata _signature,
         uint256 _tokenId
     ) public onlyOwner returns(uint256) {
-        uint256 _optionId = factory.issueOption(_bid.buyer);
+        uint256 _optionId = optionNFT.mint(_bid.buyer, address(factory));
 
         // Lock NFT / Token into a vault
         if (_bid.optionType == WasabiStructs.OptionType.CALL) {
@@ -396,7 +397,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             }
         }
         options[_optionId].active = false;
-        factory.burnOption(_optionId);
+        optionNFT.burn(_optionId);
     }
 
     /// @inheritdoc IWasabiPool

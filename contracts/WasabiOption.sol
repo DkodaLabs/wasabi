@@ -16,6 +16,7 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
     
     address private lastFactory;
     mapping(address => bool) private factoryAddresses;
+    mapping(uint256 => address) private optionPools;
     uint256 private _currentId = 100;
     string private _baseURIextended;
 
@@ -37,11 +38,13 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
     /**
      * @dev Mints a new WasabiOption
      */
-    function newMint(address to) external returns (uint256 mintedId) {
-        require(factoryAddresses[msg.sender], "Only the factory can mint tokens");
+    function mint(address _to, address _factory) external returns (uint256 mintedId) {
+        require(factoryAddresses[_factory] == true, "Invalid Factory");
+        require(IWasabiPoolFactory(_factory).isValidPool(_msgSender()), "Only valid pools can mint");
 
-        _safeMint(to, _currentId);
+        _safeMint(_to, _currentId);
         mintedId = _currentId;
+        optionPools[mintedId] = _msgSender();
         _currentId++;
     }
 
@@ -49,7 +52,7 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
      * @dev Burns the specified option
      */
     function burn(uint256 _optionId) external {
-        require(factoryAddresses[msg.sender] == true, "Only the factory can burn tokens");
+        require(optionPools[_optionId] == _msgSender(), "Caller can't burn option");
         _burn(_optionId);
     }
 

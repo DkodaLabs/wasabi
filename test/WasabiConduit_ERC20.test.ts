@@ -9,6 +9,7 @@ import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js
 import { ERC20WasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/truffle-contracts/ERC20WasabiPool.js";
 import { DemoETHInstance } from "../types/truffle-contracts";
 import { WasabiConduitInstance } from "../types/truffle-contracts/WasabiConduit";
+import { WasabiFeeManagerInstance } from "../types/truffle-contracts/WasabiFeeManager";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -17,6 +18,7 @@ const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
 const DemoETH = artifacts.require("DemoETH");
 const WasabiConduit = artifacts.require("WasabiConduit");
+const WasabiFeeManager = artifacts.require("WasabiFeeManager");
 const TestAzuki = artifacts.require("TestAzuki");
 
 contract("WasabiConduit ERC20", accounts => {
@@ -29,7 +31,9 @@ contract("WasabiConduit ERC20", accounts => {
     let optionId: BN;
     let request: PoolAsk;
     let conduit: WasabiConduitInstance;
-    let afterRoyaltyPayoutPercent: number;
+    let feeManager: WasabiFeeManagerInstance;
+    let royaltyPayoutPercent = 20;
+    const originalPayoutPercent = 1000;
     let testAzukiInstance: TestAzukiInstance;
 
     const lp = accounts[2];
@@ -48,8 +52,11 @@ contract("WasabiConduit ERC20", accounts => {
         await Signing.deployed();
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
+        feeManager = await WasabiFeeManager.deployed();
         testAzukiInstance = await TestAzuki.deployed();
 
+        // Set Fee
+        await feeManager.setFraction(royaltyPayoutPercent);
         await option.toggleFactory(poolFactory.address, true);
         await conduit.setOption(option.address);
         await conduit.setPoolFactoryAddress(poolFactory.address);
@@ -64,7 +71,6 @@ contract("WasabiConduit ERC20", accounts => {
         await testNft.mint(metadata(buyer));
         await testNft.mint(metadata(buyer));
 
-        afterRoyaltyPayoutPercent = 1;
     });
     
     it("Create Pool", async () => {
@@ -135,7 +141,8 @@ contract("WasabiConduit ERC20", accounts => {
             "Strike price needs to be supplied to execute a CALL option",
             "Strike price needs to be supplied to execute a CALL option");
 
-        await token.approve(pool.address, request.strikePrice, metadata(buyer));
+        let strikePrice = fromWei(request.strikePrice.toString());
+        await token.approve(pool.address, toEth(strikePrice * (originalPayoutPercent + royaltyPayoutPercent) / originalPayoutPercent), metadata(buyer));
         const executeOptionResult = await pool.executeOption(optionId, metadata(buyer));
 
         const log = executeOptionResult.logs.find(l => l.event == "OptionExecuted")! as Truffle.TransactionLog<OptionExecuted>;
@@ -157,7 +164,9 @@ contract("WasabiConduit ERC20", accounts => {
         let expiry = timestamp + 10000;
         let orderExpiry = timestamp + 10000;
         request = makeRequest(request.id, pool.address, OptionType.CALL, 10, 1, expiry, 1002, orderExpiry);
-        await token.approve(pool.address, request.premium, metadata(buyer));
+
+        let premium = fromWei(request.premium.toString());
+        await token.approve(pool.address, toEth(premium * (originalPayoutPercent + royaltyPayoutPercent) / originalPayoutPercent), metadata(buyer));
 
         const signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         const writeOptionResult = await pool.writeOption(request, signature, metadata(buyer));
@@ -192,16 +201,28 @@ contract("WasabiConduit ERC20", accounts => {
         const signature = await signAskWithEIP712(ask, conduit.address, buyerPrivateKey);
         await token.approve(conduit.address, ask.price, metadata(someoneElse));
 
+        // Fee Manager
+        const royaltyReceiver = await feeManager.owner()
+        const initialRoyaltyReceiverBalance = await token.balanceOf(royaltyReceiver);
+
         const initialBalanceBuyer = await token.balanceOf(someoneElse);
         const initialBalanceSeller = await token.balanceOf(optionOwner);
         const acceptAskResult = await conduit.acceptAsk(ask, signature, metadata(someoneElse));
         const finalBalanceBuyer = await token.balanceOf(someoneElse);
         const finalBalanceSeller = await token.balanceOf(optionOwner);
-
+        const finalRoyaltyReceiverBalance = await token.balanceOf(royaltyReceiver);
+        
         truffleAssert.eventEmitted(acceptAskResult, "AskTaken", null, "Ask wasn't taken");
         assert.equal(await option.ownerOf(optionId), someoneElse, "Option not owned after buying");
         assert.equal(fromWei(initialBalanceBuyer.sub(finalBalanceBuyer)), price, 'Buyer incorrect balance change')
-        assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), price * afterRoyaltyPayoutPercent, 'Seller incorrect balance change')
+
+        const royaltyAmount = price * royaltyPayoutPercent / originalPayoutPercent;
+        const sellerAmount = price - royaltyAmount;
+        assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), sellerAmount, 'Seller incorrect balance change')
+
+        // Fee Manager
+        assert.equal(fromWei(finalRoyaltyReceiverBalance.sub(initialRoyaltyReceiverBalance)), royaltyAmount, 'Fee receiver incorrect balance change')
+
     });
 
     it("Accept bid: Invalid liquidity address", async () => {
@@ -257,16 +278,27 @@ contract("WasabiConduit ERC20", accounts => {
 
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
 
+        // Fee Manager
+        const royaltyReceiver = await feeManager.owner()
+        const initialRoyaltyReceiverBalance = await token.balanceOf(royaltyReceiver);
+        
         const initialBalanceBuyer = await token.balanceOf(bid.buyer);
         const initialBalanceSeller = await token.balanceOf(optionOwner);
         const acceptBidResult = await conduit.acceptBid(optionId, pool.address, bid, signature, metadata(optionOwner));
         const finalBalanceBuyer = await token.balanceOf(bid.buyer);
         const finalBalanceSeller = await token.balanceOf(optionOwner);
+        const finalRoyaltyReceiverBalance = await token.balanceOf(royaltyReceiver);
 
         truffleAssert.eventEmitted(acceptBidResult, "BidTaken", null, "Bid wasn't taken");
         assert.equal(await option.ownerOf(optionId), buyer, "Option not owned after buying");
         assert.equal(fromWei(initialBalanceBuyer.sub(finalBalanceBuyer)), price, 'Buyer incorrect balance change')
-        assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), price * afterRoyaltyPayoutPercent, 'Seller incorrect balance change')
+        
+        const royaltyAmount = price * royaltyPayoutPercent / originalPayoutPercent;
+        const sellerAmount = price - royaltyAmount;
+        assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), sellerAmount, 'Seller incorrect balance change')
+
+        // Fee Manager
+        assert.equal(fromWei(finalRoyaltyReceiverBalance.sub(initialRoyaltyReceiverBalance)), royaltyAmount, 'Fee receiver incorrect balance change')
     });
 
     it("PoolAcceptBid with invalid pool address", async () => {

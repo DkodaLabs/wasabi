@@ -20,7 +20,6 @@ contract("ETHWasabiPool: AcceptAsk", accounts => {
     let pool: ETHWasabiPoolInstance;
     let optionId: BN | string;
     let request: PoolAsk;
-    let afterRoyaltyPayoutPercent: number;
 
     const lp = accounts[2];
     const buyer = accounts[3];
@@ -47,7 +46,6 @@ contract("ETHWasabiPool: AcceptAsk", accounts => {
         let mintResult = await testNft.mint(metadata(buyer));
         mintResult = await testNft.mint(metadata(someoneElse));
 
-        afterRoyaltyPayoutPercent = 1;
     });
 
     it("Create Pool", async() => {
@@ -156,6 +154,6 @@ contract("ETHWasabiPool: AcceptAsk", accounts => {
         const resultsOfConduit= await truffleAssert.createTransactionResult(conduit, acceptAskResult.tx)
 
         await truffleAssert.eventEmitted(resultsOfConduit, "AskTaken", null, "Ask wasn't taken");
-        await assertIncreaseInBalance(lp, toBN(initialBalanceSeller), toBN(Number(ask.price) * afterRoyaltyPayoutPercent).sub(gasOfTxn(acceptAskResult.receipt)));
+        await assertIncreaseInBalance(lp, toBN(initialBalanceSeller), toBN(Number(ask.price)).sub(gasOfTxn(acceptAskResult.receipt)));
     });
 });

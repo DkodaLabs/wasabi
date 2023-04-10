@@ -184,7 +184,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         }
         
         require(_request.poolAddress == address(this), "WasabiPool: Signature doesn't belong to this pool");
-        validateAndWithdrawPayment(_request.premium, "WasabiPool: Not enough premium is supplied");
 
         // 3. Request Validation
         if (!allowedTypes[_request.optionType]) {
@@ -220,6 +219,8 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
                 revert IWasabiErrors.InsufficientAvailableLiquidity();
             }
         }
+
+        validateAndWithdrawPayment(_request.premium, "WasabiPool: Not enough premium is supplied");
     }
 
     /// @inheritdoc IWasabiPool

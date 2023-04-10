@@ -61,4 +61,9 @@ interface IWasabiErrors {
      * @dev Thrown when sending ETH failed
      */
     error FailedToSend();
+
+    /**
+     * @dev Thrown when sending amount is 0
+     */
+    error TooSmall();
 }

@@ -37,6 +37,15 @@ export interface PoolAsk {
     tokenId: number | BN | string;
     orderExpiry: number | BN | string;
 }
+
+export interface PoolBid {
+    id: number | BN | string;
+    price: number | BN | string;
+    tokenAddress: string;
+    orderExpiry: number | BN | string;
+    optionId: number | BN | string;
+}
+
 export interface PricingConfig {
     poolAddress: string;
     premiumMultiplierPercent: number | BN | string;

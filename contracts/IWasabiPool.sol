@@ -18,9 +18,14 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     event AdminChanged(address admin);
 
     /**
-     * @dev Emitted when `request` is cancelled.
+     * @dev Emitted when an order is cancelled.
      */
-    event PoolAskCancelled(uint256 id);
+    event OrderCancelled(uint256 id);
+
+    /**
+     * @dev Emitted when a pool bid is taken
+     */
+    event PoolBidTaken(uint256 id);
 
     /**
      * @dev Emitted when an ERC721 is received
@@ -102,9 +107,9 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function executeOptionWithSell(uint256 _optionId, uint256 _tokenId) external payable;
 
     /**
-     * @dev Cancels the request for the given _requestId.
+     * @dev Cancels the order for the given _orderId.
      */
-    function cancelPoolAsk(uint256 _requestId) external;
+    function cancelOrder(uint256 _orderId) external;
 
     /**
      * @dev Withdraws ERC721 tokens from the pool.
@@ -195,4 +200,29 @@ interface IWasabiPool is IERC165, IERC721Receiver {
      * @dev Checks if _tokenId unlocked
      */
     function isAvailableTokenId(uint256 _tokenId) external view returns(bool);
+
+    /**
+     * @dev Clears the expired options from the pool
+     */
+    function clearExpiredOptions(uint256[] memory _optionIds) external;
+
+    /**
+     * @dev accepts the bid for LPs with _tokenId
+     */
+    function acceptBidWithTokenId(WasabiStructs.Bid calldata _bid, bytes calldata _signature, uint256 _tokenId) external returns(uint256);
+
+    /**
+     * @dev accepts the bid for LPs without _tokenId
+     */
+    function acceptBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature) external returns(uint256);
+
+    /**
+     * @dev accepts the ask for LPs
+     */
+    function acceptAsk(WasabiStructs.Ask calldata _ask, bytes calldata _signature) external;
+
+    /**
+     * @dev accepts a bid created for this pool
+     */
+    function acceptPoolBid(WasabiStructs.PoolBid calldata _poolBid, bytes calldata _signature) external payable;
 }

@@ -242,11 +242,11 @@ contract("ERC20WasabiPool: CallOption", accounts => {
         request = makeRequest(id, pool.address, OptionType.CALL, 10, 1, expiry, 1002, orderExpiry);
         await token.approve(pool.address, request.premium, metadata(buyer));
         await expectRevertCustomError(
-            pool.cancelPoolAsk(request.id, metadata(buyer)),
+            pool.cancelOrder(request.id, metadata(buyer)),
             "Unauthorized",
             "OWasabiPool: only admin or owner cancel");
-        const cancelPoolAskResult = await pool.cancelPoolAsk(request.id, metadata(lp));
-        truffleAssert.eventEmitted(cancelPoolAskResult, "PoolAskCancelled", null, "Asset wasn't locked");
+        const cancelPoolAskResult = await pool.cancelOrder(request.id, metadata(lp));
+        truffleAssert.eventEmitted(cancelPoolAskResult, "OrderCancelled", null, "Asset wasn't locked");
 
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         await expectRevertCustomError(

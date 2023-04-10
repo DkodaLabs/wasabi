@@ -32,7 +32,7 @@ contract ERC20WasabiPool is AbstractWasabiPool {
     }
 
     /// @inheritdoc IWasabiPool
-    function getLiquidityAddress() override external view returns(address) {
+    function getLiquidityAddress() override public view returns(address) {
         return address(token);
     }
 

@@ -27,6 +27,14 @@ library WasabiStructs {
         uint256 orderExpiry;
     }
 
+    struct PoolBid {
+        uint256 id;
+        uint256 price;
+        address tokenAddress;
+        uint256 orderExpiry;
+        uint256 optionId;
+    }
+
     struct PoolConfiguration {
         uint256 minStrikePrice;
         uint256 maxStrikePrice;

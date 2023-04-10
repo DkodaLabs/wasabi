@@ -13,6 +13,8 @@ import "./WasabiOption.sol";
 import "./IWasabiErrors.sol";
 import "./lib/WasabiValidation.sol";
 import "./lib/PoolAskVerifier.sol";
+import "./lib/PoolBidVerifier.sol";
+
 /**
  * An base abstract implementation of the IWasabiPool which handles issuing and exercising options alond with state management.
  */
@@ -84,7 +86,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     }
 
     /// @inheritdoc IWasabiPool
-    function getLiquidityAddress() external view virtual returns(address) {
+    function getLiquidityAddress() public view virtual returns(address) {
         return address(0);
     }
 
@@ -100,9 +102,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         emit AdminChanged(address(0));
     }
 
-    /**
-     * @dev Returns the address of the current owner.
-     */
+    /// @inheritdoc IWasabiPool
     function getAdmin() public view virtual returns (address) {
         return admin;
     }
@@ -254,10 +254,8 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             require(_msgSender() == nft.ownerOf(_tokenId), "WasabiPool: Need to own the token to sell in order to execute a PUT option");
         }
     }
-    
-    /**
-     * @dev accepts the bid for LPs with _tokenId
-     */
+
+    /// @inheritdoc IWasabiPool
     function acceptBidWithTokenId(
         WasabiStructs.Bid calldata _bid,
         bytes calldata _signature,
@@ -294,9 +292,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         return _optionId;
     }
 
-    /**
-     * @dev accepts the bid for LPs without _tokenId
-     */
+    /// @inheritdoc IWasabiPool
     function acceptBid(
         WasabiStructs.Bid calldata _bid,
         bytes calldata _signature
@@ -317,15 +313,13 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         return acceptBidWithTokenId(_bid, _signature, _tokenId);
     }
 
-    /**
-     * @dev accepts the ask for LPs
-     */
+    /// @inheritdoc IWasabiPool
     function acceptAsk (
         WasabiStructs.Ask calldata _ask,
         bytes calldata _signature
     ) external onlyOwner {
 
-        if (_ask.tokenAddress == this.getLiquidityAddress() && availableBalance() < _ask.price) {
+        if (_ask.tokenAddress == getLiquidityAddress() && availableBalance() < _ask.price) {
             revert IWasabiErrors.InsufficientAvailableLiquidity();
         }
 
@@ -337,6 +331,79 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             IWasabiConduit(factory.getConduitAddress()).acceptAsk(_ask, _signature);
         }
     }
+
+    /// @inheritdoc IWasabiPool
+    function acceptPoolBid(WasabiStructs.PoolBid calldata _poolBid, bytes calldata _signature) external payable nonReentrant {
+        // 1. Validate
+        address signer = PoolBidVerifier.getSignerForPoolBid(_poolBid, _signature);
+        if (signer != owner()) {
+            revert IWasabiErrors.InvalidSignature();
+        }
+        if (!isValid(_poolBid.optionId)) {
+            revert IWasabiErrors.HasExpired();
+        }
+        if (idToFilledOrCancelled[_poolBid.id]) {
+            revert IWasabiErrors.OrderFilledOrCancelled();
+        }
+        if (_poolBid.orderExpiry < block.timestamp) {
+            revert IWasabiErrors.HasExpired();
+        }
+
+        // 2. Only owner of option can accept bid
+        if (_msgSender() != optionNFT.ownerOf(_poolBid.optionId)) {
+            revert IWasabiErrors.Unauthorized();
+        }
+
+        if (_poolBid.tokenAddress == getLiquidityAddress()) {
+            WasabiStructs.OptionData memory optionData = getOptionData(_poolBid.optionId);
+            if (optionData.optionType == WasabiStructs.OptionType.CALL && availableBalance() < _poolBid.price) {
+                revert IWasabiErrors.InsufficientAvailableLiquidity();
+            } else if (optionData.optionType == WasabiStructs.OptionType.PUT &&
+                // The strike price of the option can be used to payout the bid price
+                (availableBalance() + optionData.strikePrice) < _poolBid.price
+            ) {
+                revert IWasabiErrors.InsufficientAvailableLiquidity();
+            }
+            clearOption(_poolBid.optionId, 0, false);
+            payAddress(_msgSender(), _poolBid.price);
+        } else {
+            IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
+            (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _poolBid.price);
+
+            if (_poolBid.tokenAddress == address(0)) {
+                if (address(this).balance < _poolBid.price) {
+                    revert IWasabiErrors.InsufficientAvailableLiquidity();
+                }
+                (bool sent, ) = payable(_msgSender()).call{value: _poolBid.price - feeAmount}("");
+                if (!sent) {
+                    revert IWasabiErrors.FailedToSend();
+                }
+                if (feeAmount > 0) {
+                    (bool _sent, ) = payable(feeReceiver).call{value: feeAmount}("");
+                    if (!_sent) {
+                        revert IWasabiErrors.FailedToSend();
+                    }
+                }
+            } else {
+                IERC20 erc20 = IERC20(_poolBid.tokenAddress);
+                if (erc20.balanceOf(address(this)) < _poolBid.price) {
+                    revert IWasabiErrors.InsufficientAvailableLiquidity();
+                }
+                if (!erc20.transfer(_msgSender(), _poolBid.price - feeAmount)) {
+                    revert IWasabiErrors.FailedToSend();
+                }
+                if (feeAmount > 0) {
+                    if (!erc20.transfer(feeReceiver, feeAmount)) {
+                        revert IWasabiErrors.FailedToSend();
+                    }
+                }
+            }
+            clearOption(_poolBid.optionId, 0, false);
+        }
+        idToFilledOrCancelled[_poolBid.id] = true;
+        emit PoolBidTaken(_poolBid.id);
+    }
+
     /**
      * @dev An abstract function to check available balance in this pool.
      */
@@ -352,9 +419,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
      */
     function validateAndWithdrawPayment(uint256 _premium, string memory _message) internal virtual;
 
-    /**
-     * @dev Clears the expired options from the pool
-     */
+    /// @inheritdoc IWasabiPool
     function clearExpiredOptions(uint256[] memory _optionIds) public {
         if (_optionIds.length > 0) {
             for (uint256 i = 0; i < _optionIds.length; i++) {
@@ -427,15 +492,15 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     }
 
     /// @inheritdoc IWasabiPool
-    function cancelPoolAsk(uint256 _requestId) external {
+    function cancelOrder(uint256 _orderId) external {
         if (_msgSender() != admin && _msgSender() != owner()) {
             revert IWasabiErrors.Unauthorized();
         }
-        if (idToFilledOrCancelled[_requestId]) {
+        if (idToFilledOrCancelled[_orderId]) {
             revert IWasabiErrors.OrderFilledOrCancelled();
         }
-        idToFilledOrCancelled[_requestId] = true;
-        emit PoolAskCancelled(_requestId);
+        idToFilledOrCancelled[_orderId] = true;
+        emit OrderCancelled(_orderId);
     }
 
     /// @inheritdoc IERC165

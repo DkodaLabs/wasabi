@@ -6,6 +6,7 @@ import {
   Bid,
   Ask,
   PricingConfig,
+  PoolBid,
 } from "./TestTypes";
 
 import * as ethUtil from "eth-sig-util";
@@ -362,6 +363,47 @@ export const signPoolAskWithEIP712 = async (
     primaryType: "PoolAsk",
     domain,
     message: request,
+  };
+  const signature = ethUtil.signTypedData(
+    Buffer.from(privateKey, "hex"),
+    {
+      data: typeData as any,
+    }
+  );
+  return signature;
+};
+
+export const signPoolBidWithEIP712 = async (
+  poolBid: PoolBid,
+  verifyingContract: string,
+  privateKey: string
+) => {
+  const domain = {
+    name: "PoolBidVerifier",
+    version: "1",
+    chainId: await web3.eth.getChainId(),
+    verifyingContract,
+  };
+
+  const typeData = {
+    types: {
+      EIP712Domain: [
+        { name: "name", type: "string" },
+        { name: "version", type: "string" },
+        { name: "chainId", type: "uint256" },
+        { name: "verifyingContract", type: "address" },
+      ],
+      PoolBid: [
+        { name: "id", type: "uint256" },
+        { name: "price", type: "uint256" },
+        { name: "tokenAddress", type: "address" },
+        { name: "orderExpiry", type: "uint256" },
+        { name: "optionId", type: "uint256" },
+      ]
+    },
+    primaryType: "PoolBid",
+    domain,
+    message: poolBid,
   };
   const signature = ethUtil.signTypedData(
     Buffer.from(privateKey, "hex"),

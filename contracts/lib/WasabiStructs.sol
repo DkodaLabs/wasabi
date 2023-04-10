@@ -12,7 +12,7 @@ library WasabiStructs {
         uint256 strikePrice;
         uint256 premium;
         uint256 expiry;
-        uint256 tokenId; // Tokens to deposit for CALL options
+        uint256 tokenId; // Locked token for CALL options
         bool active;
     }
 
@@ -23,7 +23,7 @@ library WasabiStructs {
         uint256 strikePrice;
         uint256 premium;
         uint256 expiry;
-        uint256 tokenId; // Tokens to deposit for CALL options
+        uint256 tokenId; // Token to lock for CALL options
         uint256 orderExpiry;
     }
 

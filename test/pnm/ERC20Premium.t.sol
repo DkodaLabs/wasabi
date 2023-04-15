@@ -142,40 +142,41 @@ contract ERC20Premium is PTest {
         uint256 tokenId, // Tokens to deposit for CALL options
         uint256 orderExpiry
     ) private {
-        WasabiStructs.PoolAsk memory request = WasabiStructs
-            .PoolAsk(
-                id,
-                poolAddress,
-                optionType,
-                strikePrice,
-                premium,
-                expiry,
-                tokenId, // Tokens to deposit for CALL options
-                orderExpiry
-            );
-        
+        WasabiStructs.PoolAsk memory poolAsk = WasabiStructs.PoolAsk(
+            id,
+            poolAddress,
+            optionType,
+            strikePrice,
+            premium,
+            expiry,
+            tokenId, // Tokens to deposit for CALL options
+            orderExpiry
+        );
+
         bytes32 domainSeparator = hashDomain(
             WasabiStructs.EIP712Domain({
                 name: "PoolAskSignature",
                 version: "1",
                 chainId: getChainID(),
-                verifyingContract: address(this)
+                verifyingContract: address(pool)
             })
         );
 
         // hash of message
         bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", domainSeparator, hashForPoolAsk(request))
+            abi.encodePacked(
+                "\x19\x01",
+                domainSeparator,
+                hashForPoolAsk(poolAsk)
+            )
         );
 
         // get signature
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            AGENT_KEY,
-            Signing.getEthSignedMessageHash(digest)
-        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(AGENT_KEY, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        pool.writeOption(request, signature);
+        vm.prank(agent);
+        pool.writeOption(poolAsk, signature);
     }
 
     function testme() public {

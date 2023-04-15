@@ -113,3 +113,9 @@ types
 .idea
 
 test/GenerateSignature.test.ts
+
+# Narya files
+out
+cache
+
+

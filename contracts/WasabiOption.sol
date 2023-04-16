@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -12,12 +12,12 @@ import "./fees/IWasabiFeeManager.sol";
 /**
  * @dev An ERC721 which tracks Wasabi Option positions of accounts
  */
-contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
+contract WasabiOption is ERC721, IERC2981, Ownable {
     
     address private lastFactory;
     mapping(address => bool) private factoryAddresses;
     mapping(uint256 => address) private optionPools;
-    uint256 private _currentId = 100;
+    uint256 private _currentId = 1;
     string private _baseURIextended;
 
     /**
@@ -83,7 +83,7 @@ contract WasabiOption is ERC721Enumerable, IERC2981, Ownable {
     }
     
     /// @inheritdoc IERC165
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721Enumerable, IERC165) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, IERC165) returns (bool) {
         return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
     }
 }

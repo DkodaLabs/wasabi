@@ -129,9 +129,9 @@ contract("ERC20WasabiPool: Clear Expired Options From Pool", accounts => {
         await advanceTime(10000 * 2);
         await advanceBlock();
 
-        await pool.clearExpiredOptions([101]);
+        await pool.clearExpiredOptions([2]);
 
-        assert.deepEqual((await pool.getOptionIds()).map(a => a.toNumber()), [100, 102], "Pool doesn't have the correct optionIds");
+        assert.deepEqual((await pool.getOptionIds()).map(a => a.toNumber()), [1, 3], "Pool doesn't have the correct optionIds");
 
         await pool.clearExpiredOptions([]);
 

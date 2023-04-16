@@ -11,7 +11,7 @@ import {WasabiConduit} from "../../contracts/conduit/WasabiConduit.sol";
 
 import "../../lib/narya-contracts/PTest.sol";
 
-contract ERC20Premium is PTest {
+contract ERC20LockedNFT is PTest {
     TestAzuki internal nft;
     DemoETH internal token;
     WasabiFeeManager feeManager;
@@ -42,13 +42,16 @@ contract ERC20Premium is PTest {
 
         token = new DemoETH();
         deal(address(token), user, 100);
-
+        token.issue(agent, 100);
+        
         feeManager = new WasabiFeeManager();
+
         conduit = new WasabiConduit();
 
         options = new WasabiOption();
         templatePool = new ETHWasabiPool();
         templateERC20Pool = new ERC20WasabiPool();
+
         poolFactory = new WasabiPoolFactory(
             options,
             templatePool,
@@ -56,6 +59,7 @@ contract ERC20Premium is PTest {
             address(feeManager),
             address(conduit)
         );
+
         options.toggleFactory(address(poolFactory), true);
 
         nft = new TestAzuki();
@@ -65,7 +69,7 @@ contract ERC20Premium is PTest {
         vm.stopPrank();
 
         WasabiStructs.PoolConfiguration memory poolConfiguration = WasabiStructs
-            .PoolConfiguration(1, 100, 1, 30 days);
+            .PoolConfiguration(1, 1000, 1, 30 days);
 
         WasabiStructs.OptionType[]
             memory types = new WasabiStructs.OptionType[](1);
@@ -90,47 +94,50 @@ contract ERC20Premium is PTest {
 
         require(pool.owner() == agent);
 
-        // vm.startPrank(user);
-        // token.approve(address(pool), type(uint256).max);
-        // writeOption(
-        //     address(pool),
-        //     WasabiStructs.OptionType.CALL,
-        //     10, // strike price
-        //     1, // premium
-        //     30 days,
-        //     tokenId,
-        //     block.number + 5
-        // );
-        // vm.stopPrank();
+        vm.startPrank(user);
+        token.approve(address(pool), type(uint256).max);
+        writeOption(
+            0,
+            address(pool),
+            WasabiStructs.OptionType.CALL,
+            10, // strike price
+            1, // premium
+            block.timestamp + 10 days,
+            tokenId,
+            block.timestamp + 10 days
+        );
+        vm.stopPrank();
     }
 
-    // function invariantLockedNft() public view {
-    //     require(
-    //         nft.balanceOf(user) == 1 || nft.balanceOf(address(pool)) == 1,
-    //         "nft is not locked"
-    //     );
-    // }
+    function invariantLockedNft() public view {
+        require(
+            nft.balanceOf(user) == 1 || nft.balanceOf(address(pool)) == 1,
+            "nft is not locked"
+        );
+    }
 
-    // function actionWriteOption(
-    //     address poolAddress,
-    //     WasabiStructs.OptionType optionType,
-    //     uint256 strikePrice,
-    //     uint256 premium,
-    //     uint256 duration,
-    //     uint256 tokenId, // Tokens to deposit for CALL options
-    //     uint256 maxBlockToExecute
-    // ) public {
-    //     vm.prank(agent);
-    //     writeOption(
-    //         poolAddress,
-    //         optionType,
-    //         strikePrice,
-    //         premium,
-    //         duration,
-    //         tokenId,
-    //         maxBlockToExecute
-    //     );
-    // }
+    function actionWriteOption(
+        uint256 id,
+        address poolAddress,
+        WasabiStructs.OptionType optionType,
+        uint256 strikePrice,
+        uint256 premium,
+        uint256 duration,
+        uint256 tokenId_, // Tokens to deposit for CALL options
+        uint256 maxBlockToExecute
+    ) public {
+        vm.prank(agent);
+        writeOption(
+            id,
+            poolAddress,
+            optionType,
+            strikePrice,
+            premium,
+            duration,
+            tokenId_,
+            maxBlockToExecute
+        );
+    }
 
     function writeOption(
         uint256 id,
@@ -174,23 +181,13 @@ contract ERC20Premium is PTest {
         // get signature
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(AGENT_KEY, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
-
-        vm.prank(agent);
+        
         pool.writeOption(poolAsk, signature);
     }
-
-    function testme() public {
-        writeOption(
-            0,
-            address(pool),
-            WasabiStructs.OptionType.CALL,
-            150,
-            50,
-            10 days,
-            tokenId,
-            10 days
-        );
-    }
+    
+    //////////////////////
+    // utility functions
+    ////////////////////
 
     function hashDomain(
         WasabiStructs.EIP712Domain memory _eip712Domain

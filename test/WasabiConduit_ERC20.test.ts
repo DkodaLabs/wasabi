@@ -32,8 +32,8 @@ contract("WasabiConduit ERC20", accounts => {
     let request: PoolAsk;
     let conduit: WasabiConduitInstance;
     let feeManager: WasabiFeeManagerInstance;
-    let royaltyPayoutPercent = 20;
-    const originalPayoutPercent = 1000;
+    let feeValue = 20;
+    const feeDenominator = 1000;
     let testAzukiInstance: TestAzukiInstance;
 
     const lp = accounts[2];
@@ -56,7 +56,7 @@ contract("WasabiConduit ERC20", accounts => {
         testAzukiInstance = await TestAzuki.deployed();
 
         // Set Fee
-        await feeManager.setFraction(royaltyPayoutPercent);
+        await feeManager.setFraction(feeValue);
         await option.toggleFactory(poolFactory.address, true);
         await conduit.setOption(option.address);
         await conduit.setPoolFactoryAddress(poolFactory.address);
@@ -142,7 +142,7 @@ contract("WasabiConduit ERC20", accounts => {
             "Strike price needs to be supplied to execute a CALL option");
 
         let strikePrice = fromWei(request.strikePrice.toString());
-        await token.approve(pool.address, toEth(strikePrice * (originalPayoutPercent + royaltyPayoutPercent) / originalPayoutPercent), metadata(buyer));
+        await token.approve(pool.address, toEth(strikePrice * (feeDenominator + feeValue) / feeDenominator), metadata(buyer));
         const executeOptionResult = await pool.executeOption(optionId, metadata(buyer));
 
         const log = executeOptionResult.logs.find(l => l.event == "OptionExecuted")! as Truffle.TransactionLog<OptionExecuted>;
@@ -166,7 +166,7 @@ contract("WasabiConduit ERC20", accounts => {
         request = makeRequest(request.id, pool.address, OptionType.CALL, 10, 1, expiry, 1002, orderExpiry);
 
         let premium = fromWei(request.premium.toString());
-        await token.approve(pool.address, toEth(premium * (originalPayoutPercent + royaltyPayoutPercent) / originalPayoutPercent), metadata(buyer));
+        await token.approve(pool.address, toEth(premium * (feeDenominator + feeValue) / feeDenominator), metadata(buyer));
 
         const signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
         const writeOptionResult = await pool.writeOption(request, signature, metadata(buyer));
@@ -216,7 +216,7 @@ contract("WasabiConduit ERC20", accounts => {
         assert.equal(await option.ownerOf(optionId), someoneElse, "Option not owned after buying");
         assert.equal(fromWei(initialBalanceBuyer.sub(finalBalanceBuyer)), price, 'Buyer incorrect balance change')
 
-        const royaltyAmount = price * royaltyPayoutPercent / originalPayoutPercent;
+        const royaltyAmount = price * feeValue / feeDenominator;
         const sellerAmount = price - royaltyAmount;
         assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), sellerAmount, 'Seller incorrect balance change')
 
@@ -293,7 +293,7 @@ contract("WasabiConduit ERC20", accounts => {
         assert.equal(await option.ownerOf(optionId), buyer, "Option not owned after buying");
         assert.equal(fromWei(initialBalanceBuyer.sub(finalBalanceBuyer)), price, 'Buyer incorrect balance change')
         
-        const royaltyAmount = price * royaltyPayoutPercent / originalPayoutPercent;
+        const royaltyAmount = price * feeValue / feeDenominator;
         const sellerAmount = price - royaltyAmount;
         assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), sellerAmount, 'Seller incorrect balance change')
 

@@ -369,6 +369,10 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         } else {
             IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
             (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _poolBid.price);
+            uint256 maxFee = _maxFee(_poolBid.price);
+            if (feeAmount > maxFee) {
+                feeAmount = maxFee;
+            }
 
             if (_poolBid.tokenAddress == address(0)) {
                 if (address(this).balance < _poolBid.price) {
@@ -443,10 +447,10 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     /**
      * @dev Clears the option from the existing state and optionally exercises it.
      */
-    function clearOption(uint256 _optionId, uint256 _tokenId, bool _executed) internal {
+    function clearOption(uint256 _optionId, uint256 _tokenId, bool _exercised) internal {
         WasabiStructs.OptionData memory optionData = options[_optionId];
         if (optionData.optionType == WasabiStructs.OptionType.CALL) {
-            if (_executed) {
+            if (_exercised) {
                 // Sell to executor, the validateOptionForExecution already checked if strike is paid
                 nft.safeTransferFrom(address(this), _msgSender(), optionData.tokenId);
                 tokenIds.remove(optionData.tokenId);
@@ -455,7 +459,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
                 delete tokenIdToOptionId[optionData.tokenId];
             }
         } else if (optionData.optionType == WasabiStructs.OptionType.PUT) {
-            if (_executed) {
+            if (_exercised) {
                 // Buy from executor
                 nft.safeTransferFrom(_msgSender(), address(this), _tokenId);
                 payAddress(_msgSender(), optionData.strikePrice);
@@ -576,5 +580,12 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         }
         uint256 optionId = tokenIdToOptionId[_tokenId];
         return !isValid(optionId);
+    }
+
+    /**
+     * @dev returns the maximum fee that the protocol can take for the given amount
+     */
+    function _maxFee(uint256 _amount) internal pure returns(uint256) {
+        return _amount / 10;
     }
 }

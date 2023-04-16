@@ -34,14 +34,19 @@ contract ETHWasabiPool is AbstractWasabiPool {
         IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
         (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _premium);
 
-        require(msg.value >= (_premium + feeAmount) && _premium > 0, _message);
-
         if (feeAmount > 0) {
+            uint256 maxFee = _maxFee(_premium);
+            if (feeAmount > maxFee) {
+                feeAmount = maxFee;
+            }
+
             (bool _sent, ) = payable(feeReceiver).call{value: feeAmount}("");
             if (!_sent) {
                 revert IWasabiErrors.FailedToSend();
             }
         }
+
+        require(msg.value >= (_premium + feeAmount) && _premium > 0, _message);
     }
 
     /// @inheritdoc AbstractWasabiPool
@@ -49,15 +54,20 @@ contract ETHWasabiPool is AbstractWasabiPool {
         IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
         (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _amount);
 
-        (bool sent, ) = payable(_seller).call{value: _amount - feeAmount}("");
-        if (!sent) {
-            revert IWasabiErrors.FailedToSend();
-        }
         if (feeAmount > 0) {
+            uint256 maxFee = _maxFee(_amount);
+            if (feeAmount > maxFee) {
+                feeAmount = maxFee;
+            }
             (bool _sent, ) = payable(feeReceiver).call{value: feeAmount}("");
             if (!_sent) {
                 revert IWasabiErrors.FailedToSend();
             }
+        }
+
+        (bool sent, ) = payable(_seller).call{value: _amount - feeAmount}("");
+        if (!sent) {
+            revert IWasabiErrors.FailedToSend();
         }
     }
 

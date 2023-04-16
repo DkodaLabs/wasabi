@@ -22,7 +22,6 @@ export enum PoolState {
 export interface OptionData {
     optionType: BN;
     strikePrice: BN;
-    premium: BN;
     expiry: BN;
     tokenId: BN;
 }

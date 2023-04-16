@@ -10,7 +10,6 @@ library WasabiStructs {
     struct OptionData {
         OptionType optionType;
         uint256 strikePrice;
-        uint256 premium;
         uint256 expiry;
         uint256 tokenId; // Locked token for CALL options
         bool active;

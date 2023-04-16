@@ -143,7 +143,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
             _request.optionType,
             _request.strikePrice,
-            _request.premium,
             _request.expiry,
             _request.tokenId,
             true
@@ -279,7 +278,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
             _bid.optionType,
             _bid.strikePrice,
-            _bid.price,
             _bid.expiry,
             _tokenId,
             true

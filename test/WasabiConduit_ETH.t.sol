@@ -11,7 +11,7 @@ import {WasabiConduit} from "../../contracts/conduit/WasabiConduit.sol";
 
 import "../../lib/narya-contracts/PTest.sol";
 
-contract WasabiConduit_ERC20 is PTest {
+contract WasabiConduit_ETH is PTest {
     TestERC721 internal nft;
     DemoETH internal token;
     WasabiFeeManager feeManager;
@@ -20,7 +20,7 @@ contract WasabiConduit_ERC20 is PTest {
     WasabiOption internal options;
     ETHWasabiPool internal templatePool;
     ERC20WasabiPool internal templateERC20Pool;
-    ERC20WasabiPool internal pool;
+    ETHWasabiPool internal pool;
     uint256 tokenId;
     uint96 royaltyPayoutPercent = 20;
     uint256 tokenId1;
@@ -63,9 +63,8 @@ contract WasabiConduit_ERC20 is PTest {
         agent = vm.addr(AGENT_KEY);
 
         token = new DemoETH();
-        deal(address(token), user, 100);
-        token.issue(address(agent), 100 ether);
-        token.issue(address(bob), 100 ether);
+        vm.deal(agent, 100 ether);
+        vm.deal(bob, 100 ether);
 
         feeManager = new WasabiFeeManager();
         conduit = new WasabiConduit();
@@ -82,6 +81,7 @@ contract WasabiConduit_ERC20 is PTest {
         );
 
         feeManager.setFraction(royaltyPayoutPercent);
+        feeManager.setReceiver(user);
         options.toggleFactory(address(poolFactory), true);
         conduit.setOption(options);
         conduit.setPoolFactoryAddress(address(poolFactory));
@@ -122,20 +122,17 @@ contract WasabiConduit_ERC20 is PTest {
 
         nft.setApprovalForAll(address(poolFactory), true);
 
-        address poolAddress = poolFactory.createERC20Pool(
-            address(token),
-            0,
+        address poolAddress = poolFactory.createPool(
             address(nft),
             tokenIds,
             poolConfiguration,
             types,
             agent
         );
-        pool = ERC20WasabiPool(payable(poolAddress));
+        pool = ETHWasabiPool(payable(poolAddress));
         vm.stopPrank();
 
         assert(pool.owner() == agent);
-        assert(pool.getLiquidityAddress() == address(token));
         uint256[] memory ids = pool.getAllTokenIds();
         assert(ids.length == tokenIds.length);
 
@@ -161,57 +158,21 @@ contract WasabiConduit_ERC20 is PTest {
             block.timestamp + 10_000
         );
 
-        assert(token.balanceOf(address(pool)) == premium);
+        assert(address(pool).balance == premium);
         assert(options.ownerOf(optionId) == agent);
         assert(pool.getOptionIdForToken(1001) == optionId);
 
-        vm.expectRevert();
-        buyOption(
-            1 + 1,
-            address(pool),
-            WasabiStructs.OptionType.CALL,
-            10,
-            premium,
-            block.timestamp + 10_000,
-            1001,
-            block.timestamp + 10_000
-        );
-
-        vm.stopPrank();
-    }
-
-    function _testExecuteOption() public {
-        vm.startPrank(agent);
-        uint256 premium = 1;
-
-        token.approve(address(pool), 10 ether);
-
-        pool.executeOption(optionId);
-
-        assert(nft.ownerOf(1001) == agent);
-        assert(token.balanceOf(address(pool)) == 10 + 1);
-
-        vm.stopPrank();
-    }
-
-    function _testIssueOption() public {
-        vm.startPrank(agent);
-
-        uint256 initialPoolBalance = token.balanceOf(address(pool));
-
-        optionId = writeOption(
-            1 + 1,
-            address(pool),
-            WasabiStructs.OptionType.CALL,
-            10, // strike
-            1, // premium
-            block.timestamp + 10 days,
-            1002,
-            block.timestamp + 10 days
-        );
-
-        assert(token.balanceOf(address(pool)) == initialPoolBalance + 1);
-        assert(options.ownerOf(optionId) == agent);
+        // vm.expectRevert();
+        // writeOption(
+        //     1 + 1,
+        //     address(pool),
+        //     WasabiStructs.OptionType.CALL,
+        //     10,
+        //     premium,
+        //     block.timestamp + 10_000,
+        //     1001,
+        //     block.timestamp + 10_000
+        // );
 
         vm.stopPrank();
     }
@@ -223,159 +184,52 @@ contract WasabiConduit_ERC20 is PTest {
         vm.prank(bob);
         token.approve(address(conduit), 1 ether);
 
-        address royaltyReceiver = feeManager.owner();
-        uint256 initialRoyaltyReceiverBalance = token.balanceOf(royaltyReceiver);
-        uint256 initialBalanceBuyer = token.balanceOf(bob);
-        uint256 initialBalanceSeller = token.balanceOf(agent);
+        address royaltyReceiver = feeManager.receiver();
+        uint256 initialRoyaltyReceiverBalance = royaltyReceiver.balance;
+        uint256 initialBalanceBuyer = bob.balance;
+        uint256 initialBalanceSeller = agent.balance;
 
         acceptAsk(
             1,
             1 ether, // price
-            address(token),
-            block.timestamp + 20,
-            agent,
-            optionId,
-            bob
-        );
-
-        uint256 finalBalanceBuyer = token.balanceOf(bob);
-        uint256 finalBalanceSeller = token.balanceOf(agent);
-        uint256 finalRoyaltyReceiverBalance = token.balanceOf(royaltyReceiver);
-        uint256 royaltyAmount = 1 ether * 20 / 1000;
-
-        assert(options.ownerOf(optionId) == bob);
-        assert(initialBalanceBuyer-finalBalanceBuyer == 1 ether);
-        assert(finalBalanceSeller-initialBalanceSeller == 1 ether - royaltyAmount);
-        assert(finalRoyaltyReceiverBalance-initialRoyaltyReceiverBalance == royaltyAmount);
-    }
-
-    function _testAcceptBid() public {
-        WasabiStructs.OptionData memory data = pool.getOptionData(optionId);
-
-        vm.expectRevert();
-        acceptBid(
-            2,
-            1 ether, // price
-            address(token),
-            address(nft),
-            block.timestamp + 20,
-            agent,
-            data.optionType,
-            data.strikePrice,
-            data.expiry,
-            0,
             address(0),
-            optionId,
-            bob
-        );
-
-        vm.prank(bob);
-        options.setApprovalForAll(address(conduit), true);
-        
-        assert(options.ownerOf(optionId) == bob);
-
-        address royaltyReceiver = feeManager.owner();
-        uint256 initialRoyaltyReceiverBalance = token.balanceOf(royaltyReceiver);
-        uint256 initialBalanceBuyer = token.balanceOf(agent);
-        uint256 initialBalanceSeller = token.balanceOf(bob);
-
-
-        acceptBid(
-            2,
-            1 ether, // price
-            address(token),
-            address(nft),
             block.timestamp + 20,
             agent,
-            data.optionType,
-            data.strikePrice,
-            data.expiry,
-            0,
-            address(token),
             optionId,
             bob
         );
 
-        uint256 finalBalanceBuyer = token.balanceOf(agent);
-        uint256 finalBalanceSeller = token.balanceOf(bob);
-        uint256 finalRoyaltyReceiverBalance = token.balanceOf(royaltyReceiver);
+        uint256 finalBalanceBuyer = bob.balance;
+        uint256 finalBalanceSeller = agent.balance;
+        uint256 finalRoyaltyReceiverBalance = royaltyReceiver.balance;
         uint256 royaltyAmount = 1 ether * 20 / 1000;
 
-        assert(options.ownerOf(optionId) == agent);
+        assert(options.ownerOf(optionId) == bob);
         assert(initialBalanceBuyer-finalBalanceBuyer == 1 ether);
         assert(finalBalanceSeller-initialBalanceSeller == 1 ether - royaltyAmount);
         assert(finalRoyaltyReceiverBalance-initialRoyaltyReceiverBalance == royaltyAmount);
-    }
-
-    function _testPoolAcceptBid() public {
-        WasabiStructs.OptionData memory data = pool.getOptionData(optionId);
-
-        vm.expectRevert();
-        poolAcceptBid(
-            3,
-            1 ether,
-            address(token),
-            address(nft),
-            block.timestamp + 20,
-            agent,
-            WasabiStructs.OptionType.CALL,
-            10 ether,
-            block.timestamp + 20_000,
-            0,
-            address(token),
-            0,
-            agent
-        );
     }
 
     function _testCancelAsk() public {
-        vm.prank(agent);
+        vm.prank(bob);
         options.setApprovalForAll(address(conduit), true);
 
-        vm.prank(agent);
+        vm.prank(bob);
         cancelAsk(
             3,
             1 ether,
-            address(token),
+            address(0),
             block.timestamp + 20,
-            agent,
+            bob,
             optionId
         );
     }
 
-    function _testCancelBid() public {
-        WasabiStructs.OptionData memory data = pool.getOptionData(optionId);
-
-        vm.prank(agent);
-        options.setApprovalForAll(address(conduit), true);
-
-        vm.prank(bob);
-        cancelBid(
-            4,
-            1 ether,
-            address(token),
-            address(nft),
-            block.timestamp + 20,
-            bob,
-            data.optionType,
-            data.strikePrice,
-            data.expiry,
-            0,
-            address(token),
-            BOB_KEY
-        );
-    }
-
-    function testWasabiConduit_ERC20() public {
+    function testWasabiConduit_ETH() public {
         _testCreatePool();
         _testWriteOption();
-        _testExecuteOption();
-        _testIssueOption();
         _testAcceptAsk();
-        _testAcceptBid();
-        _testPoolAcceptBid();
         _testCancelAsk();
-        _testCancelBid();
     }
 
     function buyOption(
@@ -421,7 +275,10 @@ contract WasabiConduit_ERC20 is PTest {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(AGENT_KEY, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        return conduit.buyOption(poolAsk, signature);
+        (, uint256 fees) = feeManager.getFeeData(address(pool), premium);
+        uint256 amount = premium + fees;
+
+        return conduit.buyOption{value: amount}(poolAsk, signature);
     }
 
     function writeOption(
@@ -467,7 +324,10 @@ contract WasabiConduit_ERC20 is PTest {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(AGENT_KEY, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        return pool.writeOption(poolAsk, signature);
+        (, uint256 fees) = feeManager.getFeeData(address(pool), premium);
+        uint256 amount = premium + fees;
+
+        return pool.writeOption{value: amount}(poolAsk, signature);
     }
 
     function acceptAsk(
@@ -505,7 +365,7 @@ contract WasabiConduit_ERC20 is PTest {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         vm.prank(prankster);
-        return conduit.acceptAsk(ask, signature);
+        return conduit.acceptAsk{value: price}(ask, signature);
     }
 
     function acceptBid(
@@ -636,7 +496,7 @@ contract WasabiConduit_ERC20 is PTest {
         );
 
         // get signature
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(AGENT_KEY, digest);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(BOB_KEY, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
         conduit.cancelAsk(ask, signature);

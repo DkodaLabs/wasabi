@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import "../../contracts/mocks/DemoETH.sol";
-import "../../contracts/mocks/TestERC721.sol";
-import "../../contracts/WasabiPoolFactory.sol";
-import "../../contracts/pools/ETHWasabiPool.sol";
-import "../../contracts/pools/ERC20WasabiPool.sol";
-import {WasabiFeeManager} from "../../contracts/fees/WasabiFeeManager.sol";
-import {WasabiConduit} from "../../contracts/conduit/WasabiConduit.sol";
+import "../contracts/mocks/DemoETH.sol";
+import "../contracts/mocks/TestERC721.sol";
+import "../contracts/WasabiPoolFactory.sol";
+import "../contracts/pools/ETHWasabiPool.sol";
+import "../contracts/pools/ERC20WasabiPool.sol";
+import {WasabiFeeManager} from "../contracts/fees/WasabiFeeManager.sol";
+import {WasabiConduit} from "../contracts/conduit/WasabiConduit.sol";
 
-import "../../lib/narya-contracts/PTest.sol";
+import "../lib/narya-contracts/PTest.sol";
 
 contract WasabiConduit_ETH is PTest {
     TestERC721 internal nft;

@@ -11,7 +11,7 @@ import {WasabiConduit} from "../contracts/conduit/WasabiConduit.sol";
 
 import "../lib/narya-contracts/PTest.sol";
 
-contract ERC20WasabiPool_AcceptAsk is PTest {
+contract ERC20WasabiPool_AcceptPoolBid is PTest {
     TestERC721 internal nft;
     DemoETH internal token;
     WasabiFeeManager feeManager;
@@ -29,9 +29,9 @@ contract ERC20WasabiPool_AcceptAsk is PTest {
     uint256 tokenId4;
     uint256 tokenId5;
     uint256 tokenId6;
-    uint256 tokenId7;
 
     uint256 optionId;
+    uint256 optionId2;
 
     address internal user;
     address internal agent;
@@ -56,6 +56,11 @@ contract ERC20WasabiPool_AcceptAsk is PTest {
     bytes32 constant ASK_TYPEHASH =
         keccak256(
             "Ask(uint256 id,uint256 price,address tokenAddress,uint256 orderExpiry,address seller,uint256 optionId)"
+        );
+
+    bytes32 constant POOLBID_TYPEHASH =
+        keccak256(
+            "PoolBid(uint256 id,uint256 price,address tokenAddress,uint256 orderExpiry,uint256 optionId)"
         );
 
     function setUp() public {
@@ -93,16 +98,12 @@ contract ERC20WasabiPool_AcceptAsk is PTest {
         tokenId1 = nft.mint();
         tokenId2 = nft.mint();
         tokenId3 = nft.mint();
-        tokenId4 = nft.mint();
-        vm.stopPrank();
-
-        vm.startPrank(user);
-        tokenId5 = nft.mint();
         vm.stopPrank();
 
         vm.startPrank(bob);
+        tokenId4 = nft.mint();
+        tokenId5 = nft.mint();
         tokenId6 = nft.mint();
-        tokenId7 = nft.mint();
         vm.stopPrank();
     }
 
@@ -111,15 +112,14 @@ contract ERC20WasabiPool_AcceptAsk is PTest {
             .PoolConfiguration(1, 100, 222, 2630000 /* one month */);
 
         WasabiStructs.OptionType[]
-            memory types = new WasabiStructs.OptionType[](1);
+            memory types = new WasabiStructs.OptionType[](2);
         types[0] = WasabiStructs.OptionType.CALL;
-        // types[1] = WasabiStructs.OptionType.PUT;
+        types[1] = WasabiStructs.OptionType.PUT;
 
-        uint256[] memory tokenIds = new uint256[](4);
+        uint256[] memory tokenIds = new uint256[](3);
         tokenIds[0] = tokenId1;
         tokenIds[1] = tokenId2;
         tokenIds[2] = tokenId3;
-        tokenIds[3] = tokenId4;
 
         vm.startPrank(agent);
 
@@ -145,117 +145,65 @@ contract ERC20WasabiPool_AcceptAsk is PTest {
         assert(ids[0] == 1001);
         assert(ids[1] == 1002);
         assert(ids[2] == 1003);
-        assert(ids[3] == 1004);
     }
 
-    function _testAcceptBid() public {
+    function _testWriteOption() public {
         vm.prank(bob);
-        token.approve(address(conduit), 10 ether);
+        token.approve(address(pool), 10 ether);
 
-        vm.startPrank(agent);
-        uint256 premium = 1 ether;
+        vm.startPrank(bob);
 
-        (WasabiStructs.Bid memory bid, bytes memory signature) = makeBid(
-            2,
-            1 ether,
-            address(token),
-            address(nft),
-            block.timestamp + 20,
-            bob,
-            WasabiStructs.OptionType.CALL,
-            10 ether,
-            block.timestamp + 20000,
+        (WasabiStructs.PoolAsk memory poolAsk, bytes memory signature) = makePoolAsk(
             0,
-            address(token)
-        );
-
-        uint256[] memory tokenIds = pool.getAllTokenIds();
-        uint256 tokenId_ = 0;
-        for (uint i = 0; i < tokenIds.length; i++) {
-            if (pool.isAvailableTokenId(tokenIds[i])){
-                tokenId_ = tokenIds[i];
-                break;
-            }
-        }
-
-        pool.acceptBidWithTokenId(bid, signature, tokenId_);
-
-        optionId = pool.getOptionIdForToken(tokenId_);
-        assert(options.ownerOf(optionId) == bob);
-
-        vm.stopPrank();
-    }
-
-    function _testAcceptBid2() public {
-        vm.prank(bob);
-        token.approve(address(conduit), 10 ether);
-
-        vm.startPrank(agent);
-        uint256 premium = 1 ether;
-
-        (WasabiStructs.Bid memory bid, bytes memory signature) = makeBid(
-            3,
-            1 ether,
-            address(token),
-            address(nft),
-            block.timestamp + 20,
-            bob,
+            address(pool),
             WasabiStructs.OptionType.CALL,
-            10 ether,
-            block.timestamp + 20000,
-            0,
-            address(token)
-        );
-
-        uint prev_pool_balance = token.balanceOf(address(pool));
-        pool.acceptBid(bid, signature);
-        uint after_pool_balance = token.balanceOf(address(pool));
-
-        assert(prev_pool_balance + 1 ether == after_pool_balance);
-
-
-        (WasabiStructs.Bid memory bid2, bytes memory signature2) = makeBid(
-            2,
-            1 ether,
-            address(token),
-            address(nft),
-            block.timestamp + 20,
-            bob,
-            WasabiStructs.OptionType.CALL,
-            10 ether,
-            block.timestamp + 20000,
-            0,
-            address(token)
-        );
-        vm.expectRevert();
-        pool.acceptBid(bid2, signature2);
-
-        (WasabiStructs.Bid memory bid3, bytes memory signature3) = makeBid(
             10,
             1 ether,
-            address(token),
-            address(nft),
-            block.timestamp + 20,
-            bob,
-            WasabiStructs.OptionType.CALL,
-            10 ether,
-            block.timestamp + 20000,
-            0,
-            address(token)
+            block.timestamp + 10_000,
+            1001,
+            block.timestamp + 10_000
         );
-        vm.expectRevert();
-        pool.acceptBidWithTokenId(bid3, signature3, 0);
+
+        optionId = pool.writeOption(poolAsk, signature);
+        assert(options.ownerOf(optionId) == bob);
+
+        (WasabiStructs.PoolAsk memory poolAsk2, bytes memory signature2) = makePoolAsk(
+            1,
+            address(pool),
+            WasabiStructs.OptionType.PUT,
+            10,
+            1,
+            block.timestamp + 10_000,
+            1001,
+            block.timestamp + 10_000
+        );
+
+        optionId2 = pool.writeOption(poolAsk2, signature2);
+        assert(options.ownerOf(optionId2) == bob);
 
         vm.stopPrank();
-
-        vm.expectRevert();
-        pool.acceptBid(bid2, signature2);
     }
 
-    function testERC20WasabiPool_AcceptBid() public {
+    function _testAcceptPoolBid() public {
+        (WasabiStructs.PoolBid memory poolBid, bytes memory signature) = makePoolBid(
+            1000,
+            2 ether,
+            address(token),
+            block.timestamp - 1,
+            optionId,
+            BOB_KEY
+        );
+
+        vm.expectRevert();
+        pool.acceptPoolBid(poolBid, signature);
+
+        pool.acceptPoolBid(poolBid, signature);
+    }
+
+    function testme() public {
         _testCreatePool();
-        _testAcceptBid();
-        _testAcceptBid2();
+        _testWriteOption();
+        _testAcceptPoolBid();
     }
 
     function buyOption(
@@ -302,6 +250,50 @@ contract ERC20WasabiPool_AcceptAsk is PTest {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         return conduit.buyOption(poolAsk, signature);
+    }
+
+    function makePoolAsk(
+        uint256 id,
+        address poolAddress,
+        WasabiStructs.OptionType optionType,
+        uint256 strikePrice,
+        uint256 premium,
+        uint256 expiry,
+        uint256 tokenId_, // Tokens to deposit for CALL options
+        uint256 orderExpiry
+    ) private returns (WasabiStructs.PoolAsk memory poolAsk, bytes memory signature) {
+        poolAsk = WasabiStructs.PoolAsk(
+            id,
+            poolAddress,
+            optionType,
+            strikePrice,
+            premium,
+            expiry,
+            tokenId_, // Tokens to deposit for CALL options
+            orderExpiry
+        );
+
+        bytes32 domainSeparator = hashDomain(
+            WasabiStructs.EIP712Domain({
+                name: "PoolAskSignature",
+                version: "1",
+                chainId: getChainID(),
+                verifyingContract: address(pool)
+            })
+        );
+
+        // hash of message
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                domainSeparator,
+                hashForPoolAsk(poolAsk)
+            )
+        );
+
+        // get signature
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(AGENT_KEY, digest);
+        signature = abi.encodePacked(r, s, v);
     }
 
     function writeOption(
@@ -463,6 +455,39 @@ contract ERC20WasabiPool_AcceptAsk is PTest {
 
         // get signature
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(BOB_KEY, digest);
+        signature = abi.encodePacked(r, s, v);
+    }
+
+    function makePoolBid(
+        uint256 id,
+        uint256 price,
+        address tokenAddress,
+        uint256 orderExpiry,
+        uint256 optionId_,
+        uint256 pkey
+    ) private returns(WasabiStructs.PoolBid memory poolBid, bytes memory signature) {
+        poolBid = WasabiStructs.PoolBid(
+            id,
+            price,
+            tokenAddress,
+            orderExpiry,
+            optionId_
+        );
+
+        bytes32 domainSeparator = hashDomain(
+            WasabiStructs.EIP712Domain({
+                name: "PoolBidVerifier",
+                version: "1",
+                chainId: getChainID(),
+                verifyingContract: address(this)
+            })
+        );
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", domainSeparator, hashForPoolBid(poolBid))
+        );
+
+        // get signature
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pkey, digest);
         signature = abi.encodePacked(r, s, v);
     }
 
@@ -728,6 +753,22 @@ contract ERC20WasabiPool_AcceptAsk is PTest {
                     _bid.expiry,
                     _bid.expiryAllowance,
                     _bid.optionTokenAddress
+                )
+            );
+    }
+
+    function hashForPoolBid(
+        WasabiStructs.PoolBid memory _poolBid
+    ) public pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(
+                    POOLBID_TYPEHASH,
+                    _poolBid.id,
+                    _poolBid.price,
+                    _poolBid.tokenAddress,
+                    _poolBid.orderExpiry,
+                    _poolBid.optionId
                 )
             );
     }

@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeConfig, metadata, signBidWithEIP712, expectRevertCustomError } from "./util/TestUtils";
+import { toEth, toBN, makeConfig, metadata, signBidWithEIP712, expectRevertCustomError, getAllTokenIds } from "./util/TestUtils";
 import { PoolAsk, OptionType, ZERO_ADDRESS ,Bid } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -81,7 +81,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         poolAddress = createPoolResult.logs.find(e => e.event == "NewPool")!.args[0];
         pool = await ERC20WasabiPool.at(poolAddress);
         assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
-        assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1001, 1002, 1003, 1004], "Pool doesn't have the correct tokens");
+        assert.deepEqual(await getAllTokenIds(pool.address, testNft), [1001, 1002, 1003, 1004], "Pool doesn't have the correct tokens");
 
         assert.equal(await pool.getLiquidityAddress(), token.address, 'Token not correct');
     });
@@ -104,11 +104,11 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             optionTokenAddress: token.address
         };
 
-        const tokenIds = await pool.getAllTokenIds();
+        const tokenIds = await getAllTokenIds(pool.address, testNft);
         let tokenId = 0;
         for (let i = 0; i < tokenIds.length; i++) {
-            if (await pool.isAvailableTokenId(tokenIds[i])){
-                tokenId = tokenIds[i].toNumber();
+            if (await pool.isAvailableTokenId(tokenIds[i].valueOf())){
+                tokenId = tokenIds[i].valueOf();
                 break;
             }
         }
@@ -120,7 +120,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         await token.approve(conduit.address, toEth(price), metadata(buyer)); // Approve tokens
 
         const prev_pool_balance = await token.balanceOf(pool.address);
-        const acceptBidResult = await pool.acceptBidWithTokenId(bid, signature, tokenId, metadata(lp));
+        const acceptBidResult = await pool.acceptBid(bid, signature, tokenId, metadata(lp));
         const after_pool_balance = await token.balanceOf(pool.address);
         const optionId = await pool.getOptionIdForToken(tokenId);
         
@@ -155,7 +155,16 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         await token.approve(conduit.address, toEth(price), metadata(buyer)); // Approve tokens
 
         const prev_pool_balance = await token.balanceOf(pool.address);
-        await pool.acceptBid(bid, signature, metadata(lp));
+
+        const tokenIds = await getAllTokenIds(pool.address, testNft);
+        let tokenId = 0;
+        for (let i = 0; i < tokenIds.length; i++) {
+            if (await pool.isAvailableTokenId(tokenIds[i].valueOf())){
+                tokenId = tokenIds[i].valueOf();
+                break;
+            }
+        }
+        await pool.acceptBid(bid, signature, tokenId, metadata(lp));
 
         const after_pool_balance = await token.balanceOf(pool.address);
         
@@ -188,7 +197,15 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
 
         await token.approve(conduit.address, toEth(price), metadata(buyer)); // Approve tokens
 
-        await truffleAssert.reverts(pool.acceptBid(bid, signature, metadata(lp)), "Order was finalized or cancelled");
+        const tokenIds = await getAllTokenIds(pool.address, testNft);
+        let tokenId = 0;
+        for (let i = 0; i < tokenIds.length; i++) {
+            if (await pool.isAvailableTokenId(tokenIds[i].valueOf())){
+                tokenId = tokenIds[i].valueOf();
+                break;
+            }
+        }
+        await truffleAssert.reverts(pool.acceptBid(bid, signature, tokenId, metadata(lp)), "Order was finalized or cancelled");
     });
 
     it("Accept Call Bid with invalid tokenId - (only owner)", async () => {
@@ -208,7 +225,6 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
             expiryAllowance: 0,
             optionTokenAddress: token.address
         };
-        let tokenId = 0;
 
         // Factory Owner Sets Conduit Address
         await poolFactory.setConduitAddress(conduit.address, metadata(owner));
@@ -216,7 +232,7 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
 
         await expectRevertCustomError(
-            pool.acceptBidWithTokenId(bid, signature, tokenId, metadata(lp)),
+            pool.acceptBid(bid, signature, 1001, metadata(lp)),
             "NftIsInvalid");
     });
 
@@ -241,6 +257,6 @@ contract("ERC20WasabiPool: Accept Bid From Pool", accounts => {
         let tokenId = 0;
 
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
-        await truffleAssert.reverts(pool.acceptBidWithTokenId(bid, signature, tokenId, metadata(buyer)), "Ownable: caller is not the owner");
+        await truffleAssert.reverts(pool.acceptBid(bid, signature, tokenId, metadata(buyer)), "Ownable: caller is not the owner");
     });
 });

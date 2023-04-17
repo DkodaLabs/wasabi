@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, fromWei, signBidWithEIP712, signAskWithEIP712, expectRevertCustomError } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, fromWei, signBidWithEIP712, signAskWithEIP712, expectRevertCustomError, getAllTokenIds } from "./util/TestUtils";
 import { Ask, Bid, OptionData, PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { TestAzukiInstance } from "../types/truffle-contracts/TestAzuki.js";
@@ -96,7 +96,7 @@ contract("WasabiConduit ERC20", accounts => {
         poolAddress = createPoolResult.logs.find(e => e.event == "NewPool")!.args[0];
         pool = await ERC20WasabiPool.at(poolAddress);
         assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
-        assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1001, 1002, 1003], "Pool doesn't have the correct tokens");
+        assert.deepEqual(await getAllTokenIds(pool.address, testNft), [1001, 1002, 1003], "Pool doesn't have the correct tokens");
 
         assert.equal(await pool.getLiquidityAddress(), token.address, 'Token not correct');
     });
@@ -156,7 +156,7 @@ contract("WasabiConduit ERC20", accounts => {
     
     it("Issue Option", async () => {
         let initialPoolBalance = await token.balanceOf(poolAddress);
-        assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1003, 1002], "Pool doesn't have the correct tokens");
+        assert.deepEqual(await getAllTokenIds(pool.address, testNft), [1003, 1002], "Pool doesn't have the correct tokens");
 
         request.id = request.id + 1;
         let blockNumber = await web3.eth.getBlockNumber();

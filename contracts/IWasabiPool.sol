@@ -187,11 +187,6 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function enableType(WasabiStructs.OptionType _type) external;
 
     /**
-     * @dev Returns all the token ids in this pool
-     */
-    function getAllTokenIds() view external returns(uint256[] memory);
-
-    /**
      * @dev Returns 'true' if the option for the given id is valid and active, 'false' otherwise
      */
     function isValid(uint256 _optionId) view external returns(bool);
@@ -207,14 +202,9 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function clearExpiredOptions(uint256[] memory _optionIds) external;
 
     /**
-     * @dev accepts the bid for LPs with _tokenId
+     * @dev accepts the bid for LPs with _tokenId. If its a put option, _tokenId can be 0
      */
-    function acceptBidWithTokenId(WasabiStructs.Bid calldata _bid, bytes calldata _signature, uint256 _tokenId) external returns(uint256);
-
-    /**
-     * @dev accepts the bid for LPs without _tokenId
-     */
-    function acceptBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature) external returns(uint256);
+    function acceptBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature, uint256 _tokenId) external returns(uint256);
 
     /**
      * @dev accepts the ask for LPs

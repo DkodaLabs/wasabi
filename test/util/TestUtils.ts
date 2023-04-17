@@ -1,3 +1,4 @@
+import { TestERC721Instance } from "../../types/truffle-contracts";
 import {
   PoolAsk,
   OptionType,
@@ -491,4 +492,16 @@ export async function expectRevertCustomError(promise: Promise<any>, customError
         )
       }
   }
+}
+
+export async function getAllTokenIds(address: string, nft: TestERC721Instance): Promise<Number[]> {
+  const balance = (await nft.balanceOf(address)).toNumber();
+
+  const result = [];
+
+  for (let i = 0; i < balance; i++) {
+    const tokenId = (await nft.tokenOfOwnerByIndex(address, i)).toNumber();
+    result.push(tokenId);
+  }
+  return result;
 }

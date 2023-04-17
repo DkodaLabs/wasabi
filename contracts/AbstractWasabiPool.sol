@@ -436,6 +436,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             }
         }
         options[_optionId].active = false;
+        optionIds.remove(_optionId);
         optionNFT.burn(_optionId);
     }
 

@@ -94,38 +94,42 @@ contract("ERC20WasabiPool: Clear Expired Options From Pool", accounts => {
         let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
         let expiry = timestamp + 10000;
         let orderExpiry = timestamp + 10000;
-        let optionIds = [];
         const premium = 1;
         request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1003, orderExpiry);
 
-        await token.approve(conduit.address, toEth(premium * 10), metadata(lp));
+        await token.approve(conduit.address, toEth(premium * 10), metadata(buyer));
 
         let signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
-        optionId = await conduit.buyOption.call(request, signature, metadata(lp));
-        await conduit.buyOption(request, signature, metadata(lp));
-        optionIds.push(optionId);
+        optionId = await conduit.buyOption.call(request, signature, metadata(buyer));
+        await conduit.buyOption(request, signature, metadata(buyer));
 
-        request = makeRequest(id+1, pool.address, OptionType.CALL, 10, premium, expiry, 1004, orderExpiry);
+        request = makeRequest(id + 1, pool.address, OptionType.CALL, 10, premium, expiry, 1004, orderExpiry);
 
-        await token.approve(conduit.address, toEth(premium * 10), metadata(lp));
-
-        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
-        optionId = await conduit.buyOption.call(request, signature, metadata(lp));
-        await conduit.buyOption(request, signature, metadata(lp));
-        optionIds.push(optionId);
-
-        request = makeRequest(id+2, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry);
-
-        await token.approve(conduit.address, toEth(premium * 10), metadata(lp));
+        await token.approve(conduit.address, toEth(premium * 10), metadata(buyer));
 
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
-        optionId = await conduit.buyOption.call(request, signature, metadata(lp));
-        await conduit.buyOption(request, signature, metadata(lp));
-        optionIds.push(optionId);
+        optionId = await conduit.buyOption.call(request, signature, metadata(buyer));
+        await conduit.buyOption(request, signature, metadata(buyer));
+
+        request = makeRequest(id + 2, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry);
+
+        await token.approve(conduit.address, toEth(premium * 10), metadata(buyer));
+
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        optionId = await conduit.buyOption.call(request, signature, metadata(buyer));
+        await conduit.buyOption(request, signature, metadata(buyer));
+
+        request = makeRequest(id + 3, pool.address, OptionType.CALL, 10, premium, expiry, 1002, orderExpiry);
+        await token.approve(conduit.address, toEth(premium * 10), metadata(buyer));
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        optionId = await conduit.buyOption.call(request, signature, metadata(buyer));
+        await conduit.buyOption(request, signature, metadata(buyer));
+
+        await token.approve(pool.address, toEth(10), metadata(buyer));
+        await pool.executeOption(optionId, metadata(buyer));
     });
 
     it("Clear Expired Options", async () => {
-        const initial_optionIds = await pool.getOptionIds();
         await advanceTime(10000 * 2);
         await advanceBlock();
 

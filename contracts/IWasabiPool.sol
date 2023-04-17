@@ -162,31 +162,6 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function getOptionData(uint256 _optionId) external view returns(WasabiStructs.OptionData memory);
 
     /**
-     * @dev Returns the current pool configuration
-     */
-    function getPoolConfiguration() external view returns(WasabiStructs.PoolConfiguration memory);
-
-    /**
-     * @dev Edits the pool configuration for this pool
-     */
-    function setPoolConfiguration(WasabiStructs.PoolConfiguration calldata _poolConfiguration) external;
-
-    /**
-     * @dev Returns 'true' if given OptionType is enabled
-     */
-    function isEnabled(WasabiStructs.OptionType _type) external view returns(bool);
-
-    /**
-     * @dev Disables the given OptionType
-     */
-    function disableType(WasabiStructs.OptionType _type) external;
-
-    /**
-     * @dev Enables the given OptionType
-     */
-    function enableType(WasabiStructs.OptionType _type) external;
-
-    /**
      * @dev Returns 'true' if the option for the given id is valid and active, 'false' otherwise
      */
     function isValid(uint256 _optionId) view external returns(bool);

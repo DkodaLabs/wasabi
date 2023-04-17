@@ -2,7 +2,6 @@ import { TestERC721Instance } from "../../types/truffle-contracts";
 import {
   PoolAsk,
   OptionType,
-  WasabiPoolConfiguration,
   AMMOrder,
   Bid,
   Ask,
@@ -79,20 +78,6 @@ export const makeAmmRequest = (
     collection,
     price: toEth(price),
     orderExpiry,
-  };
-};
-
-export const makeConfig = (
-  minStrikePrice: number,
-  maxStrikePrice: number,
-  minDuration: number,
-  maxDuration: number
-): WasabiPoolConfiguration => {
-  return {
-    minStrikePrice: toEth(minStrikePrice),
-    maxStrikePrice: toEth(maxStrikePrice),
-    minDuration,
-    maxDuration,
   };
 };
 

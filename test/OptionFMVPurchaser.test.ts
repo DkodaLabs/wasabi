@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, signRequest,gasOfTxn, assertIncreaseInBalance, advanceTime, getAllTokenIds } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, metadata, signPoolAskWithEIP712, signRequest,gasOfTxn, assertIncreaseInBalance, advanceTime, getAllTokenIds } from "./util/TestUtils";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -56,16 +56,12 @@ contract("OptionFMVPurchaser", accounts => {
         await testNft.mint(metadata(buyer));
 
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
-        const config = makeConfig(1, 100, 222, 2630000 /* one month */);
-        const types = [OptionType.CALL];
         const createPoolResult =
             await poolFactory.createERC20Pool(
                 token.address,
                 0,
                 testNft.address,
                 [1001, 1002, 1003],
-                config,
-                types,
                 ZERO_ADDRESS,
                 metadata(lp));
         truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");

@@ -48,11 +48,6 @@ interface IWasabiErrors {
     error InvalidStrike();
 
     /**
-     * @dev Thrown when the option type of an ask is invalid for the pool
-     */
-    error InvalidOptionType();
-
-    /**
      * @dev Thrown when an expired order or option is being exercised
      */
     error HasExpired();

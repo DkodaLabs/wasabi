@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, fromWei, gasOfTxn, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, signAskWithEIP712, expectRevertCustomError, toBN, getAllTokenIds } from "./util/TestUtils";
+import { toEth, fromWei, gasOfTxn, makeRequest, metadata, signPoolAskWithEIP712, signAskWithEIP712, expectRevertCustomError, toBN, getAllTokenIds } from "./util/TestUtils";
 import { Ask, PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -62,9 +62,7 @@ contract("WasabiConduit ETH", accounts => {
     it("Create Pool", async () => {
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
 
-        const config = makeConfig(1, 100, 222, 2630000 /* one month */);
-        const types = [OptionType.CALL];
-        const createPoolResult = await poolFactory.createPool(testNft.address, [1001, 1002, 1003], config, types, admin, metadata(lp));
+        const createPoolResult = await poolFactory.createPool(testNft.address, [1001, 1002, 1003], admin, metadata(lp));
         truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");
         truffleAssert.eventEmitted(createPoolResult, "OwnershipTransferred", { previousOwner: ZERO_ADDRESS, newOwner: lp }, "Pool didn't change owners correctly");
 

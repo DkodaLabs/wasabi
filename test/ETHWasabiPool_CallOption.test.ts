@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, gasOfTxn, assertIncreaseInBalance, advanceTime, expectRevertCustomError, withBid, withBidNumber, getAllTokenIds } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, metadata, signPoolAskWithEIP712, gasOfTxn, assertIncreaseInBalance, advanceTime, expectRevertCustomError, withBid, withBidNumber, getAllTokenIds } from "./util/TestUtils";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -50,9 +50,7 @@ contract("ETHWasabiPool: CallOption", accounts => {
     it("Create Pool", async () => {
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
 
-        const config = makeConfig(1, 100, 222, 2630000 /* one month */);
-        const types = [OptionType.CALL];
-        const createPoolResult = await poolFactory.createPool(testNft.address, [1001, 1002, 1003], config, types, ZERO_ADDRESS, metadata(lp));
+        const createPoolResult = await poolFactory.createPool(testNft.address, [1001, 1002, 1003], ZERO_ADDRESS, metadata(lp));
         truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");
         truffleAssert.eventEmitted(createPoolResult, "OwnershipTransferred", { previousOwner: ZERO_ADDRESS, newOwner: lp }, "Pool didn't change owners correctly");
 
@@ -89,13 +87,6 @@ contract("ETHWasabiPool: CallOption", accounts => {
             pool.writeOption.sendTransaction(request, signature, metadata(buyer)),
             "Not enough premium is supplied",
             "Cannot write option when premium is 0");
-        
-        request = makeRequest(id, pool.address, OptionType.PUT, 10, 1, expiry, 1001, orderExpiry); // incorrect option type
-        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
-        await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request, signature, metadata(buyer, 1)),
-            "InvalidOptionType",
-            "Cannot issue PUT option");
 
         request = makeRequest(id, pool.address, OptionType.CALL, 10, 1, expiry, 1001, orderExpiry);
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);

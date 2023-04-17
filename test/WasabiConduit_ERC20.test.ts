@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, fromWei, signBidWithEIP712, signAskWithEIP712, expectRevertCustomError, getAllTokenIds } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, metadata, signPoolAskWithEIP712, fromWei, signBidWithEIP712, signAskWithEIP712, expectRevertCustomError, getAllTokenIds } from "./util/TestUtils";
 import { Ask, Bid, OptionData, PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { TestAzukiInstance } from "../types/truffle-contracts/TestAzuki.js";
@@ -78,16 +78,12 @@ contract("WasabiConduit ERC20", accounts => {
 
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
 
-        const config = makeConfig(1, 100, 222, 2630000 /* one month */);
-        const types = [OptionType.CALL];
         const createPoolResult =
             await poolFactory.createERC20Pool(
                 token.address,
                 0,
                 testNft.address,
                 [1001, 1002, 1003],
-                config,
-                types,
                 ZERO_ADDRESS,
                 metadata(lp));
         truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");

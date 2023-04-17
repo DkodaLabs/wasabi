@@ -22,11 +22,9 @@ contract ETHWasabiPool is AbstractWasabiPool {
         IERC721 _nft,
         address _optionNFT,
         address _owner,
-        WasabiStructs.PoolConfiguration calldata _poolConfiguration,
-        WasabiStructs.OptionType[] calldata _types,
         address _admin
     ) external payable {
-        baseInitialize(_factory, _nft, _optionNFT, _owner, _poolConfiguration, _types, _admin);
+        baseInitialize(_factory, _nft, _optionNFT, _owner, _admin);
     }
 
     /// @inheritdoc AbstractWasabiPool

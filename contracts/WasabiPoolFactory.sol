@@ -12,7 +12,6 @@ import "./WasabiOption.sol";
 import "./pools/ETHWasabiPool.sol";
 import "./pools/ERC20WasabiPool.sol";
 import "./lib/WasabiStructs.sol";
-import "./lib/WasabiValidation.sol";
 
 /**
  * @dev A factory class designed to initialize new WasabiPools.
@@ -50,20 +49,15 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
     function createPool(
         address _nftAddress,
         uint256[] calldata _initialTokenIds,
-        WasabiStructs.PoolConfiguration calldata _poolConfiguration,
-        WasabiStructs.OptionType[] calldata _types,
         address _admin
-    ) external payable returns(address payable _poolAddress) {
-        WasabiValidation.validate(_poolConfiguration);
-        require(_types.length > 0, "Need to supply an option type");
-        
+    ) external payable returns(address payable _poolAddress) {        
         ETHWasabiPool pool = ETHWasabiPool(payable(Clones.clone(address(templatePool))));
 
         _poolAddress = payable(address(pool));
         emit NewPool(_poolAddress, _nftAddress, _msgSender());
 
         IERC721 nft = IERC721(_nftAddress);
-        pool.initialize{value: msg.value}(this, nft, address(options), _msgSender(), _poolConfiguration, _types, _admin);
+        pool.initialize{value: msg.value}(this, nft, address(options), _msgSender(), _admin);
 
         poolState[_poolAddress] = PoolState.ACTIVE;
 
@@ -86,13 +80,8 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
         uint256 _initialDeposit,
         address _nftAddress,
         uint256[] calldata _initialTokenIds,
-        WasabiStructs.PoolConfiguration calldata _poolConfiguration,
-        WasabiStructs.OptionType[] calldata _types,
         address _admin
-    ) external payable returns(address payable _poolAddress) {
-        WasabiValidation.validate(_poolConfiguration);
-        require(_types.length > 0, "Need to supply an option type");
-        
+    ) external payable returns(address payable _poolAddress) {        
         ERC20WasabiPool pool = ERC20WasabiPool(payable(Clones.clone(address(templateERC20Pool))));
 
         _poolAddress = payable(address(pool));
@@ -101,7 +90,7 @@ contract WasabiPoolFactory is Ownable, IWasabiPoolFactory {
         IERC721 nft = IERC721(_nftAddress);
         IERC20 token = IERC20(_tokenAddress);
 
-        pool.initialize{value: msg.value}(this, token, nft, address(options), _msgSender(), _poolConfiguration, _types, _admin);
+        pool.initialize{value: msg.value}(this, token, nft, address(options), _msgSender(), _admin);
 
         poolState[_poolAddress] = PoolState.ACTIVE;
 

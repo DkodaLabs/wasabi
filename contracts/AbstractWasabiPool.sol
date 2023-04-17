@@ -11,7 +11,6 @@ import "./IWasabiConduit.sol";
 import "./IWasabiPool.sol";
 import "./WasabiOption.sol";
 import "./IWasabiErrors.sol";
-import "./lib/WasabiValidation.sol";
 import "./lib/PoolAskVerifier.sol";
 import "./lib/PoolBidVerifier.sol";
 
@@ -26,10 +25,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     WasabiOption private optionNFT;
     IERC721 private nft;
     address private admin;
-
-    // Pool Configuration
-    WasabiStructs.PoolConfiguration private poolConfiguration;
-    mapping(WasabiStructs.OptionType => bool) private allowedTypes;
 
     // Option state
     EnumerableSet.UintSet private optionIds;
@@ -51,8 +46,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         IERC721 _nft,
         address _optionNFT,
         address _owner,
-        WasabiStructs.PoolConfiguration calldata _poolConfiguration,
-        WasabiStructs.OptionType[] calldata _types,
         address _admin
     ) internal {
         require(owner() == address(0), "Already initialized");
@@ -61,15 +54,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
         nft = _nft;
         optionNFT = WasabiOption(_optionNFT);
-        poolConfiguration = _poolConfiguration;
-
-        uint length = _types.length;
-        for (uint256 i = 0; i < length; ) {
-            allowedTypes[_types[i]] = true;
-            unchecked {
-                ++i;
-            }
-        }
 
         if (_admin != address(0)) {
             admin = _admin;
@@ -180,21 +164,10 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         validateAndWithdrawPayment(_request.premium, "WasabiPool: Not enough premium is supplied");
 
         // 3. Request Validation
-        if (!allowedTypes[_request.optionType]) {
-            revert IWasabiErrors.InvalidOptionType();
-        }
-
-        if (_request.strikePrice == 0 ||
-            _request.strikePrice < poolConfiguration.minStrikePrice ||
-            _request.strikePrice > poolConfiguration.maxStrikePrice)
-        {
+        if (_request.strikePrice == 0) {
             revert IWasabiErrors.InvalidStrike();
         }
-
-        if (_request.expiry == 0 ||
-            _request.expiry < poolConfiguration.minDuration + block.timestamp ||
-            _request.expiry > poolConfiguration.maxDuration + block.timestamp)
-        {
+        if (_request.expiry == 0) {
             revert IWasabiErrors.InvalidExpiry();
         }
 
@@ -488,35 +461,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             return false;
         }
         return options[_optionId].active && options[_optionId].expiry >= block.timestamp;
-    }
-
-    /// @inheritdoc IWasabiPool
-    function enableType(WasabiStructs.OptionType _type) external onlyOwner {
-        allowedTypes[_type] = true;
-        emit PoolSettingsChanged();
-    }
-
-    /// @inheritdoc IWasabiPool
-    function disableType(WasabiStructs.OptionType _type) external onlyOwner {
-        delete allowedTypes[_type];
-        emit PoolSettingsChanged();
-    }
-
-    /// @inheritdoc IWasabiPool
-    function isEnabled(WasabiStructs.OptionType _type) external view returns(bool) {
-        return allowedTypes[_type];
-    }
-
-    /// @inheritdoc IWasabiPool
-    function getPoolConfiguration() external view returns(WasabiStructs.PoolConfiguration memory) {
-        return poolConfiguration;
-    }
-
-    /// @inheritdoc IWasabiPool
-    function setPoolConfiguration(WasabiStructs.PoolConfiguration calldata _poolConfiguration) external onlyOwner {
-        WasabiValidation.validate(_poolConfiguration);
-        poolConfiguration = _poolConfiguration;
-        emit PoolSettingsChanged();
     }
 
     /// @inheritdoc IWasabiPool

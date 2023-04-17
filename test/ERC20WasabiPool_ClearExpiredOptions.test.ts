@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, advanceTime, makeRequest, makeConfig, metadata, signAskWithEIP712, fromWei ,expectRevertCustomError, signPoolAskWithEIP712, advanceBlock, getAllTokenIds } from "./util/TestUtils";
+import { toEth, advanceTime, makeRequest, metadata, signAskWithEIP712, fromWei ,expectRevertCustomError, signPoolAskWithEIP712, advanceBlock, getAllTokenIds } from "./util/TestUtils";
 import { PoolAsk, OptionType, ZERO_ADDRESS ,Bid, Ask} from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -65,16 +65,12 @@ contract("ERC20WasabiPool: Clear Expired Options From Pool", accounts => {
 
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
 
-        const config = makeConfig(1, 100, 222, 2630000 /* one month */);
-        const types = [OptionType.CALL];
         const createPoolResult =
             await poolFactory.createERC20Pool(
                 token.address,
                 0,
                 testNft.address,
                 [1001, 1002, 1003, 1004],
-                config,
-                types,
                 ZERO_ADDRESS,
                 metadata(lp));
         truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");

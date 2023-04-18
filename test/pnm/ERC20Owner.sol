@@ -22,6 +22,7 @@ contract ERC20LockedNFT is PTest {
     ERC20WasabiPool internal templateERC20Pool;
     ERC20WasabiPool internal pool;
     uint256 tokenId;
+    uint256 tokenId2;
     uint256 optionId;
 
     address internal owner;
@@ -57,6 +58,7 @@ contract ERC20LockedNFT is PTest {
         token = new DemoETH();
         deal(address(token), owner, 100);
         token.issue(agent, 100 ether);
+        token.issue(owner, 100 ether);
         
         feeManager = new WasabiFeeManager();
 
@@ -75,9 +77,12 @@ contract ERC20LockedNFT is PTest {
         );
 
         options.toggleFactory(address(poolFactory), true);
+        conduit.setOption(options);
+        conduit.setPoolFactoryAddress(address(poolFactory));
 
         nft = new TestAzuki();
         tokenId = nft.mint(owner);
+        tokenId2 = nft.mint(owner);
         nft.setApprovalForAll(address(poolFactory), true);
 
         WasabiStructs.PoolConfiguration memory poolConfiguration = WasabiStructs
@@ -88,8 +93,9 @@ contract ERC20LockedNFT is PTest {
         types[0] = WasabiStructs.OptionType.CALL;
         // types[1] = WasabiStructs.OptionType.PUT;
 
-        uint256[] memory tokenIds = new uint256[](1);
+        uint256[] memory tokenIds = new uint256[](2);
         tokenIds[0] = tokenId;
+        tokenIds[1] = tokenId2;
 
         address poolAddress = poolFactory.createERC20Pool(
             address(token),
@@ -248,6 +254,124 @@ contract ERC20LockedNFT is PTest {
         conduit.buyOptions(_requests, asks, signatures);
 
         vm.stopPrank();
+    }
+
+    function testAcceptBid(
+        uint256 id,
+        uint256 price,
+        address tokenAddress,
+        address collection,
+        uint256 orderExpiry,
+        address optionTokenAddress
+    ) public {
+        vm.prank(owner);
+        token.approve(address(conduit), type(uint).max);
+
+        vm.startPrank(agent);
+        vm.assume(price > 0 && price < 1 ether);
+
+        options.setApprovalForAll(address(conduit), true);
+
+        WasabiStructs.OptionType optionType = WasabiStructs.OptionType.CALL;
+
+        (WasabiStructs.Bid memory bid, bytes memory signature) = makeBid(
+            id,
+            price,
+            address(token),
+            address(nft),
+            block.timestamp + 10 days,
+            owner,
+            optionType,
+            10,
+            block.timestamp + 10 days,
+            block.timestamp + 100 days,
+            address(token)
+        );
+        
+        conduit.acceptBid(optionId, address(pool), bid, signature);
+
+        vm.stopPrank();
+    }
+
+    function testPoolAcceptBid(
+        uint256 id,
+        uint256 price,
+        address tokenAddress,
+        address collection,
+        uint256 orderExpiry,
+        address optionTokenAddress
+    ) public {
+        vm.prank(owner);
+        token.approve(address(conduit), type(uint).max);
+
+        vm.startPrank(owner);
+        vm.assume(price > 0 && price < 1 ether);
+
+        options.setApprovalForAll(address(conduit), true);
+
+        WasabiStructs.OptionType optionType = WasabiStructs.OptionType.CALL;
+
+        (WasabiStructs.Bid memory bid, bytes memory signature) = makeBid(
+            id,
+            price,
+            address(token),
+            address(nft),
+            block.timestamp + 10 days,
+            owner,
+            optionType,
+            10,
+            block.timestamp + 10 days,
+            block.timestamp + 100 days,
+            address(token)
+        );
+        
+        pool.acceptBidWithTokenId(bid, signature, tokenId2);
+
+        vm.stopPrank();
+    }
+
+    function makeBid(
+        uint256 id,
+        uint256 price,
+        address tokenAddress,
+        address collection,
+        uint256 orderExpiry,
+        address buyer,
+        WasabiStructs.OptionType optionType,
+        uint256 strikePrice,
+        uint256 expiry,
+        uint256 expiryAllowance,
+        address optionTokenAddress
+    ) private returns (WasabiStructs.Bid memory bid, bytes memory signature){
+        bid = WasabiStructs.Bid(
+            id,
+            price,
+            tokenAddress,
+            collection,
+            orderExpiry,
+            buyer,
+            optionType,
+            strikePrice,
+            expiry,
+            expiryAllowance,
+            optionTokenAddress
+        );
+
+        bytes32 domainSeparator = hashDomain(
+            WasabiStructs.EIP712Domain({
+                name: "ConduitSignature",
+                version: "1",
+                chainId: getChainID(),
+                verifyingContract: address(conduit)
+            })
+        );
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", domainSeparator, hashForBid(bid))
+        );
+
+        // get signature
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(OWNER_KEY, digest);
+        signature = abi.encodePacked(r, s, v);
     }
 
     function makeAsk(
@@ -413,6 +537,28 @@ contract ERC20LockedNFT is PTest {
                     _ask.orderExpiry,
                     _ask.seller,
                     _ask.optionId
+                )
+            );
+    }
+
+    function hashForBid(
+        WasabiStructs.Bid memory _bid
+    ) public pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(
+                    BID_TYPEHASH,
+                    _bid.id,
+                    _bid.price,
+                    _bid.tokenAddress,
+                    _bid.collection,
+                    _bid.orderExpiry,
+                    _bid.buyer,
+                    _bid.optionType,
+                    _bid.strikePrice,
+                    _bid.expiry,
+                    _bid.expiryAllowance,
+                    _bid.optionTokenAddress
                 )
             );
     }

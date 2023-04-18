@@ -119,11 +119,11 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
         uint256 optionId = optionNFT.mint(_receiver, address(factory));
         WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
+            true,
             _request.optionType,
             _request.strikePrice,
             _request.expiry,
-            _request.tokenId,
-            true
+            _request.tokenId
         );
         options[optionId] = optionData;
 
@@ -243,11 +243,11 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         }
 
         WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
+            true,
             _bid.optionType,
             _bid.strikePrice,
             _bid.expiry,
-            _tokenId,
-            true
+            _tokenId
         );
         options[_optionId] = optionData;
         optionIds.add(_optionId);
@@ -457,9 +457,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
     /// @inheritdoc IWasabiPool
     function isValid(uint256 _optionId) view public returns(bool) {
-        if (!optionIds.contains(_optionId)) {
-            return false;
-        }
         return options[_optionId].active && options[_optionId].expiry >= block.timestamp;
     }
 

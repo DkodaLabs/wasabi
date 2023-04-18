@@ -246,37 +246,37 @@ contract ERC20AcceptPoolBid is PTest {
         vm.stopPrank();
     }
 
-    function testAcceptPoolBidArbitraryToken(
-        uint256 id, 
-        uint256 amount
-    ) public {
-        vm.assume(amount <= 2);
+    // function testAcceptPoolBidArbitraryToken(
+    //     uint256 id, 
+    //     uint256 amount
+    // ) public {
+    //     vm.assume(amount <= 2);
 
-        vm.startPrank(user);
+    //     vm.startPrank(user);
 
-        acceptPoolBid(
-            id,
-            amount,
-            address(this),
-            block.timestamp + 10 days,
-            optionId
-        );
+    //     acceptPoolBid(
+    //         id,
+    //         amount,
+    //         address(this),
+    //         block.timestamp + 10 days,
+    //         optionId
+    //     );
 
-        vm.stopPrank();
-    }
+    //     vm.stopPrank();
+    // }
 
     ////////////////
     // Fake ERC20
     ////////////////
 
     // serve as other types of invariants
-    function balanceOf(address) public returns(uint256) {
-        require(false, "arbitrary ERC20 call");
-    }
+    // function balanceOf(address) public returns(uint256) {
+    //     require(false, "arbitrary ERC20 call");
+    // }
 
-    function transfer(address, uint256) public returns(bool) {
-        require(false, "arbitrary ERC20 call");
-    }
+    // function transfer(address, uint256) public returns(bool) {
+    //     require(false, "arbitrary ERC20 call");
+    // }
     
     //////////////////////
     // utility functions

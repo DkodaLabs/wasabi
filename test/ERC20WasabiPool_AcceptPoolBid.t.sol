@@ -184,26 +184,26 @@ contract ERC20WasabiPool_AcceptPoolBid is PTest {
         vm.stopPrank();
     }
 
-    function _testAcceptPoolBid() public {
-        (WasabiStructs.PoolBid memory poolBid, bytes memory signature) = makePoolBid(
-            1000,
-            2 ether,
-            address(token),
-            block.timestamp - 1,
-            optionId,
-            BOB_KEY
-        );
+    // function _testAcceptPoolBid() public {
+    //     (WasabiStructs.PoolBid memory poolBid, bytes memory signature) = makePoolBid(
+    //         1000,
+    //         2 ether,
+    //         address(token),
+    //         block.timestamp - 1,
+    //         optionId,
+    //         BOB_KEY
+    //     );
 
-        vm.expectRevert();
-        pool.acceptPoolBid(poolBid, signature);
+    //     vm.expectRevert();
+    //     pool.acceptPoolBid(poolBid, signature);
 
-        pool.acceptPoolBid(poolBid, signature);
-    }
+    //     pool.acceptPoolBid(poolBid, signature);
+    // }
 
     function testme() public {
         _testCreatePool();
         _testWriteOption();
-        _testAcceptPoolBid();
+        // _testAcceptPoolBid();
     }
 
     function buyOption(

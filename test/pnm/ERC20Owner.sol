@@ -390,6 +390,34 @@ contract ERC20LockedNFT is PTest {
         signature = abi.encodePacked(r, s, v);
     }
 
+    function testAcceptAsk(
+        uint256 id,
+        uint256 price,
+        address seller
+    ) public {
+
+        vm.assume(price > 0 && price < 1 ether);
+
+        (WasabiStructs.Ask memory ask, bytes memory signature) = makeAsk(
+            id,
+            price,
+            address(token),
+            block.timestamp + 10 days,
+            agent,
+            optionId
+        );
+
+        vm.startPrank(agent);
+        token.approve(address(conduit), type(uint).max);
+        options.setApprovalForAll(address(conduit), true);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        token.approve(address(conduit), type(uint).max);
+        conduit.acceptAsk(ask, signature);
+        vm.stopPrank();
+    }
+
     function makeAsk(
         uint256 id,
         uint256 price,

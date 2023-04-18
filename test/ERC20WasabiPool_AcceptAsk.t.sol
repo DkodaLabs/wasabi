@@ -196,7 +196,12 @@ contract ERC20WasabiPool_AcceptAsk is PTest {
         assert(finalBalanceSeller-initialBalanceSeller == 1 ether);
     }
 
-    function testERC20WasabiPool_AcceptAsk() public {
+    function testWriteOption() public {
+        _testCreatePool();
+        _testWriteOption();
+    }
+
+    function testAcceptAsk() public {
         _testCreatePool();
         _testWriteOption();
         _testAcceptAsk();

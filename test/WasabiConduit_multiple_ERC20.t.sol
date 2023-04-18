@@ -259,14 +259,35 @@ contract WasabiConduit_multiple_ERC20 is PTest {
         assert(pool.availableBalance() == 0);
     }
 
-    function TestWasabiConduit_multiple_ERC20() public {
+    function testWriteOption() public {
+        _testCreatePool();
+        _testWriteOption();
+    }
+
+    function testExecuteOption() public {
         _testCreatePool();
         _testWriteOption();
         _testExecuteOption();
+    }
+
+    function testWithdrawERC721() public {
+        _testCreatePool();
+        _testWriteOption();
         _testWithdrawERC721();
+    }
+
+    function testWithdrawETH() public {
+        _testCreatePool();
+        _testWriteOption();
         _testWithdrawETH();
+    }
+
+    function testWithdrawERC20() public {
+        _testCreatePool();
+        _testWriteOption();
         _testWithdrawERC20();
     }
+
     function makePoolAsk(
         uint256 id,
         address poolAddress,

@@ -224,8 +224,19 @@ contract WasabiConduit_ETH is PTest {
             optionId
         );
     }
+    
+    function testWriteOption() public {
+        _testCreatePool();
+        _testWriteOption();
+    }
 
-    function testWasabiConduit_ETH() public {
+    function testAcceptAsk() public {
+        _testCreatePool();
+        _testWriteOption();
+        _testAcceptAsk();
+    }
+
+    function testCancelAsk() public {
         _testCreatePool();
         _testWriteOption();
         _testAcceptAsk();

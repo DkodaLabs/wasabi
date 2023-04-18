@@ -252,7 +252,12 @@ contract ERC20WasabiPool_AcceptAsk is PTest {
         pool.acceptBid(bid2, signature2);
     }
 
-    function testERC20WasabiPool_AcceptBid() public {
+    function testAcceptBid() public {
+        _testCreatePool();
+        _testAcceptBid();
+    }
+
+    function testAcceptBid2() public {
         _testCreatePool();
         _testAcceptBid();
         _testAcceptBid2();

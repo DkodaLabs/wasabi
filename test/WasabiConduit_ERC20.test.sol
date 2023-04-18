@@ -366,7 +366,63 @@ contract WasabiConduit_ERC20 is PTest {
         );
     }
 
-    function testWasabiConduit_ERC20() public {
+    function testWriteOption() public {
+        _testCreatePool();
+        _testWriteOption();
+    }
+
+    function testExecuteOption() public {
+        _testCreatePool();
+        _testWriteOption();
+        _testExecuteOption();
+    }
+
+    function testIssueOption() public {
+        _testCreatePool();
+        _testWriteOption();
+        _testExecuteOption();
+        _testIssueOption();
+    }
+
+    function testAcceptAsk() public {
+        _testCreatePool();
+        _testWriteOption();
+        _testExecuteOption();
+        _testIssueOption();
+        _testAcceptAsk();
+    }
+
+    function testAcceptBid() public {
+        _testCreatePool();
+        _testWriteOption();
+        _testExecuteOption();
+        _testIssueOption();
+        _testAcceptAsk();
+        _testAcceptBid();
+    }
+
+    function testPoolAcceptBid() public {
+        _testCreatePool();
+        _testWriteOption();
+        _testExecuteOption();
+        _testIssueOption();
+        _testAcceptAsk();
+        _testAcceptBid();
+        _testPoolAcceptBid();
+    }
+
+    function testCancelAsk() public {
+        _testCreatePool();
+        _testWriteOption();
+        _testExecuteOption();
+        _testIssueOption();
+        _testAcceptAsk();
+        _testAcceptBid();
+        _testPoolAcceptBid();
+        _testCancelAsk();
+    }
+
+    function testCancelBid() public {
         _testCreatePool();
         _testWriteOption();
         _testExecuteOption();

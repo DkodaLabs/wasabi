@@ -23,6 +23,7 @@ contract ERC20LockedNFT is PTest {
     ERC20WasabiPool internal pool;
     uint256 tokenId;
     uint256 tokenId2;
+    uint256 tokenId3;
     uint256 optionId;
 
     address internal owner;
@@ -83,6 +84,7 @@ contract ERC20LockedNFT is PTest {
         nft = new TestAzuki();
         tokenId = nft.mint(owner);
         tokenId2 = nft.mint(owner);
+        tokenId3 = nft.mint(owner);
         nft.setApprovalForAll(address(poolFactory), true);
 
         WasabiStructs.PoolConfiguration memory poolConfiguration = WasabiStructs
@@ -326,6 +328,20 @@ contract ERC20LockedNFT is PTest {
         );
         
         pool.acceptBidWithTokenId(bid, signature, tokenId2);
+
+        vm.stopPrank();
+    }
+
+    function testTransferToken(
+        address target
+    ) public {
+        vm.assume(target != address(0));
+
+        vm.startPrank(owner);
+        nft.safeTransferFrom(owner, address(conduit), tokenId3);
+
+        conduit.transferToken(address(nft), tokenId3, target);
+        require(nft.ownerOf(tokenId3) == target);
 
         vm.stopPrank();
     }

@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
+import "./IWasabiPool.sol";
 import "./IWasabiPoolFactory.sol";
 import "./fees/IWasabiFeeManager.sol";
 
@@ -77,8 +78,9 @@ contract WasabiOption is ERC721, IERC2981, Ownable {
 
     /// @inheritdoc IERC2981
     function royaltyInfo(uint256 _tokenId, uint256 _salePrice) external view returns (address, uint256) {
-        IWasabiPoolFactory _factory = IWasabiPoolFactory(lastFactory);
-        IWasabiFeeManager feeManager = IWasabiFeeManager(_factory.getFeeManager());
+        IWasabiPool pool = IWasabiPool(optionPools[_tokenId]);
+        IWasabiPoolFactory factory = IWasabiPoolFactory(pool.getFactory());
+        IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
         return feeManager.getFeeDataForOption(_tokenId, _salePrice);
     }
     

@@ -88,6 +88,11 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         return admin;
     }
 
+    /// @inheritdoc IWasabiPool
+    function getFactory() external view returns (address) {
+        return address(factory);
+    }
+
     /**
      * Always returns `IERC721Receiver.onERC721Received.selector`.
      */

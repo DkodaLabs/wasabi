@@ -142,6 +142,11 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function getAdmin() external view returns (address);
 
     /**
+     * @dev Returns the address of the factory managing this pool
+     */
+    function getFactory() external view returns (address);
+
+    /**
      * @dev Returns the available balance this pool contains that can be withdrawn or collateralized
      */
     function availableBalance() view external returns(uint256);

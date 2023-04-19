@@ -53,6 +53,7 @@ contract("WasabiConduit ETH", accounts => {
 
         // Set Fee
         await feeManager.setFraction(royaltyPayoutPercent);
+        await feeManager.setDenominator(originalPayoutPercent);
 
         await testNft.mint(metadata(lp));
         await testNft.mint(metadata(lp));

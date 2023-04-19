@@ -232,19 +232,22 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         bytes calldata _signature,
         uint256 _tokenId
     ) public onlyOwner returns(uint256) {
-        uint256 _optionId = optionNFT.mint(_bid.buyer, address(factory));
-
-        // Lock NFT / Token into a vault
+        // Other validations are done in WasabiConduit
         if (_bid.optionType == WasabiStructs.OptionType.CALL) {
             if (!isAvailableTokenId(_tokenId)) {
                 revert IWasabiErrors.NftIsInvalid();
             }
-            tokenIdToOptionId[_tokenId] = _optionId;
         } else {
             if (availableBalance() < _bid.strikePrice) {
                 revert IWasabiErrors.InsufficientAvailableLiquidity();
             }
             _tokenId = 0;
+        }
+
+        // Lock NFT / Token into a vault
+        uint256 _optionId = optionNFT.mint(_bid.buyer, address(factory));
+        if (_bid.optionType == WasabiStructs.OptionType.CALL) {
+            tokenIdToOptionId[_tokenId] = _optionId;
         }
 
         WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(

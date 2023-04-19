@@ -9,19 +9,23 @@ const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiConduit = artifacts.require("WasabiConduit");
 const WasabiFeeManager = artifacts.require("WasabiFeeManager");
 
-module.exports = function (deployer, _network, accounts) {
-  deployer.deploy(WasabiStructs)
-    .then(() => deployer.deploy(Signing))
-    .then(() => deployer.link(Signing,[PoolAskVerifier, PoolBidVerifier]))
-    .then(() => deployer.deploy(PoolAskVerifier))
-    .then(() => deployer.deploy(PoolBidVerifier))
-    .then(() => deployer.deploy(WasabiOption))
-    .then(() => deployer.link(Signing, [WasabiConduit]))
-    .then(() => deployer.deploy(WasabiConduit))
-    .then(() => deployer.link(PoolAskVerifier, [ETHWasabiPool, ERC20WasabiPool]))
-    .then(() => deployer.link(PoolBidVerifier, [ETHWasabiPool, ERC20WasabiPool]))
-    .then(() => deployer.deploy(ETHWasabiPool))
-    .then(() => deployer.deploy(ERC20WasabiPool))
-    .then(() => deployer.deploy(WasabiFeeManager))
-    .then(() => deployer.deploy(WasabiPoolFactory, WasabiOption.address, ETHWasabiPool.address, ERC20WasabiPool.address, WasabiFeeManager.address, WasabiConduit.address));
+module.exports = async function (deployer, _network, accounts) {
+  await deployer.deploy(WasabiStructs);
+  await deployer.deploy(Signing);
+  await deployer.link(Signing,[PoolAskVerifier, PoolBidVerifier]);
+  await deployer.deploy(PoolAskVerifier);
+  await deployer.deploy(PoolBidVerifier);
+  await deployer.deploy(WasabiOption);
+  await deployer.link(PoolAskVerifier, [ETHWasabiPool, ERC20WasabiPool]);
+  await deployer.link(PoolBidVerifier, [ETHWasabiPool, ERC20WasabiPool]);
+  await deployer.deploy(ETHWasabiPool);
+  await deployer.deploy(ERC20WasabiPool);
+  if (_network === 'mainnet') {
+    await deployer.deploy(WasabiFeeManager, 200, 10000);
+  } else {
+    await deployer.deploy(WasabiFeeManager, 0, 10000);
+  }
+  await deployer.link(Signing, [WasabiConduit]);
+  await deployer.deploy(WasabiConduit, WasabiOption.address);
+  await deployer.deploy(WasabiPoolFactory, WasabiOption.address, ETHWasabiPool.address, ERC20WasabiPool.address, WasabiFeeManager.address, WasabiConduit.address);
 };

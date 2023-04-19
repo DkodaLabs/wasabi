@@ -5,7 +5,7 @@ import { PoolAsk, OptionType, ZERO_ADDRESS, PoolBid } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
-import { ERC20WasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/truffle-contracts/ERC20WasabiPool.js";
+import { ERC20WasabiPoolInstance, OptionIssued } from "../types/truffle-contracts/ERC20WasabiPool.js";
 import { DemoETHInstance } from "../types/truffle-contracts";
 
 const Signing = artifacts.require("Signing");

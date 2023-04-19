@@ -6,7 +6,7 @@ import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
 import { WasabiConduitInstance } from "../types/truffle-contracts";
 import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js";
-import { ERC20WasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/truffle-contracts/ERC20WasabiPool.js";
+import { ERC20WasabiPoolInstance } from "../types/truffle-contracts/ERC20WasabiPool.js";
 import { DemoETHInstance } from "../types/truffle-contracts";
 
 const Signing = artifacts.require("Signing");

@@ -65,7 +65,12 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     /**
      * @dev Emitted when an option is issued
      */
-    event OptionIssued(uint256 optionId, uint256 poolAskId);
+    event OptionIssued(uint256 optionId, uint256 price);
+
+    /**
+     * @dev Emitted when an option is issued
+     */
+    event OptionIssued(uint256 optionId, uint256 price, uint256 poolAskId);
 
     /**
      * @dev Emitted when the pool settings are edited

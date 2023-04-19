@@ -139,7 +139,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         optionIds.add(optionId);
         idToFilledOrCancelled[_request.id] = true;
 
-        emit OptionIssued(optionId, _request.id);
+        emit OptionIssued(optionId, _request.premium, _request.id);
         return optionId;
     }
 
@@ -260,7 +260,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         options[_optionId] = optionData;
         optionIds.add(_optionId);
 
-        emit OptionIssued(_optionId, 0);
+        emit OptionIssued(_optionId, _bid.price);
         IWasabiConduit(factory.getConduitAddress()).poolAcceptBid(_bid, _signature, _optionId);
         return _optionId;
     }

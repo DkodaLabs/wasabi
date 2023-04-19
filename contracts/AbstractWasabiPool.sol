@@ -422,7 +422,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     }
 
     /// @inheritdoc IWasabiPool
-    function withdrawERC721(IERC721 _nft, uint256[] calldata _tokenIds) external onlyOwner {
+    function withdrawERC721(IERC721 _nft, uint256[] calldata _tokenIds) external onlyOwner nonReentrant {
         bool isPoolAsset = _nft == nft;
 
         uint256 numNFTs = _tokenIds.length;
@@ -439,6 +439,18 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
                 delete tokenIdToOptionId[_tokenIds[i]];
             }
             _nft.safeTransferFrom(address(this), owner(), _tokenIds[i]);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @inheritdoc IWasabiPool
+    function depositERC721(IERC721 _nft, uint256[] calldata _tokenIds) external onlyOwner nonReentrant {
+        require(_nft == nft, 'Invalid Collection');
+        uint256 numNFTs = _tokenIds.length;
+        for (uint256 i; i < numNFTs; ) {
+            _nft.safeTransferFrom(_msgSender(), address(this), _tokenIds[i]);
             unchecked {
                 ++i;
             }

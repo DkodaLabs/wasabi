@@ -117,6 +117,11 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function withdrawERC721(IERC721 _nft, uint256[] calldata _tokenIds) external;
 
     /**
+     * @dev Deposits ERC721 tokens to the pool.
+     */
+    function depositERC721(IERC721 _nft, uint256[] calldata _tokenIds) external;
+
+    /**
      * @dev Withdraws ETH from this pool
      */
     function withdrawETH(uint256 _amount) external payable;

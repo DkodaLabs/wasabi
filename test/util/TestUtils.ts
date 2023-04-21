@@ -105,34 +105,6 @@ export const makeAmmRequest = (
   };
 };
 
-export const makeConfig = (
-  minStrikePrice: number,
-  maxStrikePrice: number,
-  minDuration: number,
-  maxDuration: number
-): WasabiPoolConfiguration => {
-  return {
-    minStrikePrice: toEth(minStrikePrice),
-    maxStrikePrice: toEth(maxStrikePrice),
-    minDuration,
-    maxDuration,
-  };
-};
-
-export const makeConfigs = (
-  minStrikePrice: string,
-  maxStrikePrice: string,
-  minDuration: number,
-  maxDuration: number
-): WasabiPoolConfiguration => {
-  return {
-    minStrikePrice: minStrikePrice,
-    maxStrikePrice: maxStrikePrice,
-    minDuration,
-    maxDuration,
-  };
-};
-
 export const metadata = (
   from: string | undefined = undefined,
   value: string | number | undefined = undefined

@@ -1,14 +1,12 @@
 import { Interface } from "@ethersproject/abi";
 import { ethers } from 'hardhat';
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import axios from "axios";
 import { BigNumber } from "@ethersproject/bignumber";
 import * as Sdk from "@reservoir0x/sdk";
 import { Contract } from "@ethersproject/contracts";
 import { BigNumberish } from "@ethersproject/bignumber";
-import { makeConfigs } from "./util/TestUtils";
-import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { signPoolAsk , makeRequests } from "./util/TestUtils";
+import { PoolAsk, OptionType, ZERO_ADDRESS } from "../test/util/TestTypes";
+import { signPoolAsk , makeRequests } from "../test/util/TestUtils";
 import { parseEther, parseUnits } from "@ethersproject/units";
 import * as seaportV14 from "./seaport-v1.4";
 import { expect } from "chai";
@@ -33,7 +31,6 @@ describe("[ReservoirV6_0_1] OpenSea Call Option", () => {
   let arbitrage: Contract;
   let poolFactory: Contract;
   let option: Contract;
-  let wasabiValidation: Contract;
   let ethPool: Contract;
   let erc20Pool: Contract;
   let feeManager: Contract;
@@ -83,14 +80,10 @@ describe("[ReservoirV6_0_1] OpenSea Call Option", () => {
     }, deployer)
     .then((factory) => factory.deploy());
 
-    wasabiValidation = await ethers.getContractFactory("WasabiValidation", deployer)
-    .then((factory) => factory.deploy());
-
     ethPool = await ethers.getContractFactory("ETHWasabiPool", {
       libraries: {
         PoolAskVerifier: poolAskVerifier.address,
-        PoolBidVerifier: poolBidVerifier.address,
-        WasabiValidation: wasabiValidation.address
+        PoolBidVerifier: poolBidVerifier.address
       }
     }, deployer)
     .then((factory) => factory.deploy());
@@ -99,12 +92,15 @@ describe("[ReservoirV6_0_1] OpenSea Call Option", () => {
       libraries: {
         PoolAskVerifier: poolAskVerifier.address,
         PoolBidVerifier: poolBidVerifier.address,
-        WasabiValidation: wasabiValidation.address
       }
     }, deployer)
     .then((factory) => factory.deploy());
 
     feeManager = await ethers.getContractFactory("WasabiFeeManager", deployer)
+    .then((factory) => factory.deploy(0, 10000));
+
+    option = await ethers
+    .getContractFactory("WasabiOption", deployer)
     .then((factory) => factory.deploy());
 
     conduit = await ethers.getContractFactory("WasabiConduit", {
@@ -112,19 +108,10 @@ describe("[ReservoirV6_0_1] OpenSea Call Option", () => {
         Signing: sign.address
       }
     }, deployer)
-    .then((factory) => factory.deploy());;
+    .then((factory) => factory.deploy(option.address));;
 
-
-    option = await ethers
-    .getContractFactory("WasabiOption", deployer)
-    .then((factory) => factory.deploy());
-
-
-    poolFactory = await ethers.getContractFactory("WasabiPoolFactory", {
-      libraries:{
-        WasabiValidation: wasabiValidation.address
-      }
-    }).then((factory) => factory.deploy(option.address, ethPool.address, erc20Pool.address,
+    poolFactory = await ethers.getContractFactory("WasabiPoolFactory", deployer)
+      .then((factory) => factory.deploy(option.address, ethPool.address, erc20Pool.address,
       feeManager.address, conduit.address));
 
     await option.toggleFactory(poolFactory.address, true);
@@ -203,8 +190,6 @@ describe("[ReservoirV6_0_1] OpenSea Call Option", () => {
     await poolFactory.connect(carol).createPool(
       erc721.address,
         [1001],
-        makeConfigs(parseEther("1").toString(), parseEther("100").toString(), 222, 2630000 /* one month */),
-        [OptionType.CALL],
         ZERO_ADDRESS,
         {value: parseEther("30")});
     let receipt = await createPoolResult.wait();

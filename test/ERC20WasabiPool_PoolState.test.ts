@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signAskWithEIP712, fromWei ,expectRevertCustomError, signPoolAskWithEIP712 } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, metadata, signAskWithEIP712, fromWei ,expectRevertCustomError, signPoolAskWithEIP712, getAllTokenIds } from "./util/TestUtils";
 import { PoolAsk, OptionType, Ask, ZERO_ADDRESS, PoolState} from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -64,16 +64,12 @@ contract("ERC20WasabiPool: Toggle Pool State", accounts => {
 
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
 
-        const config = makeConfig(1, 100, 222, 2630000 /* one month */);
-        const types = [OptionType.CALL];
         const createPoolResult =
             await poolFactory.createERC20Pool(
                 token.address,
                 0,
                 testNft.address,
                 [1001, 1002, 1003, 1004],
-                config,
-                types,
                 ZERO_ADDRESS,
                 metadata(lp));
         truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");
@@ -82,7 +78,7 @@ contract("ERC20WasabiPool: Toggle Pool State", accounts => {
         poolAddress = createPoolResult.logs.find(e => e.event == "NewPool")!.args[0];
         pool = await ERC20WasabiPool.at(poolAddress);
         assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
-        assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1001, 1002, 1003, 1004], "Pool doesn't have the correct tokens");
+        assert.deepEqual(await getAllTokenIds(pool.address, testNft), [1001, 1002, 1003, 1004], "Pool doesn't have the correct tokens");
 
         assert.equal(await pool.getLiquidityAddress(), token.address, 'Token not correct');
     });

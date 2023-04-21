@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
 library WasabiStructs {
@@ -8,12 +8,11 @@ library WasabiStructs {
     }
 
     struct OptionData {
+        bool active;
         OptionType optionType;
         uint256 strikePrice;
-        uint256 premium;
         uint256 expiry;
         uint256 tokenId; // Locked token for CALL options
-        bool active;
     }
 
     struct PoolAsk {
@@ -33,13 +32,6 @@ library WasabiStructs {
         address tokenAddress;
         uint256 orderExpiry;
         uint256 optionId;
-    }
-
-    struct PoolConfiguration {
-        uint256 minStrikePrice;
-        uint256 maxStrikePrice;
-        uint256 minDuration;
-        uint256 maxDuration;
     }
 
     struct Bid {

@@ -1,7 +1,8 @@
-const TestSmowls = artifacts.require("TestSmowls");
-const TestNakamigos = artifacts.require("TestNakamigos");
+const PricingConfigValidator = artifacts.require("PricingConfigValidator");
+const Signing = artifacts.require("Signing");
 
 module.exports = function (deployer, _network, accounts) {
-  deployer.deploy(TestSmowls)
-    .then(() => deployer.deploy(TestNakamigos));
+  deployer.deploy(Signing)
+    .then(() => deployer.link(Signing, PricingConfigValidator))
+    .then(() => deployer.deploy(PricingConfigValidator));
 };

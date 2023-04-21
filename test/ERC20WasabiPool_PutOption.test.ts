@@ -9,7 +9,7 @@ import {
 } from "../types/truffle-contracts";
 import { OptionExecuted, OptionIssued } from "../types/truffle-contracts/IWasabiPool";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeConfig, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
+import { assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -68,8 +68,6 @@ contract("Erc20WasabiPool: PutOption", accounts => {
                 toBN(toEth(initialPoolBalance)),
                 testNft.address,
                 [],
-                makeConfig(1, 100, 222, 2630000 /* one month */),
-                [OptionType.PUT],
                 ZERO_ADDRESS,
                 metadata(lp));
 
@@ -124,14 +122,6 @@ contract("Erc20WasabiPool: PutOption", accounts => {
             pool.writeOption.sendTransaction(request, signature, metadata(buyer)),
             "Not enough premium is supplied",
             "Cannot write option when premium is 0");
-
-        request = makeRequest(id, pool.address, OptionType.CALL, strikePrice, premium, expiry, 0, orderExpiry); // only PUT allowed
-        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey)
-
-        await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request, signature, metadata(buyer)),
-            "InvalidOptionType",
-            "Cannot write CALL options");
 
         request = makeRequest(id, pool.address, OptionType.PUT, initialPoolBalance * 5, premium, expiry, 0, orderExpiry); // strike price too high
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey)

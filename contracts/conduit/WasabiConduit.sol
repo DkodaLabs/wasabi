@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -15,6 +15,9 @@ import "../WasabiOption.sol";
 import "./ConduitSignatureVerifier.sol";
 import "../fees/IWasabiFeeManager.sol";
 
+/**
+ * @dev A conduit that allows for trades of WasabiOptions
+ */
 contract WasabiConduit is
     Ownable,
     IERC721Receiver,
@@ -42,6 +45,14 @@ contract WasabiConduit is
     uint256 public maxOptionsToBuy;
     mapping(bytes => bool) public idToFinalizedOrCancelled;
     address private factory;
+
+    /**
+     * @dev Initializes a new WasabiConduit
+     */
+    constructor(WasabiOption _option) {
+        option = _option;
+        maxOptionsToBuy = 100;
+    }
 
     /// @inheritdoc IWasabiConduit
     function buyOptions(
@@ -367,6 +378,7 @@ contract WasabiConduit is
         emit AskCancelled(_ask.id, _ask.seller);
     }
 
+    /// @inheritdoc IWasabiConduit
     function cancelBid(
         WasabiStructs.Bid calldata _bid,
         bytes calldata _signature

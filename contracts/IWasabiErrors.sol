@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
 /**
@@ -46,11 +46,6 @@ interface IWasabiErrors {
      * @dev Thrown when the strike price of an ask is invalid for the pool
      */
     error InvalidStrike();
-
-    /**
-     * @dev Thrown when the option type of an ask is invalid for the pool
-     */
-    error InvalidOptionType();
 
     /**
      * @dev Thrown when an expired order or option is being exercised

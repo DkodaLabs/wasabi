@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, toBN, makeRequest, makeConfig, metadata, signPoolAskWithEIP712, gasOfTxn, assertIncreaseInBalance, advanceTime, expectRevertCustomError, withBid, withBidNumber } from "./util/TestUtils";
+import { toEth, toBN, makeRequest, metadata, signPoolAskWithEIP712, gasOfTxn, assertIncreaseInBalance, advanceTime, expectRevertCustomError, withBid, withBidNumber, getAllTokenIds } from "./util/TestUtils";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -50,16 +50,14 @@ contract("ETHWasabiPool: CallOption", accounts => {
     it("Create Pool", async () => {
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
 
-        const config = makeConfig(1, 100, 222, 2630000 /* one month */);
-        const types = [OptionType.CALL];
-        const createPoolResult = await poolFactory.createPool(testNft.address, [1001, 1002, 1003], config, types, ZERO_ADDRESS, metadata(lp));
+        const createPoolResult = await poolFactory.createPool(testNft.address, [1001, 1002, 1003], ZERO_ADDRESS, metadata(lp));
         truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");
         truffleAssert.eventEmitted(createPoolResult, "OwnershipTransferred", { previousOwner: ZERO_ADDRESS, newOwner: lp }, "Pool didn't change owners correctly");
 
         poolAddress = createPoolResult.logs.find(e => e.event == "NewPool")!.args[0];
         pool = await ETHWasabiPool.at(poolAddress);
         assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
-        assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1001, 1002, 1003], "Pool doesn't have the correct tokens");
+        assert.deepEqual(await getAllTokenIds(pool.address, testNft), [1001, 1002, 1003], "Pool doesn't have the correct tokens");
     });
     
     it("Validate Option Requests", async () => {
@@ -89,13 +87,6 @@ contract("ETHWasabiPool: CallOption", accounts => {
             pool.writeOption.sendTransaction(request, signature, metadata(buyer)),
             "Not enough premium is supplied",
             "Cannot write option when premium is 0");
-        
-        request = makeRequest(id, pool.address, OptionType.PUT, 10, 1, expiry, 1001, orderExpiry); // incorrect option type
-        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
-        await expectRevertCustomError(
-            pool.writeOption.sendTransaction(request, signature, metadata(buyer, 1)),
-            "InvalidOptionType",
-            "Cannot issue PUT option");
 
         request = makeRequest(id, pool.address, OptionType.CALL, 10, 1, expiry, 1001, orderExpiry);
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
@@ -172,7 +163,7 @@ contract("ETHWasabiPool: CallOption", accounts => {
     
     it("Issue Option & Send/Sell Back to Pool", async () => {
         let initialPoolBalance = toBN(await web3.eth.getBalance(pool.address));
-        assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1003, 1002], "Pool doesn't have the correct tokens");
+        assert.deepEqual(await getAllTokenIds(pool.address, testNft), [1003, 1002], "Pool doesn't have the correct tokens");
 
         let blockNumber = await web3.eth.getBlockNumber();
         let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);

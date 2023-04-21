@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -12,10 +12,10 @@ contract WasabiFeeManager is IWasabiFeeManager, Ownable {
     uint96 public fraction;
     uint96 public denominator;
 
-    constructor() {
+    constructor(uint96 _fraction, uint96 _denominator) {
         receiver = owner();
-        fraction = 0;
-        denominator = 1000;
+        fraction = _fraction;
+        denominator = _denominator;
     }
 
     /// @inheritdoc IWasabiFeeManager

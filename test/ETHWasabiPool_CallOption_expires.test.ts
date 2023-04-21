@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { makeRequest, makeConfig, metadata, signPoolAskWithEIP712, gasOfTxn, assertIncreaseInBalance, advanceTime } from "./util/TestUtils";
+import { makeRequest, metadata, signPoolAskWithEIP712, gasOfTxn, assertIncreaseInBalance, advanceTime, getAllTokenIds } from "./util/TestUtils";
 
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
@@ -42,16 +42,14 @@ contract("ETHWasabiPool: Expiring CallOption execution", accounts => {
     it("Create Pool", async () => {
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
 
-        const config = makeConfig(1, 100, 222, 2630000 /* one month */);
-        const types = [OptionType.CALL];
-        const createPoolResult = await poolFactory.createPool(testNft.address, [tokenToSell], config, types, ZERO_ADDRESS, metadata(lp));
+        const createPoolResult = await poolFactory.createPool(testNft.address, [tokenToSell], ZERO_ADDRESS, metadata(lp));
         truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");
         truffleAssert.eventEmitted(createPoolResult, "OwnershipTransferred", { previousOwner: ZERO_ADDRESS, newOwner: lp }, "Pool didn't change owners correctly");
 
         const poolAddress = createPoolResult.logs.find(e => e.event == "NewPool")!.args[0];
         pool = await ETHWasabiPool.at(poolAddress);
         assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
-        assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [tokenToSell], "Pool doesn't have the correct tokens");
+        assert.deepEqual(await getAllTokenIds(pool.address, testNft), [tokenToSell], "Pool doesn't have the correct tokens");
     });
 
     it("Write Option (only owner)", async () => {

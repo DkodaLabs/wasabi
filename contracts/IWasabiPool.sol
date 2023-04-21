@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -65,7 +65,12 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     /**
      * @dev Emitted when an option is issued
      */
-    event OptionIssued(uint256 optionId, uint256 poolAskId);
+    event OptionIssued(uint256 optionId, uint256 price);
+
+    /**
+     * @dev Emitted when an option is issued
+     */
+    event OptionIssued(uint256 optionId, uint256 price, uint256 poolAskId);
 
     /**
      * @dev Emitted when the pool settings are edited
@@ -117,6 +122,11 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function withdrawERC721(IERC721 _nft, uint256[] calldata _tokenIds) external;
 
     /**
+     * @dev Deposits ERC721 tokens to the pool.
+     */
+    function depositERC721(IERC721 _nft, uint256[] calldata _tokenIds) external;
+
+    /**
      * @dev Withdraws ETH from this pool
      */
     function withdrawETH(uint256 _amount) external payable;
@@ -142,6 +152,11 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function getAdmin() external view returns (address);
 
     /**
+     * @dev Returns the address of the factory managing this pool
+     */
+    function getFactory() external view returns (address);
+
+    /**
      * @dev Returns the available balance this pool contains that can be withdrawn or collateralized
      */
     function availableBalance() view external returns(uint256);
@@ -162,36 +177,6 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function getOptionData(uint256 _optionId) external view returns(WasabiStructs.OptionData memory);
 
     /**
-     * @dev Returns the current pool configuration
-     */
-    function getPoolConfiguration() external view returns(WasabiStructs.PoolConfiguration memory);
-
-    /**
-     * @dev Edits the pool configuration for this pool
-     */
-    function setPoolConfiguration(WasabiStructs.PoolConfiguration calldata _poolConfiguration) external;
-
-    /**
-     * @dev Returns 'true' if given OptionType is enabled
-     */
-    function isEnabled(WasabiStructs.OptionType _type) external view returns(bool);
-
-    /**
-     * @dev Disables the given OptionType
-     */
-    function disableType(WasabiStructs.OptionType _type) external;
-
-    /**
-     * @dev Enables the given OptionType
-     */
-    function enableType(WasabiStructs.OptionType _type) external;
-
-    /**
-     * @dev Returns all the token ids in this pool
-     */
-    function getAllTokenIds() view external returns(uint256[] memory);
-
-    /**
      * @dev Returns 'true' if the option for the given id is valid and active, 'false' otherwise
      */
     function isValid(uint256 _optionId) view external returns(bool);
@@ -207,14 +192,9 @@ interface IWasabiPool is IERC165, IERC721Receiver {
     function clearExpiredOptions(uint256[] memory _optionIds) external;
 
     /**
-     * @dev accepts the bid for LPs with _tokenId
+     * @dev accepts the bid for LPs with _tokenId. If its a put option, _tokenId can be 0
      */
-    function acceptBidWithTokenId(WasabiStructs.Bid calldata _bid, bytes calldata _signature, uint256 _tokenId) external returns(uint256);
-
-    /**
-     * @dev accepts the bid for LPs without _tokenId
-     */
-    function acceptBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature) external returns(uint256);
+    function acceptBid(WasabiStructs.Bid calldata _bid, bytes calldata _signature, uint256 _tokenId) external returns(uint256);
 
     /**
      * @dev accepts the ask for LPs

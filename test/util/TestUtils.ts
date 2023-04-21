@@ -9,6 +9,8 @@ import {
   PoolBid,
 } from "./TestTypes";
 
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+
 import * as ethUtil from "eth-sig-util";
 
 export const fromWei = (value: string | BN): number => {
@@ -69,6 +71,28 @@ export const makeRequest = (
   };
 };
 
+export const makeRequests = (
+  id : number,
+  poolAddress: string,
+  optionType: OptionType,
+  strikePrice: any,
+  premium: any,
+  expiry: number,
+  tokenId = 0,
+  orderExpiry = 0
+): PoolAsk => {
+  return {
+    id,
+    poolAddress,
+    optionType: optionType.valueOf(),
+    strikePrice: strikePrice,
+    premium: premium,
+    expiry,
+    tokenId,
+    orderExpiry,
+  };
+};
+
 export const makeAmmRequest = (
   collection: string,
   price: any,
@@ -90,6 +114,20 @@ export const makeConfig = (
   return {
     minStrikePrice: toEth(minStrikePrice),
     maxStrikePrice: toEth(maxStrikePrice),
+    minDuration,
+    maxDuration,
+  };
+};
+
+export const makeConfigs = (
+  minStrikePrice: string,
+  maxStrikePrice: string,
+  minDuration: number,
+  maxDuration: number
+): WasabiPoolConfiguration => {
+  return {
+    minStrikePrice: minStrikePrice,
+    maxStrikePrice: maxStrikePrice,
     minDuration,
     maxDuration,
   };
@@ -411,6 +449,48 @@ export const signPoolBidWithEIP712 = async (
       data: typeData as any,
     }
   );
+  return signature;
+};
+
+export const signPoolAsk = async (
+  request: PoolAsk,
+  verifyingContract: string,
+  buyer: SignerWithAddress,
+  chainId: number
+) => {
+  const domain = {
+    name: "PoolAskSignature",
+    version: "1",
+    chainId: chainId,
+    verifyingContract,
+  };
+
+  const types = {
+      PoolAsk: [
+        { name: "id", type: "uint256" },
+        { name: "poolAddress", type: "address" },
+        { name: "optionType", type: "uint8" },
+        { name: "strikePrice", type: "uint256" },
+        { name: "premium", type: "uint256" },
+        { name: "expiry", type: "uint256" },
+        { name: "tokenId", type: "uint256" },
+        { name: "orderExpiry", type: "uint256" },
+      ],
+    };
+
+    const value = {
+      id: request.id,
+      poolAddress: request.poolAddress,
+      optionType: request.optionType,
+      strikePrice: request.strikePrice,
+      premium: request.premium,
+      expiry: request.expiry,
+      tokenId: request.tokenId,
+      orderExpiry: request.orderExpiry,
+    };
+
+  const signature = await buyer._signTypedData(domain, types, value);
+  // return utils.splitSignature(signature);
   return signature;
 };
 

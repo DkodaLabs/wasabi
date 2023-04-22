@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -11,7 +11,6 @@ import "./IWasabiConduit.sol";
 import "./IWasabiPool.sol";
 import "./WasabiOption.sol";
 import "./IWasabiErrors.sol";
-import "./lib/WasabiValidation.sol";
 import "./lib/PoolAskVerifier.sol";
 import "./lib/PoolBidVerifier.sol";
 
@@ -26,13 +25,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     WasabiOption private optionNFT;
     IERC721 private nft;
     address private admin;
-
-    // Pool Configuration
-    WasabiStructs.PoolConfiguration private poolConfiguration;
-    mapping(WasabiStructs.OptionType => bool) private allowedTypes;
-
-    // Pool Balance
-    EnumerableSet.UintSet private tokenIds;
 
     // Option state
     EnumerableSet.UintSet private optionIds;
@@ -54,8 +46,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         IERC721 _nft,
         address _optionNFT,
         address _owner,
-        WasabiStructs.PoolConfiguration calldata _poolConfiguration,
-        WasabiStructs.OptionType[] calldata _types,
         address _admin
     ) internal {
         require(owner() == address(0), "Already initialized");
@@ -64,15 +54,6 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
         nft = _nft;
         optionNFT = WasabiOption(_optionNFT);
-        poolConfiguration = _poolConfiguration;
-
-        uint length = _types.length;
-        for (uint256 i = 0; i < length; ) {
-            allowedTypes[_types[i]] = true;
-            unchecked {
-                ++i;
-            }
-        }
 
         if (_admin != address(0)) {
             admin = _admin;
@@ -107,6 +88,11 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         return admin;
     }
 
+    /// @inheritdoc IWasabiPool
+    function getFactory() external view returns (address) {
+        return address(factory);
+    }
+
     /**
      * Always returns `IERC721Receiver.onERC721Received.selector`.
      */
@@ -121,10 +107,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
                 revert IWasabiErrors.NftIsInvalid();
             }
             clearOption(tokenId, 0, false);
-        } else if (_msgSender() == address(nft)) {
-            tokenIds.add(tokenId);
-            emit ERC721Received(tokenId);
-        } else {
+        } else if (_msgSender() != address(nft)) {
             revert IWasabiErrors.NftIsInvalid();
         }
         return this.onERC721Received.selector;
@@ -141,12 +124,11 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
         uint256 optionId = optionNFT.mint(_receiver, address(factory));
         WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
+            true,
             _request.optionType,
             _request.strikePrice,
-            _request.premium,
             _request.expiry,
-            _request.tokenId,
-            true
+            _request.tokenId
         );
         options[optionId] = optionData;
 
@@ -157,7 +139,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         optionIds.add(optionId);
         idToFilledOrCancelled[_request.id] = true;
 
-        emit OptionIssued(optionId, _request.id);
+        emit OptionIssued(optionId, _request.premium, _request.id);
         return optionId;
     }
 
@@ -187,27 +169,16 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         validateAndWithdrawPayment(_request.premium, "WasabiPool: Not enough premium is supplied");
 
         // 3. Request Validation
-        if (!allowedTypes[_request.optionType]) {
-            revert IWasabiErrors.InvalidOptionType();
-        }
-
-        if (_request.strikePrice == 0 ||
-            _request.strikePrice < poolConfiguration.minStrikePrice ||
-            _request.strikePrice > poolConfiguration.maxStrikePrice)
-        {
+        if (_request.strikePrice == 0) {
             revert IWasabiErrors.InvalidStrike();
         }
-
-        if (_request.expiry == 0 ||
-            _request.expiry < poolConfiguration.minDuration + block.timestamp ||
-            _request.expiry > poolConfiguration.maxDuration + block.timestamp)
-        {
+        if (_request.expiry == 0) {
             revert IWasabiErrors.InvalidExpiry();
         }
 
         // 4. Type specific validation
         if (_request.optionType == WasabiStructs.OptionType.CALL) {
-            if (!tokenIds.contains(_request.tokenId)) {
+            if (nft.ownerOf(_request.tokenId) != address(this)) {
                 revert IWasabiErrors.NftIsInvalid();
             }
             // Check that the token is free
@@ -256,19 +227,16 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     }
 
     /// @inheritdoc IWasabiPool
-    function acceptBidWithTokenId(
+    function acceptBid(
         WasabiStructs.Bid calldata _bid,
         bytes calldata _signature,
         uint256 _tokenId
     ) public onlyOwner returns(uint256) {
-        uint256 _optionId = optionNFT.mint(_bid.buyer, address(factory));
-
-        // Lock NFT / Token into a vault
+        // Other validations are done in WasabiConduit
         if (_bid.optionType == WasabiStructs.OptionType.CALL) {
             if (!isAvailableTokenId(_tokenId)) {
                 revert IWasabiErrors.NftIsInvalid();
             }
-            tokenIdToOptionId[_tokenId] = _optionId;
         } else {
             if (availableBalance() < _bid.strikePrice) {
                 revert IWasabiErrors.InsufficientAvailableLiquidity();
@@ -276,41 +244,25 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
             _tokenId = 0;
         }
 
+        // Lock NFT / Token into a vault
+        uint256 _optionId = optionNFT.mint(_bid.buyer, address(factory));
+        if (_bid.optionType == WasabiStructs.OptionType.CALL) {
+            tokenIdToOptionId[_tokenId] = _optionId;
+        }
+
         WasabiStructs.OptionData memory optionData = WasabiStructs.OptionData(
+            true,
             _bid.optionType,
             _bid.strikePrice,
-            _bid.price,
             _bid.expiry,
-            _tokenId,
-            true
+            _tokenId
         );
         options[_optionId] = optionData;
         optionIds.add(_optionId);
 
-        emit OptionIssued(_optionId, 0);
+        emit OptionIssued(_optionId, _bid.price);
         IWasabiConduit(factory.getConduitAddress()).poolAcceptBid(_bid, _signature, _optionId);
         return _optionId;
-    }
-
-    /// @inheritdoc IWasabiPool
-    function acceptBid(
-        WasabiStructs.Bid calldata _bid,
-        bytes calldata _signature
-    ) external onlyOwner returns(uint256) {
-        uint256 _tokenId;
-        if (_bid.optionType == WasabiStructs.OptionType.CALL) {
-            uint256[] memory _tokenIds = getAllTokenIds();
-            for (uint256 i; i < _tokenIds.length; i++ ) {
-                if (isAvailableTokenId(_tokenIds[i])) {
-                    _tokenId = _tokenIds[i];
-                    break;
-                }
-            }
-        } else {
-            _tokenId = 0;
-        }
-
-        return acceptBidWithTokenId(_bid, _signature, _tokenId);
     }
 
     /// @inheritdoc IWasabiPool
@@ -369,6 +321,10 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
         } else {
             IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
             (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _poolBid.price);
+            uint256 maxFee = _maxFee(_poolBid.price);
+            if (feeAmount > maxFee) {
+                feeAmount = maxFee;
+            }
 
             if (_poolBid.tokenAddress == address(0)) {
                 if (address(this).balance < _poolBid.price) {
@@ -443,36 +399,36 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
     /**
      * @dev Clears the option from the existing state and optionally exercises it.
      */
-    function clearOption(uint256 _optionId, uint256 _tokenId, bool _executed) internal {
+    function clearOption(uint256 _optionId, uint256 _tokenId, bool _exercised) internal {
         WasabiStructs.OptionData memory optionData = options[_optionId];
         if (optionData.optionType == WasabiStructs.OptionType.CALL) {
-            if (_executed) {
+            if (_exercised) {
                 // Sell to executor, the validateOptionForExecution already checked if strike is paid
                 nft.safeTransferFrom(address(this), _msgSender(), optionData.tokenId);
-                tokenIds.remove(optionData.tokenId);
             }
             if (tokenIdToOptionId[optionData.tokenId] == _optionId) {
                 delete tokenIdToOptionId[optionData.tokenId];
             }
         } else if (optionData.optionType == WasabiStructs.OptionType.PUT) {
-            if (_executed) {
+            if (_exercised) {
                 // Buy from executor
                 nft.safeTransferFrom(_msgSender(), address(this), _tokenId);
                 payAddress(_msgSender(), optionData.strikePrice);
             }
         }
         options[_optionId].active = false;
+        optionIds.remove(_optionId);
         optionNFT.burn(_optionId);
     }
 
     /// @inheritdoc IWasabiPool
-    function withdrawERC721(IERC721 _nft, uint256[] calldata _tokenIds) external onlyOwner {
+    function withdrawERC721(IERC721 _nft, uint256[] calldata _tokenIds) external onlyOwner nonReentrant {
         bool isPoolAsset = _nft == nft;
 
         uint256 numNFTs = _tokenIds.length;
         for (uint256 i; i < numNFTs; ) {
             if (isPoolAsset) {
-                if (!tokenIds.contains(_tokenIds[i])) {
+                if (nft.ownerOf(_tokenIds[i]) != address(this)) {
                     revert IWasabiErrors.NftIsInvalid();
                 }
                 uint256 optionId = tokenIdToOptionId[_tokenIds[i]];
@@ -480,11 +436,21 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
                     revert IWasabiErrors.RequestNftIsLocked();
                 }
 
-                tokenIds.remove(_tokenIds[i]);
                 delete tokenIdToOptionId[_tokenIds[i]];
             }
             _nft.safeTransferFrom(address(this), owner(), _tokenIds[i]);
-            emit ERC721Withdrawn(_tokenIds[i]);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @inheritdoc IWasabiPool
+    function depositERC721(IERC721 _nft, uint256[] calldata _tokenIds) external onlyOwner nonReentrant {
+        require(_nft == nft, 'Invalid Collection');
+        uint256 numNFTs = _tokenIds.length;
+        for (uint256 i; i < numNFTs; ) {
+            _nft.safeTransferFrom(_msgSender(), address(this), _tokenIds[i]);
             unchecked {
                 ++i;
             }
@@ -511,44 +477,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
     /// @inheritdoc IWasabiPool
     function isValid(uint256 _optionId) view public returns(bool) {
-        if (!optionIds.contains(_optionId)) {
-            return false;
-        }
         return options[_optionId].active && options[_optionId].expiry >= block.timestamp;
-    }
-
-    /// @inheritdoc IWasabiPool
-    function getAllTokenIds() view public returns(uint256[] memory) {
-        return tokenIds.values();
-    }
-
-    /// @inheritdoc IWasabiPool
-    function enableType(WasabiStructs.OptionType _type) external onlyOwner {
-        allowedTypes[_type] = true;
-        emit PoolSettingsChanged();
-    }
-
-    /// @inheritdoc IWasabiPool
-    function disableType(WasabiStructs.OptionType _type) external onlyOwner {
-        delete allowedTypes[_type];
-        emit PoolSettingsChanged();
-    }
-
-    /// @inheritdoc IWasabiPool
-    function isEnabled(WasabiStructs.OptionType _type) external view returns(bool) {
-        return allowedTypes[_type];
-    }
-
-    /// @inheritdoc IWasabiPool
-    function getPoolConfiguration() external view returns(WasabiStructs.PoolConfiguration memory) {
-        return poolConfiguration;
-    }
-
-    /// @inheritdoc IWasabiPool
-    function setPoolConfiguration(WasabiStructs.PoolConfiguration calldata _poolConfiguration) external onlyOwner {
-        WasabiValidation.validate(_poolConfiguration);
-        poolConfiguration = _poolConfiguration;
-        emit PoolSettingsChanged();
     }
 
     /// @inheritdoc IWasabiPool
@@ -558,7 +487,7 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
     /// @inheritdoc IWasabiPool
     function getOptionIdForToken(uint256 _tokenId) external view returns(uint256) {
-        if (!tokenIds.contains(_tokenId)) {
+        if (nft.ownerOf(_tokenId) != address(this)) {
             revert IWasabiErrors.NftIsInvalid();
         }
         return tokenIdToOptionId[_tokenId];
@@ -571,10 +500,17 @@ abstract contract AbstractWasabiPool is IERC721Receiver, Ownable, IWasabiPool, R
 
     /// @inheritdoc IWasabiPool
     function isAvailableTokenId(uint256 _tokenId) public view returns(bool) {
-        if (!tokenIds.contains(_tokenId)) {
+        if (nft.ownerOf(_tokenId) != address(this)) {
             return false;
         }
         uint256 optionId = tokenIdToOptionId[_tokenId];
         return !isValid(optionId);
+    }
+
+    /**
+     * @dev returns the maximum fee that the protocol can take for the given amount
+     */
+    function _maxFee(uint256 _amount) internal pure returns(uint256) {
+        return _amount / 10;
     }
 }

@@ -1,13 +1,6 @@
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-export interface WasabiPoolConfiguration {
-    minStrikePrice: number | BN | string;
-    maxStrikePrice: number | BN | string;
-    minDuration: number | BN | string;
-    maxDuration: number | BN | string;
-}
-
 export enum OptionType {
     CALL = 0,
     PUT = 1,
@@ -22,7 +15,6 @@ export enum PoolState {
 export interface OptionData {
     optionType: BN;
     strikePrice: BN;
-    premium: BN;
     expiry: BN;
     tokenId: BN;
 }
@@ -91,7 +83,6 @@ export interface WasabiPool {
     owner: string,
     availableBalance: BN,
     admin: string,
-    config: WasabiPoolConfiguration,
     nftAddress: string,
     nftData?: WasabiPoolNFT,
 }

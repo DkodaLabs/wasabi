@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -23,11 +23,9 @@ contract ERC20WasabiPool is AbstractWasabiPool {
         IERC721 _nft,
         address _optionNFT,
         address _owner,
-        WasabiStructs.PoolConfiguration calldata _poolConfiguration,
-        WasabiStructs.OptionType[] calldata _types,
         address _admin
     ) external payable {
-        baseInitialize(_factory, _nft, _optionNFT, _owner, _poolConfiguration, _types, _admin);
+        baseInitialize(_factory, _nft, _optionNFT, _owner, _admin);
         token = _token;
     }
 
@@ -41,6 +39,12 @@ contract ERC20WasabiPool is AbstractWasabiPool {
         IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
         (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _premium);
 
+        if (feeAmount > 0) {
+            uint256 maxFee = _maxFee(_premium);
+            if (feeAmount > maxFee) {
+                feeAmount = maxFee;
+            }
+        }
         require(
             token.allowance(_msgSender(), address(this)) >= (_premium + feeAmount) && _premium > 0,
             _message);
@@ -59,6 +63,13 @@ contract ERC20WasabiPool is AbstractWasabiPool {
     function payAddress(address _seller, uint256 _amount) internal override {
         IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
         (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _amount);
+
+        if (feeAmount > 0) {
+            uint256 maxFee = _maxFee(_amount);
+            if (feeAmount > maxFee) {
+                feeAmount = maxFee;
+            }
+        }
 
         if (!token.transfer(_seller, _amount - feeAmount)) {
             revert IWasabiErrors.FailedToSend();

@@ -3,7 +3,7 @@ const truffleAssert = require('truffle-assertions');
 import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance } from "../types/truffle-contracts";
 import { OptionIssued } from "../types/truffle-contracts/IWasabiPool";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { advanceTime, assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeConfig, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
+import { advanceTime, assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -50,8 +50,6 @@ contract("ETHWasabiPool: Expiring PutOption execution", accounts => {
             await poolFactory.createPool(
                 testNft.address,
                 [],
-                makeConfig(1, 100, 222, 2630000 /* one month */),
-                [OptionType.PUT],
                 ZERO_ADDRESS,
                 metadata(lp, initialPoolBalance));
 

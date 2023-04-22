@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
 import "../IWasabiPoolFactory.sol";
@@ -22,11 +22,9 @@ contract ETHWasabiPool is AbstractWasabiPool {
         IERC721 _nft,
         address _optionNFT,
         address _owner,
-        WasabiStructs.PoolConfiguration calldata _poolConfiguration,
-        WasabiStructs.OptionType[] calldata _types,
         address _admin
     ) external payable {
-        baseInitialize(_factory, _nft, _optionNFT, _owner, _poolConfiguration, _types, _admin);
+        baseInitialize(_factory, _nft, _optionNFT, _owner, _admin);
     }
 
     /// @inheritdoc AbstractWasabiPool
@@ -34,14 +32,19 @@ contract ETHWasabiPool is AbstractWasabiPool {
         IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
         (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _premium);
 
-        require(msg.value >= (_premium + feeAmount) && _premium > 0, _message);
-
         if (feeAmount > 0) {
+            uint256 maxFee = _maxFee(_premium);
+            if (feeAmount > maxFee) {
+                feeAmount = maxFee;
+            }
+
             (bool _sent, ) = payable(feeReceiver).call{value: feeAmount}("");
             if (!_sent) {
                 revert IWasabiErrors.FailedToSend();
             }
         }
+
+        require(msg.value >= (_premium + feeAmount) && _premium > 0, _message);
     }
 
     /// @inheritdoc AbstractWasabiPool
@@ -49,15 +52,20 @@ contract ETHWasabiPool is AbstractWasabiPool {
         IWasabiFeeManager feeManager = IWasabiFeeManager(factory.getFeeManager());
         (address feeReceiver, uint256 feeAmount) = feeManager.getFeeData(address(this), _amount);
 
-        (bool sent, ) = payable(_seller).call{value: _amount - feeAmount}("");
-        if (!sent) {
-            revert IWasabiErrors.FailedToSend();
-        }
         if (feeAmount > 0) {
+            uint256 maxFee = _maxFee(_amount);
+            if (feeAmount > maxFee) {
+                feeAmount = maxFee;
+            }
             (bool _sent, ) = payable(feeReceiver).call{value: feeAmount}("");
             if (!_sent) {
                 revert IWasabiErrors.FailedToSend();
             }
+        }
+
+        (bool sent, ) = payable(_seller).call{value: _amount - feeAmount}("");
+        if (!sent) {
+            revert IWasabiErrors.FailedToSend();
         }
     }
 

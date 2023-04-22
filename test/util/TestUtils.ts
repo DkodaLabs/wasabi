@@ -1,7 +1,7 @@
+import { TestERC721Instance } from "../../types/truffle-contracts";
 import {
   PoolAsk,
   OptionType,
-  WasabiPoolConfiguration,
   AMMOrder,
   Bid,
   Ask,
@@ -78,20 +78,6 @@ export const makeAmmRequest = (
     collection,
     price: toEth(price),
     orderExpiry,
-  };
-};
-
-export const makeConfig = (
-  minStrikePrice: number,
-  maxStrikePrice: number,
-  minDuration: number,
-  maxDuration: number
-): WasabiPoolConfiguration => {
-  return {
-    minStrikePrice: toEth(minStrikePrice),
-    maxStrikePrice: toEth(maxStrikePrice),
-    minDuration,
-    maxDuration,
   };
 };
 
@@ -491,4 +477,16 @@ export async function expectRevertCustomError(promise: Promise<any>, customError
         )
       }
   }
+}
+
+export async function getAllTokenIds(address: string, nft: TestERC721Instance): Promise<Number[]> {
+  const balance = (await nft.balanceOf(address)).toNumber();
+
+  const result = [];
+
+  for (let i = 0; i < balance; i++) {
+    const tokenId = (await nft.tokenOfOwnerByIndex(address, i)).toNumber();
+    result.push(tokenId);
+  }
+  return result;
 }

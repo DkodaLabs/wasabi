@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
 import "./lib/Signing.sol";
@@ -10,6 +10,12 @@ contract PricingConfigValidator {
     struct PricingConfiguration {
         address poolAddress;
         uint256 premiumMultiplierPercent;
+        uint256 minStrike;
+        uint256 maxStrike;
+        uint256 minDuration;
+        uint256 maxDuration;
+        bool callEnabled;
+        bool putEnabled;
         uint256 blockNumber;
     }
 
@@ -19,7 +25,7 @@ contract PricingConfigValidator {
         );
     bytes32 constant TYPEHASH =
         keccak256(
-            "PricingConfig(address poolAddress,uint256 premiumMultiplierPercent,uint256 blockNumber)"
+            "PricingConfig(address poolAddress,uint256 premiumMultiplierPercent,uint256 minStrike, uint256 maxStrike, uint256 minDuration, uint256 maxDuration,bool callEnabled,bool putEnabled,uint256 blockNumber)"
         );
 
     /**
@@ -58,6 +64,12 @@ contract PricingConfigValidator {
                     TYPEHASH,
                     _config.poolAddress,
                     _config.premiumMultiplierPercent,
+                    _config.minStrike,
+                    _config.maxStrike,
+                    _config.minDuration,
+                    _config.maxDuration,
+                    _config.callEnabled,
+                    _config.putEnabled,
                     _config.blockNumber
                 )
             );

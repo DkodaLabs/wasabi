@@ -1,6 +1,6 @@
 const truffleAssert = require('truffle-assertions');
 
-import { toEth, advanceTime, makeRequest, makeConfig, metadata, signAskWithEIP712, fromWei ,expectRevertCustomError, signPoolAskWithEIP712, advanceBlock } from "./util/TestUtils";
+import { toEth, advanceTime, makeRequest, metadata, signAskWithEIP712, fromWei ,expectRevertCustomError, signPoolAskWithEIP712, advanceBlock, getAllTokenIds } from "./util/TestUtils";
 import { PoolAsk, OptionType, ZERO_ADDRESS ,Bid, Ask} from "./util/TestTypes";
 import { TestERC721Instance } from "../types/truffle-contracts/TestERC721.js";
 import { WasabiPoolFactoryInstance } from "../types/truffle-contracts/WasabiPoolFactory.js";
@@ -65,16 +65,12 @@ contract("ERC20WasabiPool: Clear Expired Options From Pool", accounts => {
 
         await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
 
-        const config = makeConfig(1, 100, 222, 2630000 /* one month */);
-        const types = [OptionType.CALL];
         const createPoolResult =
             await poolFactory.createERC20Pool(
                 token.address,
                 0,
                 testNft.address,
                 [1001, 1002, 1003, 1004],
-                config,
-                types,
                 ZERO_ADDRESS,
                 metadata(lp));
         truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");
@@ -83,7 +79,7 @@ contract("ERC20WasabiPool: Clear Expired Options From Pool", accounts => {
         poolAddress = createPoolResult.logs.find(e => e.event == "NewPool")!.args[0];
         pool = await ERC20WasabiPool.at(poolAddress);
         assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
-        assert.deepEqual((await pool.getAllTokenIds()).map(a => a.toNumber()), [1001, 1002, 1003, 1004], "Pool doesn't have the correct tokens");
+        assert.deepEqual(await getAllTokenIds(pool.address, testNft), [1001, 1002, 1003, 1004], "Pool doesn't have the correct tokens");
 
         assert.equal(await pool.getLiquidityAddress(), token.address, 'Token not correct');
     });
@@ -94,44 +90,48 @@ contract("ERC20WasabiPool: Clear Expired Options From Pool", accounts => {
         let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
         let expiry = timestamp + 10000;
         let orderExpiry = timestamp + 10000;
-        let optionIds = [];
         const premium = 1;
         request = makeRequest(id, pool.address, OptionType.CALL, 10, premium, expiry, 1003, orderExpiry);
 
-        await token.approve(conduit.address, toEth(premium * 10), metadata(lp));
+        await token.approve(conduit.address, toEth(premium * 10), metadata(buyer));
 
         let signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
-        optionId = await conduit.buyOption.call(request, signature, metadata(lp));
-        await conduit.buyOption(request, signature, metadata(lp));
-        optionIds.push(optionId);
+        optionId = await conduit.buyOption.call(request, signature, metadata(buyer));
+        await conduit.buyOption(request, signature, metadata(buyer));
 
-        request = makeRequest(id+1, pool.address, OptionType.CALL, 10, premium, expiry, 1004, orderExpiry);
+        request = makeRequest(id + 1, pool.address, OptionType.CALL, 10, premium, expiry, 1004, orderExpiry);
 
-        await token.approve(conduit.address, toEth(premium * 10), metadata(lp));
-
-        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
-        optionId = await conduit.buyOption.call(request, signature, metadata(lp));
-        await conduit.buyOption(request, signature, metadata(lp));
-        optionIds.push(optionId);
-
-        request = makeRequest(id+2, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry);
-
-        await token.approve(conduit.address, toEth(premium * 10), metadata(lp));
+        await token.approve(conduit.address, toEth(premium * 10), metadata(buyer));
 
         signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
-        optionId = await conduit.buyOption.call(request, signature, metadata(lp));
-        await conduit.buyOption(request, signature, metadata(lp));
-        optionIds.push(optionId);
+        optionId = await conduit.buyOption.call(request, signature, metadata(buyer));
+        await conduit.buyOption(request, signature, metadata(buyer));
+
+        request = makeRequest(id + 2, pool.address, OptionType.CALL, 10, premium, expiry, 1001, orderExpiry);
+
+        await token.approve(conduit.address, toEth(premium * 10), metadata(buyer));
+
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        optionId = await conduit.buyOption.call(request, signature, metadata(buyer));
+        await conduit.buyOption(request, signature, metadata(buyer));
+
+        request = makeRequest(id + 3, pool.address, OptionType.CALL, 10, premium, expiry, 1002, orderExpiry);
+        await token.approve(conduit.address, toEth(premium * 10), metadata(buyer));
+        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        optionId = await conduit.buyOption.call(request, signature, metadata(buyer));
+        await conduit.buyOption(request, signature, metadata(buyer));
+
+        await token.approve(pool.address, toEth(10), metadata(buyer));
+        await pool.executeOption(optionId, metadata(buyer));
     });
 
     it("Clear Expired Options", async () => {
-        const initial_optionIds = await pool.getOptionIds();
         await advanceTime(10000 * 2);
         await advanceBlock();
 
-        await pool.clearExpiredOptions([101]);
+        await pool.clearExpiredOptions([2]);
 
-        assert.deepEqual((await pool.getOptionIds()).map(a => a.toNumber()), [100, 102], "Pool doesn't have the correct optionIds");
+        assert.deepEqual((await pool.getOptionIds()).map(a => a.toNumber()), [1, 3], "Pool doesn't have the correct optionIds");
 
         await pool.clearExpiredOptions([]);
 

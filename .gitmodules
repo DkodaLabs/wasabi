@@ -1,6 +1,3 @@
-[submodule "lib/narya-contracts"]
-	path = lib/narya-contracts
-	url = https://github.com/NaryaAI/narya-contracts
 [submodule "lib/forge-std"]
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std

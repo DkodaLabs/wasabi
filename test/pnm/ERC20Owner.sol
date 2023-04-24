@@ -9,7 +9,7 @@ import "../../contracts/pools/ERC20WasabiPool.sol";
 import {WasabiFeeManager} from "../../contracts/fees/WasabiFeeManager.sol";
 import {WasabiConduit} from "../../contracts/conduit/WasabiConduit.sol";
 
-import "../../lib/narya-contracts/PTest.sol";
+import {PTest} from "@narya-ai/contracts/PTest.sol";
 
 contract ERC20LockedNFT is PTest {
     TestAzuki internal nft;
@@ -61,11 +61,10 @@ contract ERC20LockedNFT is PTest {
         token.issue(agent, 100 ether);
         token.issue(owner, 100 ether);
         
-        feeManager = new WasabiFeeManager();
-
-        conduit = new WasabiConduit();
-
+        feeManager = new WasabiFeeManager(20, 1000);
         options = new WasabiOption();
+        conduit = new WasabiConduit(options);
+
         templatePool = new ETHWasabiPool();
         templateERC20Pool = new ERC20WasabiPool();
 
@@ -87,14 +86,6 @@ contract ERC20LockedNFT is PTest {
         tokenId3 = nft.mint(owner);
         nft.setApprovalForAll(address(poolFactory), true);
 
-        WasabiStructs.PoolConfiguration memory poolConfiguration = WasabiStructs
-            .PoolConfiguration(1, 1000, 1, 30 days);
-
-        WasabiStructs.OptionType[]
-            memory types = new WasabiStructs.OptionType[](1);
-        types[0] = WasabiStructs.OptionType.CALL;
-        // types[1] = WasabiStructs.OptionType.PUT;
-
         uint256[] memory tokenIds = new uint256[](2);
         tokenIds[0] = tokenId;
         tokenIds[1] = tokenId2;
@@ -104,8 +95,6 @@ contract ERC20LockedNFT is PTest {
             0,
             address(nft),
             tokenIds,
-            poolConfiguration,
-            types,
             address(0)
         );
         pool = ERC20WasabiPool(payable(poolAddress));
@@ -291,43 +280,6 @@ contract ERC20LockedNFT is PTest {
         );
         
         conduit.acceptBid(optionId, address(pool), bid, signature);
-
-        vm.stopPrank();
-    }
-
-    function testPoolAcceptBid(
-        uint256 id,
-        uint256 price,
-        address tokenAddress,
-        address collection,
-        uint256 orderExpiry,
-        address optionTokenAddress
-    ) public {
-        vm.prank(owner);
-        token.approve(address(conduit), type(uint).max);
-
-        vm.startPrank(owner);
-        vm.assume(price > 0 && price < 1 ether);
-
-        options.setApprovalForAll(address(conduit), true);
-
-        WasabiStructs.OptionType optionType = WasabiStructs.OptionType.CALL;
-
-        (WasabiStructs.Bid memory bid, bytes memory signature) = makeBid(
-            id,
-            price,
-            address(token),
-            address(nft),
-            block.timestamp + 10 days,
-            owner,
-            optionType,
-            10,
-            block.timestamp + 10 days,
-            block.timestamp + 100 days,
-            address(token)
-        );
-        
-        pool.acceptBidWithTokenId(bid, signature, tokenId2);
 
         vm.stopPrank();
     }

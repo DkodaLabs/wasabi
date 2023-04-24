@@ -9,7 +9,7 @@ import "../../contracts/pools/ERC20WasabiPool.sol";
 import {WasabiFeeManager} from "../../contracts/fees/WasabiFeeManager.sol";
 import {WasabiConduit} from "../../contracts/conduit/WasabiConduit.sol";
 
-import "../../lib/narya-contracts/PTest.sol";
+import {PTest} from "@narya-ai/contracts/PTest.sol";
 
 contract ERC20WrongFee is PTest {
     TestAzuki internal nft;
@@ -55,20 +55,19 @@ contract ERC20WrongFee is PTest {
         deal(address(token), user, 100);
         token.issue(user, 100);
 
-        oldFeeManager = new WasabiFeeManager();
+        oldFeeManager = new WasabiFeeManager(20, 1000);
         oldFeeManager.setReceiver(feeRecipient);
         oldFeeManager.setFraction(50);
         oldFeeManager.setDenominator(100);
         
-        feeManager = new WasabiFeeManager();
+        feeManager = new WasabiFeeManager(20, 1000);
         feeManager.setReceiver(feeRecipient);
         feeManager.setFraction(10);
         feeManager.setDenominator(100);
 
-
-        conduit = new WasabiConduit();
-
         options = new WasabiOption();
+        conduit = new WasabiConduit(options);
+
         templatePool = new ETHWasabiPool();
         templateERC20Pool = new ERC20WasabiPool();
         
@@ -97,14 +96,6 @@ contract ERC20WrongFee is PTest {
         nft.setApprovalForAll(address(poolFactory), true);
         vm.stopPrank();
 
-        WasabiStructs.PoolConfiguration memory poolConfiguration = WasabiStructs
-            .PoolConfiguration(1, 1000, 1, 30 days);
-
-        WasabiStructs.OptionType[]
-            memory types = new WasabiStructs.OptionType[](1);
-        types[0] = WasabiStructs.OptionType.CALL;
-        // types[1] = WasabiStructs.OptionType.PUT;
-
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = tokenId;
 
@@ -114,8 +105,6 @@ contract ERC20WrongFee is PTest {
             0,
             address(nft),
             tokenIds,
-            poolConfiguration,
-            types,
             address(0)
         );
         pool = ERC20WasabiPool(payable(poolAddress));
@@ -189,9 +178,14 @@ contract ERC20WrongFee is PTest {
         );
 
         // console.log("after", token.balanceOf(user));
+        // check for maxFee
+        uint expected = balanceBefore*50/100;
+        if (expected > (50/10)) {
+            expected = 50/10;
+        }
 
         pnmLogs.push(LogInfo(
-            balanceBefore*50/100,
+            expected + 50,
             balanceBefore - token.balanceOf(user)
         ));
 

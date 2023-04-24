@@ -9,7 +9,7 @@ import "../../contracts/pools/ERC20WasabiPool.sol";
 import {WasabiFeeManager} from "../../contracts/fees/WasabiFeeManager.sol";
 import {WasabiConduit} from "../../contracts/conduit/WasabiConduit.sol";
 
-import "../../lib/narya-contracts/PTest.sol";
+import {PTest} from "@narya-ai/contracts/PTest.sol";
 
 contract ERC20WasabiPoolTest is PTest {
     TestAzuki internal nft;
@@ -46,11 +46,11 @@ contract ERC20WasabiPoolTest is PTest {
         token = new DemoETH();
         deal(address(token), user, 100);
 
-        feeManager = new WasabiFeeManager();
-
-        conduit = new WasabiConduit();
+        feeManager = new WasabiFeeManager(20, 1000);
 
         options = new WasabiOption();
+        conduit = new WasabiConduit(options);
+
         templatePool = new ETHWasabiPool();
         templateERC20Pool = new ERC20WasabiPool();
         poolFactory = new WasabiPoolFactory(
@@ -71,14 +71,6 @@ contract ERC20WasabiPoolTest is PTest {
         nft.setApprovalForAll(address(poolFactory), true);
         vm.stopPrank();
 
-        WasabiStructs.PoolConfiguration memory poolConfiguration = WasabiStructs
-            .PoolConfiguration(1, 100, 1, 30 days);
-
-        WasabiStructs.OptionType[]
-            memory types = new WasabiStructs.OptionType[](1);
-        types[0] = WasabiStructs.OptionType.CALL;
-        // types[1] = WasabiStructs.OptionType.PUT;
-
         uint256[] memory tokenIds = new uint256[](3);
         tokenIds[0] = nftId0;
         tokenIds[1] = nftId1;
@@ -90,8 +82,6 @@ contract ERC20WasabiPoolTest is PTest {
             0,
             address(nft),
             tokenIds, // 3 NFTs
-            poolConfiguration,
-            types,
             address(0)
         );
         pool = ERC20WasabiPool(payable(poolAddress));

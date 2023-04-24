@@ -9,7 +9,7 @@ import "../contracts/pools/ERC20WasabiPool.sol";
 import {WasabiFeeManager} from "../contracts/fees/WasabiFeeManager.sol";
 import {WasabiConduit} from "../contracts/conduit/WasabiConduit.sol";
 
-import "../lib/narya-contracts/PTest.sol";
+import {PTest} from "@narya-ai/contracts/PTest.sol";
 
 contract WasabiConduit_ETH is PTest {
     TestERC721 internal nft;
@@ -66,10 +66,10 @@ contract WasabiConduit_ETH is PTest {
         vm.deal(agent, 100 ether);
         vm.deal(bob, 100 ether);
 
-        feeManager = new WasabiFeeManager();
-        conduit = new WasabiConduit();
-
+        feeManager = new WasabiFeeManager(20, 1000);
         options = new WasabiOption();
+        conduit = new WasabiConduit(options);
+
         templatePool = new ETHWasabiPool();
         templateERC20Pool = new ERC20WasabiPool();
         poolFactory = new WasabiPoolFactory(
@@ -105,14 +105,6 @@ contract WasabiConduit_ETH is PTest {
     }
 
     function _testCreatePool() public {
-        WasabiStructs.PoolConfiguration memory poolConfiguration = WasabiStructs
-            .PoolConfiguration(1, 100, 222, 2630000 /* one month */);
-
-        WasabiStructs.OptionType[]
-            memory types = new WasabiStructs.OptionType[](1);
-        types[0] = WasabiStructs.OptionType.CALL;
-        // types[1] = WasabiStructs.OptionType.PUT;
-
         uint256[] memory tokenIds = new uint256[](3);
         tokenIds[0] = tokenId1;
         tokenIds[1] = tokenId2;
@@ -125,20 +117,17 @@ contract WasabiConduit_ETH is PTest {
         address poolAddress = poolFactory.createPool(
             address(nft),
             tokenIds,
-            poolConfiguration,
-            types,
             agent
         );
         pool = ETHWasabiPool(payable(poolAddress));
         vm.stopPrank();
 
         assert(pool.owner() == agent);
-        uint256[] memory ids = pool.getAllTokenIds();
-        assert(ids.length == tokenIds.length);
+        assert(nft.balanceOf(address(pool)) == tokenIds.length);
 
-        assert(ids[0] == 1001);
-        assert(ids[1] == 1002);
-        assert(ids[2] == 1003);
+        assert(nft.ownerOf(tokenIds[0]) == address(pool));
+        assert(nft.ownerOf(tokenIds[1]) == address(pool));
+        assert(nft.ownerOf(tokenIds[2]) == address(pool));
     }
 
     function _testWriteOption() public {

@@ -4,6 +4,7 @@
     "postinstall": "npx truffle compile && npm run generate-types"
   },
   "dependencies": {
+    "@narya-ai/contracts": "0.4.0",
     "@openzeppelin/contracts": "4.7.3",
     "@truffle/hdwallet-provider": "2.1.8",
     "bignumber.js": "9.1.0",

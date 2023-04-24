@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import "../../contracts/mocks/DemoETH.sol";
-import "../../contracts/mocks/TestAzuki.sol";
-import "../../contracts/WasabiPoolFactory.sol";
-import "../../contracts/pools/ETHWasabiPool.sol";
-import "../../contracts/pools/ERC20WasabiPool.sol";
-import {WasabiFeeManager} from "../../contracts/fees/WasabiFeeManager.sol";
-import {WasabiConduit} from "../../contracts/conduit/WasabiConduit.sol";
+import "../contracts/mocks/DemoETH.sol";
+import "../contracts/mocks/TestAzuki.sol";
+import "../contracts/WasabiPoolFactory.sol";
+import "../contracts/pools/ETHWasabiPool.sol";
+import "../contracts/pools/ERC20WasabiPool.sol";
+import {WasabiFeeManager} from "../contracts/fees/WasabiFeeManager.sol";
+import {WasabiConduit} from "../contracts/conduit/WasabiConduit.sol";
 
 import {PTest} from "@narya-ai/contracts/PTest.sol";
 
 contract ERC20WasabiPoolTest is PTest {
     TestAzuki internal nft;
+    DemoETH internal token;
     WasabiFeeManager feeManager;
     WasabiConduit conduit;
     WasabiPoolFactory internal poolFactory;
@@ -42,7 +43,11 @@ contract ERC20WasabiPoolTest is PTest {
         user = makeAddr("User");
         agent = vm.addr(AGENT_KEY);
 
+        token = new DemoETH();
+        deal(address(token), user, 100);
+
         feeManager = new WasabiFeeManager(20, 1000);
+
         options = new WasabiOption();
         conduit = new WasabiConduit(options);
 
@@ -72,32 +77,60 @@ contract ERC20WasabiPoolTest is PTest {
         tokenIds[2] = nftId2;
 
         vm.startPrank(agent);
-        address poolAddress = poolFactory.createPool(
+        address poolAddress = poolFactory.createERC20Pool(
+            address(token),
+            0,
             address(nft),
             tokenIds, // 3 NFTs
             address(0)
         );
         pool = ERC20WasabiPool(payable(poolAddress));
         vm.stopPrank();
-    }
-
-    function testWriteOption(uint256 id, uint256 eth_amount, uint256 premium) public {
-        vm.assume(eth_amount >= premium && premium > 0);
-        deal(user, eth_amount);
 
         vm.startPrank(user);
+        token.approve(address(pool), type(uint256).max);
         writeOption(
-            id,
+            0,
             address(pool),
             WasabiStructs.OptionType.CALL,
             10, // strike price
-            premium, // premium
+            1, // premium
             block.timestamp + 10 days,
             nftId0,
             block.timestamp + 10 days
         );
         vm.stopPrank();
-        require(user.balance == eth_amount - premium, "incorrect ETH balance");
+    }
+
+    function invariantNftBalance() public view {
+        uint256 userNftBalance = nft.balanceOf(user);
+        uint256 poolNftBalance = nft.balanceOf(address(pool));
+
+        require(
+            (userNftBalance == 1 && poolNftBalance == 2) || // either option executed
+                (userNftBalance == 0 && poolNftBalance == 3), // or option not executed
+            "invalid nft balance"
+        );
+    }
+
+    // An intentionally wrong invariant for DEMO
+    function invariantNftAlwaysLocked() public view {
+        uint256 userNftBalance = nft.balanceOf(user);
+        uint256 poolNftBalance = nft.balanceOf(address(pool));
+
+        // if option is not executed make sure that the lock holds
+        if (userNftBalance == 0 || poolNftBalance == 3) {
+            require(
+                (userNftBalance == 0 && poolNftBalance == 3), // option not executed
+                "nft is not locked"
+            );
+        }
+    }
+
+    function actionExecuteOption(uint256 optionId) public {
+        vm.startPrank(user);
+        pool.executeOption(optionId);
+        vm.stopPrank();
     }
 
     function writeOption(
@@ -142,8 +175,8 @@ contract ERC20WasabiPoolTest is PTest {
         // get signature
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(AGENT_KEY, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
-        pool.writeOption{value: premium}(poolAsk, signature);
+
+        pool.writeOption(poolAsk, signature);
     }
 
     //////////////////////

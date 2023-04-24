@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import "../../contracts/mocks/DemoETH.sol";
-import "../../contracts/mocks/TestAzuki.sol";
-import "../../contracts/WasabiPoolFactory.sol";
-import "../../contracts/pools/ETHWasabiPool.sol";
-import "../../contracts/pools/ERC20WasabiPool.sol";
-import {WasabiFeeManager} from "../../contracts/fees/WasabiFeeManager.sol";
-import {WasabiConduit} from "../../contracts/conduit/WasabiConduit.sol";
+import "../contracts/mocks/DemoETH.sol";
+import "../contracts/mocks/TestAzuki.sol";
+import "../contracts/WasabiPoolFactory.sol";
+import "../contracts/pools/ETHWasabiPool.sol";
+import "../contracts/pools/ERC20WasabiPool.sol";
+import {WasabiFeeManager} from "../contracts/fees/WasabiFeeManager.sol";
+import {WasabiConduit} from "../contracts/conduit/WasabiConduit.sol";
 
 import {PTest} from "@narya-ai/contracts/PTest.sol";
 
@@ -39,7 +39,7 @@ contract ERC20LockedNFT is PTest {
         keccak256(
             "PoolAsk(uint256 id,address poolAddress,uint8 optionType,uint256 strikePrice,uint256 premium,uint256 expiry,uint256 tokenId,uint256 orderExpiry)"
         );
-    
+
     bytes32 constant BID_TYPEHASH =
         keccak256(
             "Bid(uint256 id,uint256 price,address tokenAddress,address collection,uint256 orderExpiry,address buyer,uint8 optionType,uint256 strikePrice,uint256 expiry,uint256 expiryAllowance,address optionTokenAddress)"
@@ -60,7 +60,7 @@ contract ERC20LockedNFT is PTest {
         deal(address(token), owner, 100);
         token.issue(agent, 100 ether);
         token.issue(owner, 100 ether);
-        
+
         feeManager = new WasabiFeeManager(20, 1000);
         options = new WasabiOption();
         conduit = new WasabiConduit(options);
@@ -114,38 +114,23 @@ contract ERC20LockedNFT is PTest {
     }
 
     function invariantPoolOwner() public view {
-        require(
-            pool.owner() == owner,
-            "pool owner changed"
-        );
+        require(pool.owner() == owner, "pool owner changed");
     }
 
     function invariantPoolFactoryOwner() public view {
-        require(
-            poolFactory.owner() == owner,
-            "poolFactory owner changed"
-        );
+        require(poolFactory.owner() == owner, "poolFactory owner changed");
     }
 
     function invariantWasabiOptionOwner() public view {
-        require(
-            options.owner() == owner,
-            "WasabiOption owner changed"
-        );
+        require(options.owner() == owner, "WasabiOption owner changed");
     }
 
     function invariantConduitOwner() public view {
-        require(
-            conduit.owner() == owner,
-            "conduit owner changed"
-        );
+        require(conduit.owner() == owner, "conduit owner changed");
     }
 
     function invariantFeeManagerOwner() public view {
-        require(
-            feeManager.owner() == owner,
-            "feeManager owner changed"
-        );
+        require(feeManager.owner() == owner, "feeManager owner changed");
     }
 
     function actionWriteOption(
@@ -158,19 +143,22 @@ contract ERC20LockedNFT is PTest {
         uint256 maxBlockToExecute
     ) public returns (uint256) {
         vm.startPrank(agent);
-        
+
         token.approve(address(pool), type(uint256).max);
 
-        (WasabiStructs.PoolAsk memory poolAsk, bytes memory signature) = makePoolAsk(
-            id,
-            poolAddress,
-            optionType,
-            strikePrice,
-            premium,
-            duration,
-            tokenId,
-            maxBlockToExecute
-        );
+        (
+            WasabiStructs.PoolAsk memory poolAsk,
+            bytes memory signature
+        ) = makePoolAsk(
+                id,
+                poolAddress,
+                optionType,
+                strikePrice,
+                premium,
+                duration,
+                tokenId,
+                maxBlockToExecute
+            );
         uint256 optionId_ = pool.writeOption(poolAsk, signature);
 
         vm.stopPrank();
@@ -188,19 +176,22 @@ contract ERC20LockedNFT is PTest {
         uint256 maxBlockToExecute
     ) public {
         vm.startPrank(agent);
-        
+
         token.approve(address(pool), type(uint256).max);
 
-        (WasabiStructs.PoolAsk memory poolAsk, bytes memory signature) = makePoolAsk(
-            id,
-            poolAddress,
-            optionType,
-            strikePrice,
-            premium,
-            duration,
-            tokenId,
-            maxBlockToExecute
-        );
+        (
+            WasabiStructs.PoolAsk memory poolAsk,
+            bytes memory signature
+        ) = makePoolAsk(
+                id,
+                poolAddress,
+                optionType,
+                strikePrice,
+                premium,
+                duration,
+                tokenId,
+                maxBlockToExecute
+            );
         conduit.buyOption(poolAsk, signature);
 
         vm.stopPrank();
@@ -211,13 +202,15 @@ contract ERC20LockedNFT is PTest {
         WasabiStructs.Ask[] calldata _asks
     ) public {
         vm.startPrank(agent);
-        
+
         token.approve(address(pool), type(uint256).max);
 
         uint size = _requests.length + _asks.length;
         bytes[] memory signatures = new bytes[](size);
 
-        WasabiStructs.PoolAsk[] memory poolAsks = new WasabiStructs.PoolAsk[](_requests.length);
+        WasabiStructs.PoolAsk[] memory poolAsks = new WasabiStructs.PoolAsk[](
+            _requests.length
+        );
         WasabiStructs.Ask[] memory asks = new WasabiStructs.Ask[](_asks.length);
 
         for (uint i = 0; i < _requests.length; ++i) {
@@ -238,10 +231,9 @@ contract ERC20LockedNFT is PTest {
             );
 
             asks[i] = ask;
-            signatures[i+_requests.length] = signature;
+            signatures[i + _requests.length] = signature;
         }
 
-        
         conduit.buyOptions(_requests, asks, signatures);
 
         vm.stopPrank();
@@ -278,15 +270,13 @@ contract ERC20LockedNFT is PTest {
             block.timestamp + 100 days,
             address(token)
         );
-        
+
         conduit.acceptBid(optionId, address(pool), bid, signature);
 
         vm.stopPrank();
     }
 
-    function testTransferToken(
-        address target
-    ) public {
+    function testTransferToken(address target) public {
         vm.assume(target != address(0));
 
         vm.startPrank(owner);
@@ -310,7 +300,7 @@ contract ERC20LockedNFT is PTest {
         uint256 expiry,
         uint256 expiryAllowance,
         address optionTokenAddress
-    ) private returns (WasabiStructs.Bid memory bid, bytes memory signature){
+    ) private returns (WasabiStructs.Bid memory bid, bytes memory signature) {
         bid = WasabiStructs.Bid(
             id,
             price,
@@ -342,12 +332,7 @@ contract ERC20LockedNFT is PTest {
         signature = abi.encodePacked(r, s, v);
     }
 
-    function testAcceptAsk(
-        uint256 id,
-        uint256 price,
-        address seller
-    ) public {
-
+    function testAcceptAsk(uint256 id, uint256 price, address seller) public {
         vm.assume(price > 0 && price < 1 ether);
 
         (WasabiStructs.Ask memory ask, bytes memory signature) = makeAsk(
@@ -439,7 +424,10 @@ contract ERC20LockedNFT is PTest {
         uint256 expiry,
         uint256 tokenId, // Tokens to deposit for CALL options
         uint256 orderExpiry
-    ) private returns (WasabiStructs.PoolAsk memory poolAsk, bytes memory signature) {
+    )
+        private
+        returns (WasabiStructs.PoolAsk memory poolAsk, bytes memory signature)
+    {
         poolAsk = WasabiStructs.PoolAsk(
             id,
             poolAddress,
@@ -473,7 +461,7 @@ contract ERC20LockedNFT is PTest {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(OWNER_KEY, digest);
         signature = abi.encodePacked(r, s, v);
     }
-    
+
     //////////////////////
     // utility functions
     ////////////////////

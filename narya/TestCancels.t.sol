@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import "../../contracts/mocks/DemoETH.sol";
-import "../../contracts/mocks/TestAzuki.sol";
-import "../../contracts/WasabiPoolFactory.sol";
-import "../../contracts/pools/ETHWasabiPool.sol";
-import "../../contracts/pools/ERC20WasabiPool.sol";
-import {WasabiFeeManager} from "../../contracts/fees/WasabiFeeManager.sol";
-import {WasabiConduit} from "../../contracts/conduit/WasabiConduit.sol";
+import "../contracts/mocks/DemoETH.sol";
+import "../contracts/mocks/TestAzuki.sol";
+import "../contracts/WasabiPoolFactory.sol";
+import "../contracts/pools/ETHWasabiPool.sol";
+import "../contracts/pools/ERC20WasabiPool.sol";
+import {WasabiFeeManager} from "../contracts/fees/WasabiFeeManager.sol";
+import {WasabiConduit} from "../contracts/conduit/WasabiConduit.sol";
 
 import {PTest} from "@narya-ai/contracts/PTest.sol";
 
@@ -37,7 +37,7 @@ contract ERC20LockedNFT is PTest {
         keccak256(
             "PoolAsk(uint256 id,address poolAddress,uint8 optionType,uint256 strikePrice,uint256 premium,uint256 expiry,uint256 tokenId,uint256 orderExpiry)"
         );
-    
+
     bytes32 constant BID_TYPEHASH =
         keccak256(
             "Bid(uint256 id,uint256 price,address tokenAddress,address collection,uint256 orderExpiry,address buyer,uint8 optionType,uint256 strikePrice,uint256 expiry,uint256 expiryAllowance,address optionTokenAddress)"
@@ -57,12 +57,12 @@ contract ERC20LockedNFT is PTest {
         token = new DemoETH();
         deal(address(token), owner, 100);
         token.issue(agent, 100 ether);
-        
+
         feeManager = new WasabiFeeManager(20, 1000);
 
         options = new WasabiOption();
         conduit = new WasabiConduit(options);
-        
+
         templatePool = new ETHWasabiPool();
         templateERC20Pool = new ERC20WasabiPool();
 
@@ -153,7 +153,6 @@ contract ERC20LockedNFT is PTest {
         vm.expectRevert();
         conduit.cancelBid(bid, signature);
 
-        
         vm.stopPrank();
     }
 
@@ -285,7 +284,10 @@ contract ERC20LockedNFT is PTest {
         uint256 expiry,
         uint256 tokenId, // Tokens to deposit for CALL options
         uint256 orderExpiry
-    ) private returns (WasabiStructs.PoolAsk memory poolAsk, bytes memory signature) {
+    )
+        private
+        returns (WasabiStructs.PoolAsk memory poolAsk, bytes memory signature)
+    {
         poolAsk = WasabiStructs.PoolAsk(
             id,
             poolAddress,
@@ -319,7 +321,7 @@ contract ERC20LockedNFT is PTest {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(OWNER_KEY, digest);
         signature = abi.encodePacked(r, s, v);
     }
-    
+
     //////////////////////
     // utility functions
     ////////////////////

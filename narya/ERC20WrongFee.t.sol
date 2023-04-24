@@ -1,21 +1,23 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import "../../contracts/mocks/DemoETH.sol";
-import "../../contracts/mocks/TestAzuki.sol";
-import "../../contracts/WasabiPoolFactory.sol";
-import "../../contracts/pools/ETHWasabiPool.sol";
-import "../../contracts/pools/ERC20WasabiPool.sol";
-import {WasabiFeeManager} from "../../contracts/fees/WasabiFeeManager.sol";
-import {WasabiConduit} from "../../contracts/conduit/WasabiConduit.sol";
+import "../contracts/mocks/DemoETH.sol";
+import "../contracts/mocks/TestAzuki.sol";
+import "../contracts/WasabiPoolFactory.sol";
+import "../contracts/pools/ETHWasabiPool.sol";
+import "../contracts/pools/ERC20WasabiPool.sol";
+import {WasabiFeeManager} from "../contracts/fees/WasabiFeeManager.sol";
+import {WasabiConduit} from "../contracts/conduit/WasabiConduit.sol";
 
 import {PTest} from "@narya-ai/contracts/PTest.sol";
 
-contract ERC20LockedNFT is PTest {
+contract ERC20WrongFee is PTest {
     TestAzuki internal nft;
     DemoETH internal token;
+    WasabiFeeManager oldFeeManager;
     WasabiFeeManager feeManager;
     WasabiConduit conduit;
+    WasabiPoolFactory internal oldPoolFactory;
     WasabiPoolFactory internal poolFactory;
     WasabiOption internal options;
     ETHWasabiPool internal templatePool;
@@ -25,7 +27,15 @@ contract ERC20LockedNFT is PTest {
 
     address internal user;
     address internal agent;
+    address internal feeRecipient;
     uint256 internal constant AGENT_KEY = 0x12345678;
+
+    struct LogInfo {
+        uint256 expected;
+        uint256 paid;
+    }
+
+    LogInfo[] pnmLogs;
 
     bytes32 constant EIP712DOMAIN_TYPEHASH =
         keccak256(
@@ -39,17 +49,35 @@ contract ERC20LockedNFT is PTest {
     function setUp() public {
         user = makeAddr("User");
         agent = vm.addr(AGENT_KEY);
+        feeRecipient = makeAddr("feeRecipient");
 
         token = new DemoETH();
         deal(address(token), user, 100);
-        token.issue(agent, 100);
-        
+        token.issue(user, 100);
+
+        oldFeeManager = new WasabiFeeManager(20, 1000);
+        oldFeeManager.setReceiver(feeRecipient);
+        oldFeeManager.setFraction(50);
+        oldFeeManager.setDenominator(100);
+
         feeManager = new WasabiFeeManager(20, 1000);
+        feeManager.setReceiver(feeRecipient);
+        feeManager.setFraction(10);
+        feeManager.setDenominator(100);
+
         options = new WasabiOption();
         conduit = new WasabiConduit(options);
 
         templatePool = new ETHWasabiPool();
         templateERC20Pool = new ERC20WasabiPool();
+
+        oldPoolFactory = new WasabiPoolFactory(
+            options,
+            templatePool,
+            templateERC20Pool,
+            address(oldFeeManager),
+            address(conduit)
+        );
 
         poolFactory = new WasabiPoolFactory(
             options,
@@ -59,6 +87,7 @@ contract ERC20LockedNFT is PTest {
             address(conduit)
         );
 
+        options.toggleFactory(address(oldPoolFactory), true);
         options.toggleFactory(address(poolFactory), true);
 
         nft = new TestAzuki();
@@ -82,50 +111,6 @@ contract ERC20LockedNFT is PTest {
         vm.stopPrank();
 
         require(pool.owner() == agent);
-
-        vm.startPrank(user);
-        token.approve(address(pool), type(uint256).max);
-        writeOption(
-            0,
-            address(pool),
-            WasabiStructs.OptionType.CALL,
-            10, // strike price
-            1, // premium
-            block.timestamp + 10 days,
-            tokenId,
-            block.timestamp + 10 days
-        );
-        vm.stopPrank();
-    }
-
-    function invariantLockedNft() public view {
-        require(
-            nft.balanceOf(user) == 1 || nft.balanceOf(address(pool)) == 1,
-            "nft is not locked"
-        );
-    }
-
-    function actionWriteOption(
-        uint256 id,
-        address poolAddress,
-        WasabiStructs.OptionType optionType,
-        uint256 strikePrice,
-        uint256 premium,
-        uint256 duration,
-        uint256 tokenId_, // Tokens to deposit for CALL options
-        uint256 maxBlockToExecute
-    ) public {
-        vm.prank(agent);
-        writeOption(
-            id,
-            poolAddress,
-            optionType,
-            strikePrice,
-            premium,
-            duration,
-            tokenId_,
-            maxBlockToExecute
-        );
     }
 
     function writeOption(
@@ -170,10 +155,53 @@ contract ERC20LockedNFT is PTest {
         // get signature
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(AGENT_KEY, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
+
         pool.writeOption(poolAsk, signature);
     }
-    
+
+    function actionWriteOptionUser(uint256 id) public {
+        vm.startPrank(user);
+        token.approve(address(pool), type(uint256).max);
+
+        uint256 balanceBefore = token.balanceOf(user);
+        // console.log("before", token.balanceOf(user));
+
+        writeOption(
+            id,
+            address(pool),
+            WasabiStructs.OptionType.CALL,
+            50, // strike
+            50, // premium
+            block.timestamp + 10 days,
+            tokenId,
+            block.timestamp + 10 days
+        );
+
+        // console.log("after", token.balanceOf(user));
+        // check for maxFee
+        uint expected = (balanceBefore * 50) / 100;
+        if (expected > (50 / 10)) {
+            expected = 50 / 10;
+        }
+
+        pnmLogs.push(
+            LogInfo(expected + 50, balanceBefore - token.balanceOf(user))
+        );
+
+        vm.stopPrank();
+    }
+
+    function invariantWrongFee() public {
+        for (uint i = 0; i < pnmLogs.length; ++i) {
+            require(
+                pnmLogs[i].expected == pnmLogs[i].paid,
+                "Wrong premium sent"
+            );
+        }
+
+        delete pnmLogs;
+    }
+
     //////////////////////
     // utility functions
     ////////////////////

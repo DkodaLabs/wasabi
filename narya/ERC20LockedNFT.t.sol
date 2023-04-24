@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
-import "../../contracts/mocks/DemoETH.sol";
-import "../../contracts/mocks/TestAzuki.sol";
-import "../../contracts/WasabiPoolFactory.sol";
-import "../../contracts/pools/ETHWasabiPool.sol";
-import "../../contracts/pools/ERC20WasabiPool.sol";
-import {WasabiFeeManager} from "../../contracts/fees/WasabiFeeManager.sol";
-import {WasabiConduit} from "../../contracts/conduit/WasabiConduit.sol";
+import "../contracts/mocks/DemoETH.sol";
+import "../contracts/mocks/TestAzuki.sol";
+import "../contracts/WasabiPoolFactory.sol";
+import "../contracts/pools/ETHWasabiPool.sol";
+import "../contracts/pools/ERC20WasabiPool.sol";
+import {WasabiFeeManager} from "../contracts/fees/WasabiFeeManager.sol";
+import {WasabiConduit} from "../contracts/conduit/WasabiConduit.sol";
 
 import {PTest} from "@narya-ai/contracts/PTest.sol";
 
-contract ERC20AcceptPoolBid is PTest {
+contract ERC20LockedNFT is PTest {
     TestAzuki internal nft;
     DemoETH internal token;
     WasabiFeeManager feeManager;
@@ -22,9 +22,6 @@ contract ERC20AcceptPoolBid is PTest {
     ERC20WasabiPool internal templateERC20Pool;
     ERC20WasabiPool internal pool;
     uint256 tokenId;
-    uint256 tokenId2;
-    uint256 optionId;
-    uint256 optionId2;
 
     address internal user;
     address internal agent;
@@ -39,11 +36,6 @@ contract ERC20AcceptPoolBid is PTest {
             "PoolAsk(uint256 id,address poolAddress,uint8 optionType,uint256 strikePrice,uint256 premium,uint256 expiry,uint256 tokenId,uint256 orderExpiry)"
         );
 
-    bytes32 constant POOLBID_TYPEHASH =
-        keccak256(
-            "PoolBid(uint256 id,uint256 price,address tokenAddress,uint256 orderExpiry,uint256 optionId)"
-        );
-
     function setUp() public {
         user = makeAddr("User");
         agent = vm.addr(AGENT_KEY);
@@ -51,7 +43,7 @@ contract ERC20AcceptPoolBid is PTest {
         token = new DemoETH();
         deal(address(token), user, 100);
         token.issue(agent, 100);
-        
+
         feeManager = new WasabiFeeManager(20, 1000);
         options = new WasabiOption();
         conduit = new WasabiConduit(options);
@@ -71,14 +63,12 @@ contract ERC20AcceptPoolBid is PTest {
 
         nft = new TestAzuki();
         tokenId = nft.mint(agent);
-        tokenId2 = nft.mint(agent);
         vm.startPrank(agent);
         nft.setApprovalForAll(address(poolFactory), true);
         vm.stopPrank();
 
-        uint256[] memory tokenIds = new uint256[](2);
+        uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = tokenId;
-        tokenIds[1] = tokenId2;
 
         vm.startPrank(agent);
         address poolAddress = poolFactory.createERC20Pool(
@@ -93,11 +83,9 @@ contract ERC20AcceptPoolBid is PTest {
 
         require(pool.owner() == agent);
 
-        // user get some options
-
         vm.startPrank(user);
         token.approve(address(pool), type(uint256).max);
-        optionId = writeOption(
+        writeOption(
             0,
             address(pool),
             WasabiStructs.OptionType.CALL,
@@ -107,18 +95,37 @@ contract ERC20AcceptPoolBid is PTest {
             tokenId,
             block.timestamp + 10 days
         );
-
-        optionId2 = writeOption(
-            1,
-            address(pool),
-            WasabiStructs.OptionType.CALL,
-            10, // strike price
-            1, // premium
-            block.timestamp + 10 days,
-            tokenId2,
-            block.timestamp + 10 days
-        );
         vm.stopPrank();
+    }
+
+    function invariantLockedNft() public view {
+        require(
+            nft.balanceOf(user) == 1 || nft.balanceOf(address(pool)) == 1,
+            "nft is not locked"
+        );
+    }
+
+    function actionWriteOption(
+        uint256 id,
+        address poolAddress,
+        WasabiStructs.OptionType optionType,
+        uint256 strikePrice,
+        uint256 premium,
+        uint256 duration,
+        uint256 tokenId_, // Tokens to deposit for CALL options
+        uint256 maxBlockToExecute
+    ) public {
+        vm.prank(agent);
+        writeOption(
+            id,
+            poolAddress,
+            optionType,
+            strikePrice,
+            premium,
+            duration,
+            tokenId_,
+            maxBlockToExecute
+        );
     }
 
     function writeOption(
@@ -130,7 +137,7 @@ contract ERC20AcceptPoolBid is PTest {
         uint256 expiry,
         uint256 tokenId, // Tokens to deposit for CALL options
         uint256 orderExpiry
-    ) private returns (uint256) {
+    ) private {
         WasabiStructs.PoolAsk memory poolAsk = WasabiStructs.PoolAsk(
             id,
             poolAddress,
@@ -163,110 +170,10 @@ contract ERC20AcceptPoolBid is PTest {
         // get signature
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(AGENT_KEY, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
-        
-        return pool.writeOption(poolAsk, signature);
+
+        pool.writeOption(poolAsk, signature);
     }
 
-    function acceptPoolBid(
-        uint256 id,
-        uint256 price,
-        address tokenAddress,
-        uint256 orderExpiry,
-        uint256 optionId_
-    ) private {
-        WasabiStructs.PoolBid memory poolBid = WasabiStructs.PoolBid(
-            id,
-            price,
-            tokenAddress,
-            orderExpiry,
-            optionId_
-        );
-
-        bytes32 domainSeparator = hashDomain(
-            WasabiStructs.EIP712Domain({
-                name: "PoolBidVerifier",
-                version: "1",
-                chainId: getChainID(),
-                verifyingContract: address(pool)
-            })
-        );
-
-        // hash of message
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                domainSeparator,
-                hashForPoolBid(poolBid)
-            )
-        );
-
-        // get signature
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(AGENT_KEY, digest);
-        bytes memory signature = abi.encodePacked(r, s, v);
-        
-        pool.acceptPoolBid(poolBid, signature);
-    }
-
-    function invariantUncheckedPrice() public {
-        if (nft.balanceOf(address(pool)) > 0) {
-            require(
-                token.balanceOf(address(pool)) > 0, 
-                "pool drained while NFTs are still left"
-            );
-        }
-    }
-
-    function actionAcceptPoolBidUsingLiquidity(
-        uint256 id, 
-        uint256 amount
-    ) public {
-        vm.assume(amount <= 2);
-
-        vm.startPrank(user);
-
-        acceptPoolBid(
-            id,
-            amount,
-            address(token),
-            block.timestamp + 10 days,
-            optionId
-        );
-
-        vm.stopPrank();
-    }
-
-    // function testAcceptPoolBidArbitraryToken(
-    //     uint256 id, 
-    //     uint256 amount
-    // ) public {
-    //     vm.assume(amount <= 2);
-
-    //     vm.startPrank(user);
-
-    //     acceptPoolBid(
-    //         id,
-    //         amount,
-    //         address(this),
-    //         block.timestamp + 10 days,
-    //         optionId
-    //     );
-
-    //     vm.stopPrank();
-    // }
-
-    ////////////////
-    // Fake ERC20
-    ////////////////
-
-    // serve as other types of invariants
-    // function balanceOf(address) public returns(uint256) {
-    //     require(false, "arbitrary ERC20 call");
-    // }
-
-    // function transfer(address, uint256) public returns(bool) {
-    //     require(false, "arbitrary ERC20 call");
-    // }
-    
     //////////////////////
     // utility functions
     ////////////////////
@@ -309,22 +216,6 @@ contract ERC20AcceptPoolBid is PTest {
                     _poolAsk.expiry,
                     _poolAsk.tokenId,
                     _poolAsk.orderExpiry
-                )
-            );
-    }
-
-    function hashForPoolBid(
-        WasabiStructs.PoolBid memory _poolBid
-    ) public pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encode(
-                    POOLBID_TYPEHASH,
-                    _poolBid.id,
-                    _poolBid.price,
-                    _poolBid.tokenAddress,
-                    _poolBid.orderExpiry,
-                    _poolBid.optionId
                 )
             );
     }

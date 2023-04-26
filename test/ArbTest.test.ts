@@ -106,7 +106,7 @@ contract("ConduitSignatureVerifier ERC20", (accounts) => {
     });
 
 
-    it("Write Option (only owner)", async () => {
+    it("Execute Arb trade", async () => {
         await option.setApprovalForAll(arbitrage.address, true, metadata(buyer));
 
         await arbitrage.arbitrage(

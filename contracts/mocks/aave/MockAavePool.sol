@@ -24,17 +24,21 @@ contract MockAavePool {
     ) external {
         require(asset == wethAddress, 'Invalid WETH');
 
-        IWETH(wethAddress).deposit{ value: 1 }();
+        uint256 balanceBefore = address(this).balance;
 
-        uint256 premium = 0;
+        IWETH(wethAddress).deposit{ value: amount }();
+
+        uint256 premium = amount * 10 / 1000; // 0.1%
 
         bool success = IFlashLoanSimpleReceiver(receiverAddress).executeOperation(asset, amount, premium, msg.sender, params);
+        require(success, 'Operation Failed');
 
         IWETH(wethAddress).transferFrom(receiverAddress, address(this), amount + premium);
 
         IWETH(wethAddress).withdraw(amount + premium);
 
-        require(success, 'Failed');
+        uint256 balanceAfter = address(this).balance;
+        require(balanceAfter == balanceBefore + premium, 'Not enough premium received');
     }
 
     receive() external payable {}

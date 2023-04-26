@@ -50,7 +50,8 @@ contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard, IFl
         uint256 _value,
         address _poolAddress,
         uint256 _tokenId,
-        FunctionCallData[] calldata _marketplaceCallData
+        FunctionCallData[] calldata _marketplaceCallData,
+        bytes calldata _signature
     ) external payable {
         // Transfer Option for Execute
         IERC721(option).safeTransferFrom(msg.sender, address(this), _optionId);
@@ -65,16 +66,16 @@ contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard, IFl
 
         lendingPool.flashLoanSimple(address(this), asset, _value, params, referralCode);
 
-        // uint256 wBalance = IERC20(wethAddress).balanceOf(address(this));
-        // if (wBalance != 0) {
-        //     IWETH(wethAddress).withdraw(wBalance);
-        // }
+        uint256 wBalance = IERC20(wethAddress).balanceOf(address(this));
+        if (wBalance != 0) {
+            IWETH(wethAddress).withdraw(wBalance);
+        }
         
-        // uint256 balance = address(this).balance;
-        // if (balance != 0) {
-        //     (bool sent, ) = payable(msg.sender).call{value: balance}("");
-        //     require(sent, "Failed to send Ether");
-        // }
+        uint256 balance = address(this).balance;
+        if (balance != 0) {
+            (bool sent, ) = payable(msg.sender).call{value: balance}("");
+            require(sent, "Failed to send Ether");
+        }
     }
 
     function executeOperation(

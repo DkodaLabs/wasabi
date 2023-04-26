@@ -1,6 +1,7 @@
 const WasabiOptionArbitrage = artifacts.require("WasabiOptionArbitrage");
 const MockAavePool = artifacts.require("MockAavePool");
 const WETH9 = artifacts.require("WETH9");
+const MockMarketplace = artifacts.require("MockMarketplace");
 
 module.exports = async function (deployer, _network, accounts) {
   let optionAddress;
@@ -14,6 +15,8 @@ module.exports = async function (deployer, _network, accounts) {
 
     await deployer.deploy(MockAavePool, wethAddress);
     aaveAddressProvider = MockAavePool.address;
+
+    await deployer.deploy(MockMarketplace, wethAddress);
   } else if (_network === 'mainnet') {
     optionAddress = "0xfc68f2130e094c95b6c4f5494158cbeb172e18a0";
     aaveAddressProvider = "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e";

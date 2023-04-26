@@ -27,8 +27,10 @@ contract MockAavePool {
         uint256 balanceBefore = address(this).balance;
 
         IWETH(wethAddress).deposit{ value: amount }();
-
-        uint256 premium = amount * 10 / 1000; // 0.1%
+        
+        IWETH(wethAddress).transfer(receiverAddress, amount);
+        
+        uint256 premium = amount / 1000; // 0.1%
 
         bool success = IFlashLoanSimpleReceiver(receiverAddress).executeOperation(asset, amount, premium, msg.sender, params);
         require(success, 'Operation Failed');

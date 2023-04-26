@@ -11,7 +11,7 @@
             "program": "${workspaceRoot}/node_modules/truffle/build/cli.bundled.js",
             "args": [
                 "test",
-                "test/ArbTest.test.ts"
+                "test/WasabiOptionArbitrage_PUT.test.ts"
             ],
             "cwd": "${workspaceRoot}",
             "outFiles": [

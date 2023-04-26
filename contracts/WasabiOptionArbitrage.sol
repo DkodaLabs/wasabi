@@ -50,8 +50,7 @@ contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard, IFl
         uint256 _value,
         address _poolAddress,
         uint256 _tokenId,
-        FunctionCallData[] calldata _marketplaceCallData,
-        bytes calldata _signature
+        FunctionCallData[] calldata _marketplaceCallData
     ) external payable {
         // Transfer Option for Execute
         IERC721(option).safeTransferFrom(msg.sender, address(this), _optionId);
@@ -89,16 +88,15 @@ contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard, IFl
             abi.decode(params, (uint256, address, uint256, FunctionCallData[]));
 
         IWasabiPool pool = IWasabiPool(_poolAddress);
-        WasabiStructs.OptionData memory optionData = pool.getOptionData(_optionId);
         address nft = IWasabiPool(_poolAddress).getNftAddress();
 
-        // // Validate Order
+        // Validate Order
         IWETH(asset).withdraw(amount);
         uint256 totalDebt = amount + premium;
 
-        if (optionData.optionType == WasabiStructs.OptionType.CALL) {
+        if (pool.getOptionData(_optionId).optionType == WasabiStructs.OptionType.CALL) {
             // Execute Option
-            IWasabiPool(_poolAddress).executeOption{value: optionData.strikePrice}(_optionId);
+            IWasabiPool(_poolAddress).executeOption{value: amount}(_optionId);
 
             // Sell NFT
             bool marketSuccess = executeFunctions(_calldataList);
@@ -113,7 +111,7 @@ contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard, IFl
             }
 
             //Execute Option
-            IERC721(nft).approve(_poolAddress, optionData.tokenId);
+            IERC721(nft).approve(_poolAddress, _tokenId);
             IWasabiPool(_poolAddress).executeOptionWithSell(_optionId, _tokenId);
             
             IWETH(wethAddress).deposit{value: totalDebt}();

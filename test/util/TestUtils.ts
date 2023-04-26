@@ -556,3 +556,11 @@ export async function getAllTokenIds(address: string, nft: TestERC721Instance): 
   }
   return result;
 }
+
+export function getFee(value: BN): BN {
+  return value.mul(toBN(2)).div(toBN(100));
+}
+
+export function withFee(value: BN): BN {
+  return value.add(getFee(value));
+}

@@ -1,9 +1,9 @@
 const truffleAssert = require('truffle-assertions');
 
-import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance, WasabiOptionArbitrageInstance, MockAavePoolInstance } from "../types/truffle-contracts";
+import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance, WasabiOptionArbitrageInstance, MockAavePoolInstance, MockMarketplaceInstance, WETH9Instance, MockMarketplaceContract, WasabiFeeManagerInstance } from "../types/truffle-contracts";
 import { OptionExecuted, OptionIssued } from "../types/truffle-contracts/IWasabiPool";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
+import { assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, getFee, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -13,18 +13,24 @@ const TestERC721 = artifacts.require("TestERC721");
 const WasabiOptionArbitrage = artifacts.require("WasabiOptionArbitrage");
 const WETH9 = artifacts.require("WETH9");
 const MockAavePool = artifacts.require("MockAavePool");
+const MockMarketplace = artifacts.require("MockMarketplace");
+const WasabiFeeManager = artifacts.require("WasabiFeeManager");
 
-contract("ConduitSignatureVerifier ERC20", (accounts) => {
+contract("WasabiOptionArbitrage CALL", (accounts) => {
     let poolFactory: WasabiPoolFactoryInstance;
+    let feeManager: WasabiFeeManagerInstance;
     let option: WasabiOptionInstance;
     let testNft: TestERC721Instance;
     let otherToken: BN;
     let tokenToSell: BN;
+    let marketplaceToken: BN;
     let pool: ETHWasabiPoolInstance;
     let optionId: BN;
     let request: PoolAsk;
     let arbitrage: WasabiOptionArbitrageInstance;
     let aavePool: MockAavePoolInstance;
+    let marketplace: MockMarketplaceInstance;
+    let weth: WETH9Instance;
 
     const lp = accounts[2];
     const buyer = accounts[3];
@@ -36,6 +42,7 @@ contract("ConduitSignatureVerifier ERC20", (accounts) => {
     const initialPoolBalance = 20;
     const strikePrice = 10;
     const premium = 1;
+    const initialFlashLoanPoolBalance = 25;
 
     let signature;
 
@@ -45,6 +52,7 @@ contract("ConduitSignatureVerifier ERC20", (accounts) => {
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
         await option.toggleFactory(poolFactory.address, true);
+        feeManager = await WasabiFeeManager.deployed();
 
         let mintResult = await testNft.mint(metadata(buyer));
         tokenToSell = mintResult.logs.find(e => e.event == 'Transfer')?.args[2] as BN;
@@ -52,13 +60,19 @@ contract("ConduitSignatureVerifier ERC20", (accounts) => {
         mintResult = await testNft.mint(metadata(someoneElse));
         otherToken = mintResult.logs.find(e => e.event == 'Transfer')?.args[2] as BN;
 
-        await WETH9.deployed();
+        weth = await WETH9.deployed();
         aavePool = await MockAavePool.deployed();
         arbitrage = await WasabiOptionArbitrage.deployed();
+        marketplace = await MockMarketplace.deployed();
 
         await arbitrage.setOption(option.address);
 
-        await web3.eth.sendTransaction({ from: buyer, to: aavePool.address, value: toEth(1) });
+        await web3.eth.sendTransaction({ from: lp, to: aavePool.address, value: toEth(initialFlashLoanPoolBalance) })
+
+        // Send 10 WETH to the marketplace
+        await weth.deposit(metadata(lp, 10));
+        await weth.transfer(marketplace.address, toEth(10), metadata(lp));
+
     });
 
     it("Create Pool", async() => {
@@ -107,15 +121,61 @@ contract("ConduitSignatureVerifier ERC20", (accounts) => {
 
 
     it("Execute Arb trade", async () => {
+        await feeManager.setFraction(200); // Set 2% fee
         await option.setApprovalForAll(arbitrage.address, true, metadata(buyer));
 
-        await arbitrage.arbitrage(
+        const mintResult = await testNft.mint(metadata(lp));
+        const marketplaceToken = mintResult.logs.find(e => e.event == 'Transfer')?.args[2] as BN;
+        await testNft.transferFrom(lp, marketplace.address, marketplaceToken, metadata(lp));
+        const price = toEth(7);
+
+        await marketplace.setPrice(testNft.address, marketplaceToken, price);
+
+        const data = 
+            web3.eth.abi.encodeFunctionCall(
+                marketplace.abi.find(a => a.name === 'buy')!,
+                [testNft.address, marketplaceToken.toString()]);
+        const functionCall = {
+            to: marketplace.address,
+            value: price,
+            data
+        };
+
+        const initialAaveBalance = toBN(await web3.eth.getBalance(aavePool.address));
+        const initialUserBalance = toBN(await web3.eth.getBalance(buyer));
+
+        const arbitrageResult = await arbitrage.arbitrage(
             optionId,
-            toEth(1),
+            price,
             pool.address,
-            1,
-            [],
+            marketplaceToken,
+            [functionCall],
             metadata(buyer)
-        )
+        );
+
+        const strike = toBN(toEth(strikePrice));
+        const protocolFee = getFee(strike);
+
+        const premiumEarnedByAave = toBN(price).div(toBN(1000));
+        const userProfit = 
+            strike
+                .sub(protocolFee)
+                .sub(toBN(price))
+                .sub(premiumEarnedByAave)
+                .sub(gasOfTxn(arbitrageResult.receipt));
+
+        assert.equal(await testNft.ownerOf(marketplaceToken), pool.address, "Pool didn't receive the NFT");
+
+        assert.equal(
+            await web3.eth.getBalance(aavePool.address),
+            initialAaveBalance.add(premiumEarnedByAave).toString(),
+            "Aave flash loan didn't receive enough"
+        );
+
+        assert.equal(
+            await web3.eth.getBalance(buyer),
+            initialUserBalance.add(userProfit).toString(),
+            "User didn't receive enough"
+        );
     });
 });

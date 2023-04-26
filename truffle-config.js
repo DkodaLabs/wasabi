@@ -20,6 +20,8 @@ module.exports = {
     goerli: {
       provider: () => new HDWalletProvider(GOERLI_PRIVATE_KEY, GOERLI_API_URL),
       network_id: '5',
+      deploymentPollingInterval: 12000,
+      networkCheckTimeout: 10000000
     },
     mainnet: {
       provider: () => new HDWalletProvider(PRIVATE_KEY, API_URL),

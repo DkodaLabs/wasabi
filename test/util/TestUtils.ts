@@ -143,15 +143,9 @@ export const signFunctionCallData = async (
   address: string
 ): Promise<string> => {
 
-  const encoded = await web3.eth.abi.encodeParameter(
-    {
-      FunctionCallData: {
-        to: "address",
-        value: "uint256",
-        data: "bytes",
-      },
-    },
-    data
+  const encoded = await web3.eth.abi.encodeParameters(
+    ["address", "uint256", "bytes"],
+    [data.to, data.value, data.data],
   );
   return await signEncodedRequest(encoded, address);
 };

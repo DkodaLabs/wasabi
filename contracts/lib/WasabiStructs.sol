@@ -63,10 +63,4 @@ library WasabiStructs {
         uint256 chainId;
         address verifyingContract;
     }
-
-    struct ExecutionInfo {
-        address module;
-        bytes data;
-        uint256 value;
-    }
 }

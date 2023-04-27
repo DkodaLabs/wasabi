@@ -16,7 +16,7 @@ const MockAavePool = artifacts.require("MockAavePool");
 const MockMarketplace = artifacts.require("MockMarketplace");
 const WasabiFeeManager = artifacts.require("WasabiFeeManager");
 
-contract("WasabiOptionArbitrage CALL", (accounts) => {
+contract("WasabiOptionArbitrage PUT", (accounts) => {
     let poolFactory: WasabiPoolFactoryInstance;
     let feeManager: WasabiFeeManagerInstance;
     let option: WasabiOptionInstance;
@@ -63,10 +63,8 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
 
         weth = await WETH9.deployed();
         aavePool = await MockAavePool.deployed();
-        arbitrage = await WasabiOptionArbitrage.deployed();
         marketplace = await MockMarketplace.deployed();
-
-        await arbitrage.setOption(option.address);
+        arbitrage = await WasabiOptionArbitrage.new(option.address, aavePool.address, weth.address);
 
         await web3.eth.sendTransaction({ from: lp, to: aavePool.address, value: toEth(initialFlashLoanPoolBalance) })
 

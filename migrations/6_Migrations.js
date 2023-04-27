@@ -24,7 +24,7 @@ module.exports = async function (deployer, _network, accounts) {
     wethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
   } else { // Goerli
     optionAddress = "0x5b4f805ddee87489bcfe04dc2f2d47aeb5150fdb";
-    wethAddress = "0xCCB14936C2E000ED8393A571D15A2672537838Ad";
+    wethAddress = "0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6";
 
     await deployer.deploy(MockAavePool, wethAddress);
     aaveAddressProvider = MockAavePool.address;

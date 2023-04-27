@@ -34,7 +34,7 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
     const deployer = accounts[0];
     const lp = accounts[2];
     const buyer = accounts[3];
-    const lpPrivateKey = "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1";
+    const deployerPrivateKey = "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1";
     const duration = 10000;
 
     const strikePrice = 10;
@@ -56,10 +56,8 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
 
         weth = await WETH9.deployed();
         aavePool = await MockAavePool.deployed();
-        arbitrage = await WasabiOptionArbitrage.deployed();
         marketplace = await MockMarketplace.deployed();
-
-        await arbitrage.setOption(option.address);
+        arbitrage = await WasabiOptionArbitrage.new(option.address, aavePool.address, weth.address);
 
         await web3.eth.sendTransaction({ from: lp, to: aavePool.address, value: toEth(initialFlashLoanPoolBalance) })
 
@@ -97,7 +95,7 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
     });
 
     it("Write Option (only owner)", async () => {
-        signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        signature = await signPoolAskWithEIP712(request, pool.address, deployerPrivateKey);
         const writeOptionResult = await pool.writeOption(request, signature, metadata(buyer, premium));
         truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Strike price wasn't locked")
 

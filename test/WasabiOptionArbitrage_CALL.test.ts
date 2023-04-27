@@ -4,7 +4,7 @@ import { s } from "@reservoir0x/sdk/dist/utils";
 import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance, WasabiOptionArbitrageInstance, MockAavePoolInstance, MockMarketplaceInstance, WETH9Instance, MockMarketplaceContract, WasabiFeeManagerInstance } from "../types/truffle-contracts";
 import { OptionExecuted, OptionIssued } from "../types/truffle-contracts/IWasabiPool";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth, withFee } from "./util/TestUtils";
+import { signFunctionCallData, gasOfTxn, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth, withFee } from "./util/TestUtils";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -31,6 +31,7 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
     let marketplace: MockMarketplaceInstance;
     let weth: WETH9Instance;
 
+    const deployer = accounts[0];
     const lp = accounts[2];
     const buyer = accounts[3];
     const lpPrivateKey = "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1";
@@ -145,14 +146,49 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
         const initialAaveBalance = toBN(await web3.eth.getBalance(aavePool.address));
         const initialUserBalance = toBN(await web3.eth.getBalance(buyer));
 
+        const invalidSignature = await signFunctionCallData(approveCall, buyer);
+        const approveSignature = await signFunctionCallData(approveCall, deployer);
+
+        const sellSignature = await signFunctionCallData(sellCall, deployer);
+        const signatures = [];
+        signatures.push(approveSignature);
+        signatures.push(sellSignature);
+
         const arbitrageResult = await arbitrage.arbitrage(
             optionId,
             strikeWithFee,
             pool.address,
             tokenToSell,
             [approveCall, sellCall],
+            signatures,
             metadata(buyer)
         );
+
+        await truffleAssert.reverts(
+            arbitrage.arbitrage(
+                optionId,
+                strikeWithFee,
+                pool.address,
+                tokenToSell,
+                [approveCall],
+                signatures,
+                metadata(buyer)
+            ),
+            "Length is invalid",
+            "Length is invalid");
+
+        await truffleAssert.reverts(
+            arbitrage.arbitrage(
+                optionId,
+                strikeWithFee,
+                pool.address,
+                tokenToSell,
+                [approveCall, sellCall],
+                [approveSignature, invalidSignature],
+                metadata(buyer)
+            ),
+            "Owner is not signer",
+            "Owner is not signer");
 
         const premiumEarnedByAave = toBN(strikeWithFee).div(toBN(1000));
         const userProfit = 

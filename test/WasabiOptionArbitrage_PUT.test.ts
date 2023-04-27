@@ -1,9 +1,9 @@
 const truffleAssert = require('truffle-assertions');
 
 import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance, WasabiOptionArbitrageInstance, MockAavePoolInstance, MockMarketplaceInstance, WETH9Instance, MockMarketplaceContract, WasabiFeeManagerInstance } from "../types/truffle-contracts";
-import { OptionExecuted, OptionIssued } from "../types/truffle-contracts/IWasabiPool";
+import { OptionIssued } from "../types/truffle-contracts/IWasabiPool";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, getFee, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
+import { gasOfTxn, getFee, makeRequest, metadata, signFunctionCallData, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
 
 const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -32,6 +32,7 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
     let marketplace: MockMarketplaceInstance;
     let weth: WETH9Instance;
 
+    const deployer = accounts[0];
     const lp = accounts[2];
     const buyer = accounts[3];
     const someoneElse = accounts[5];
@@ -144,14 +145,28 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
         const initialAaveBalance = toBN(await web3.eth.getBalance(aavePool.address));
         const initialUserBalance = toBN(await web3.eth.getBalance(buyer));
 
+        const signature = await signFunctionCallData(functionCall, deployer);
         const arbitrageResult = await arbitrage.arbitrage(
             optionId,
             price,
             pool.address,
             marketplaceToken,
             [functionCall],
+            [signature],
             metadata(buyer)
         );
+
+        await truffleAssert.reverts(
+            arbitrage.arbitrage(
+                optionId,
+                price,
+                pool.address,
+                marketplaceToken,
+                [functionCall],
+                [signature, signature],
+                metadata(buyer)),
+            "Length is invalid",
+            "Length is invalid");
 
         const strike = toBN(toEth(strikePrice));
         const protocolFee = getFee(strike);

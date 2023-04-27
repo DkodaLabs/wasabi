@@ -12,6 +12,7 @@ import "./WasabiOption.sol";
 import "./IWasabiPool.sol";
 import "./IWasabiErrors.sol";
 import "./IReservoirV6_0_1.sol";
+import "./lib/Signing.sol";
 import { IPool } from "./aave/IPool.sol";
 import { IWETH } from "./aave/IWETH.sol";
 import { IPoolAddressesProvider } from "./aave/IPoolAddressesProvider.sol";
@@ -50,8 +51,11 @@ contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard, IFl
         uint256 _value,
         address _poolAddress,
         uint256 _tokenId,
-        FunctionCallData[] calldata _marketplaceCallData
+        FunctionCallData[] calldata _marketplaceCallData,
+        bytes[] calldata _signatures
     ) external payable {
+
+        validate(_marketplaceCallData, _signatures);
         // Transfer Option for Execute
         IERC721(option).safeTransferFrom(msg.sender, address(this), _optionId);
 
@@ -136,6 +140,20 @@ contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard, IFl
         return true;
     }
 
+    function validate(FunctionCallData[] calldata _marketplaceCallData, bytes[] calldata _signatures) private view {
+        require(_marketplaceCallData.length == _signatures.length, "Length is invalid");
+        for (uint256 i = 0; i < _marketplaceCallData.length; i++) {
+            bytes32 ethSignedMessageHash = Signing.getEthSignedMessageHash(getMessageHash(_marketplaceCallData[i]));
+            require(Signing.recoverSigner(ethSignedMessageHash, _signatures[i]) == owner(), 'Owner is not signer');
+        }
+    }
+
+    /**
+     * @dev Returns the message hash for the given data
+     */
+    function getMessageHash(FunctionCallData calldata data) public pure returns (bytes32) {
+        return keccak256(abi.encode(data));
+    }
     /**
      * Always returns `IERC721Receiver.onERC721Received.selector`.
      */

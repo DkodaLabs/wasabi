@@ -2,6 +2,7 @@ const WasabiOptionArbitrage = artifacts.require("WasabiOptionArbitrage");
 const MockAavePool = artifacts.require("MockAavePool");
 const WETH9 = artifacts.require("WETH9");
 const MockMarketplace = artifacts.require("MockMarketplace");
+const Signing = artifacts.require("Signing");
 
 module.exports = async function (deployer, _network, accounts) {
   let optionAddress;
@@ -28,6 +29,7 @@ module.exports = async function (deployer, _network, accounts) {
     await deployer.deploy(MockAavePool, wethAddress);
     aaveAddressProvider = MockAavePool.address;
   }
-
+  await deployer.deploy(Signing);
+  await deployer.link(Signing, [WasabiOptionArbitrage]);
   await deployer.deploy(WasabiOptionArbitrage, optionAddress, aaveAddressProvider, wethAddress);
 };

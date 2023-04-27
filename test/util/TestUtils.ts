@@ -1,5 +1,6 @@
 import { TestERC721Instance } from "../../types/truffle-contracts";
 import {
+  FunctionCallData,
   PoolAsk,
   OptionType,
   AMMOrder,
@@ -133,6 +134,24 @@ export const signRequest = async (
       },
     },
     request
+  );
+  return await signEncodedRequest(encoded, address);
+};
+
+export const signFunctionCallData = async (
+  data: FunctionCallData,
+  address: string
+): Promise<string> => {
+
+  const encoded = await web3.eth.abi.encodeParameter(
+    {
+      FunctionCallData: {
+        to: "address",
+        value: "uint256",
+        data: "bytes",
+      },
+    },
+    data
   );
   return await signEncodedRequest(encoded, address);
 };

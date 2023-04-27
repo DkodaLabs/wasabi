@@ -30,6 +30,12 @@ export interface PoolAsk {
     orderExpiry: number | BN | string;
 }
 
+export interface FunctionCallData {
+    to: string;
+    value: number | BN | string;
+    data: number | BN | string;
+}
+
 export interface PoolBid {
     id: number | BN | string;
     price: number | BN | string;

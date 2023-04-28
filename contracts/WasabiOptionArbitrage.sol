@@ -5,24 +5,21 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./IWasabiPool.sol";
 import "./lib/Signing.sol";
-import { IPool } from "./aave/IPool.sol";
-import { IWETH } from "./aave/IWETH.sol";
-import { IPoolAddressesProvider } from "./aave/IPoolAddressesProvider.sol";
-import { IFlashLoanSimpleReceiver } from "./aave/IFlashLoanSimpleReceiver.sol";
+import { IWETH } from "./IWETH.sol";
 
 /**
-  * An arbitrage contract that takes a flash loan, exercises an option and buys/sells from the marketplaces
+  * An arbitrage contract that exercises an option and buys/sells from the marketplaces
   * to take profits without using any user capital.
   */
-contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard, IFlashLoanSimpleReceiver {
+contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard {
     address private option;
-    address private addressProvider;
     address wethAddress;
+    uint256 loanPremiumValue;
+    uint256 loanPremiumFraction;
 
     error FailedToExecuteMarketOrder();
 
@@ -32,18 +29,17 @@ contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard, IFl
         bytes data;
     }
 
-    IPool private lendingPool;
 
     event Arbitrage(address account, uint256 optionId, uint256 payout);
 
     /**
      * @dev Constructs a new WasabiOptionArbitrage contract
      */
-    constructor(address _option, address _addressProvider, address _wethAddress) {
+    constructor(address _option, address _wethAddress) {
         option = _option;
-        addressProvider = _addressProvider;
         wethAddress = _wethAddress;
-        lendingPool = IPool(IPoolAddressesProvider(addressProvider).getPool());
+        loanPremiumValue = 9;
+        loanPremiumFraction = 10_000; // 0.09%
     }
 
     /**
@@ -58,77 +54,56 @@ contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard, IFl
         bytes[] calldata _signatures
     ) external payable nonReentrant {
         validate(_marketplaceCallData, _signatures);
+
+        uint256 balanceBefore = address(this).balance;
+        require(balanceBefore >= _value, "Requested amount exceeds balance");
+
         // Transfer Option for Execute
         IERC721(option).safeTransferFrom(msg.sender, address(this), _optionId);
 
-        address asset = IWasabiPool(_poolAddress).getLiquidityAddress();
-        if (asset == address(0)) {
-            asset = wethAddress;
-        }
-
-        uint16 referralCode = 0;
-        bytes memory params = abi.encode(_optionId, _poolAddress, _tokenId, _marketplaceCallData);
-
-        lendingPool.flashLoanSimple(address(this), asset, _value, params, referralCode);
-
-        uint256 wBalance = IWETH(wethAddress).balanceOf(address(this));
-        if (wBalance != 0) {
-            IWETH(wethAddress).withdraw(wBalance);
-        }
-        
-        uint256 balance = address(this).balance;
-        if (balance != 0) {
-            (bool sent, ) = payable(msg.sender).call{value: balance}("");
-            require(sent, "Failed to send Ether");
-        }
-    }
-
-    /**
-     * @dev Executes the arbitrage operation
-     */
-    function executeOperation(
-        address asset,
-        uint256 amount,
-        uint256 premium,
-        address,
-        bytes calldata params
-    ) external override returns(bool) {
-        ( uint256 _optionId, address _poolAddress, uint256 _tokenId, FunctionCallData[] memory _calldataList ) =
-            abi.decode(params, (uint256, address, uint256, FunctionCallData[]));
-
         IWasabiPool pool = IWasabiPool(_poolAddress);
-        address nft = IWasabiPool(_poolAddress).getNftAddress();
 
-        // Validate Order
-        IWETH(asset).withdraw(amount);
-        uint256 totalDebt = amount + premium;
+        require(pool.getLiquidityAddress() == address(0), "Cannot perform arbitrage for non ETH pools");
 
-        if (pool.getOptionData(_optionId).optionType == WasabiStructs.OptionType.CALL) {
+        uint256 loanPremium = _value * loanPremiumValue / loanPremiumFraction;
+
+        WasabiStructs.OptionData memory optionData = pool.getOptionData(_optionId);
+        if (optionData.optionType == WasabiStructs.OptionType.CALL) {
             // Execute Option
-            IWasabiPool(_poolAddress).executeOption{value: amount}(_optionId);
+            IWasabiPool(_poolAddress).executeOption{value: _value}(_optionId);
 
             // Sell NFT
-            bool marketSuccess = executeFunctions(_calldataList);
+            bool marketSuccess = executeFunctions(_marketplaceCallData);
             if (!marketSuccess) {
-                return false;
+                revert FailedToExecuteMarketOrder();
+            }
+
+            // Withdraw any WETH received
+            IWETH weth = IWETH(wethAddress);
+            uint256 wethBalance = weth.balanceOf(address(this));
+            if (wethBalance > 0) {
+                weth.withdraw(wethBalance);
             }
         } else {
-            // Purchase NFT
-            bool marketSuccess = executeFunctions(_calldataList);
+            // Buy NFT
+            bool marketSuccess = executeFunctions(_marketplaceCallData);
             if (!marketSuccess) {
-                return false;
+                revert FailedToExecuteMarketOrder();
             }
 
-            //Execute Option
+            // Execute Option
+            address nft = IWasabiPool(_poolAddress).getNftAddress();
             IERC721(nft).approve(_poolAddress, _tokenId);
             IWasabiPool(_poolAddress).executeOptionWithSell(_optionId, _tokenId);
-            
-            IWETH(wethAddress).deposit{value: totalDebt}();
         }
-        
-        IWETH(asset).approve(address(lendingPool), totalDebt);
 
-        return true;
+        require(address(this).balance >= balanceBefore + loanPremium, "Loan not paid back");
+        uint256 payout = address(this).balance - balanceBefore - loanPremium;
+
+        (bool sent, ) = payable(_msgSender()).call{value: payout}("");
+        require(sent, "Failed to send ETH");
+
+        emit Arbitrage(_msgSender(), _optionId, payout);
     }
 
     /**
@@ -149,6 +124,7 @@ contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard, IFl
      * @dev Validates if the FunctionCallData list has been approved
      */
     function validate(FunctionCallData[] calldata _marketplaceCallData, bytes[] calldata _signatures) private view {
+        require(_marketplaceCallData.length > 0, "Need marketplace calls");
         require(_marketplaceCallData.length == _signatures.length, "Length is invalid");
         for (uint256 i = 0; i < _marketplaceCallData.length; i++) {
             bytes32 ethSignedMessageHash = Signing.getEthSignedMessageHash(getMessageHash(_marketplaceCallData[i]));
@@ -199,5 +175,12 @@ contract WasabiOptionArbitrage is IERC721Receiver, Ownable, ReentrancyGuard, IFl
      */
     function withdrawERC721(IERC721 _token, uint256 _tokenId) external onlyOwner {
         _token.safeTransferFrom(address(this), owner(), _tokenId);
+    }
+
+    /**
+     * @dev sets the loan premium value
+     */
+    function setLoanPremiumValue(uint256 _loanPremiumValue) external onlyOwner {
+        loanPremiumValue = _loanPremiumValue;
     }
 }

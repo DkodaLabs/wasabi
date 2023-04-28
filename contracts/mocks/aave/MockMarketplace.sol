@@ -4,8 +4,7 @@ pragma solidity 0.8.19;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
-import { IFlashLoanSimpleReceiver } from "../../aave/IFlashLoanSimpleReceiver.sol";
-import { IWETH } from "../../aave/IWETH.sol";
+import { IWETH } from "../../IWETH.sol";
 
 contract MockMarketplace is IERC721Receiver {
     mapping(address => mapping(uint256 => uint256)) tokenPrices;

@@ -17,7 +17,7 @@ You should have already installed the following things beforehand:
 - [Git Bash](https://git-scm.com/downloads)
 - [Download and Install VSCode](https://code.visualstudio.com/download)
 
-## 2. Running Tests
+## 2. Running Tests - Truffle
 - Once you have completed all the steps from the [Prerequisite](./README.md#1-Prerequisite), go ahead and install the rest of the dependencies.
 
 ```node
@@ -44,4 +44,20 @@ truffle compile
 
 // For testing the contracts.
 truffle test
+```
+
+## 3. Running Tests - Foundry
+
+```
+ // For compiling the contracts.
+forge build
+
+ // For testing all the contracts.
+forge test
+
+ // For testing a specific contract.
+forge test --match-contract `name of test contract`
+
+ // For testing a specific func.
+forge test --match-test `name of test func`
 ```

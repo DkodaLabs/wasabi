@@ -181,8 +181,9 @@ contract ERC20WasabiPool_AcceptAsk is PTest {
         pool.acceptAsk(ask, signature);
 
         uint256 finalBalanceSeller = token.balanceOf(agent);
-
-        assert(finalBalanceSeller-initialBalanceSeller == 1 ether);
+                
+        (, uint256 fee) = feeManager.getFeeData(address(this), 1 ether);
+        assert(finalBalanceSeller - initialBalanceSeller == 1 ether - fee);
     }
 
     function testWriteOption() public {

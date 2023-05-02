@@ -11,7 +11,7 @@ import {WasabiConduit} from "../contracts/conduit/WasabiConduit.sol";
 
 import {PTest} from "@narya-ai/contracts/PTest.sol";
 
-contract ERC20WasabiPoolTest is PTest {
+contract ETHWasabiPoolTest is PTest {
     TestAzuki internal nft;
     WasabiFeeManager feeManager;
     WasabiConduit conduit;
@@ -19,7 +19,7 @@ contract ERC20WasabiPoolTest is PTest {
     WasabiOption internal options;
     ETHWasabiPool internal templatePool;
     ERC20WasabiPool internal templateERC20Pool;
-    ERC20WasabiPool internal pool;
+    ETHWasabiPool internal pool;
 
     uint256 internal nftId0;
     uint256 internal nftId1;
@@ -77,7 +77,7 @@ contract ERC20WasabiPoolTest is PTest {
             tokenIds, // 3 NFTs
             address(0)
         );
-        pool = ERC20WasabiPool(payable(poolAddress));
+        pool = ETHWasabiPool(payable(poolAddress));
         vm.stopPrank();
     }
 
@@ -86,7 +86,8 @@ contract ERC20WasabiPoolTest is PTest {
         uint256 eth_amount,
         uint256 premium
     ) public {
-        vm.assume(eth_amount >= premium && premium > 0);
+        vm.assume(id > 0 && id <= nftId2);
+        vm.assume(eth_amount >= premium && premium > 0 && premium < 1e28);
         deal(user, eth_amount);
 
         vm.startPrank(user);
@@ -100,8 +101,9 @@ contract ERC20WasabiPoolTest is PTest {
             nftId0,
             block.timestamp + 10 days
         );
+        (, uint256 fee) = feeManager.getFeeData(address(this), premium);
         vm.stopPrank();
-        require(user.balance == eth_amount - premium, "incorrect ETH balance");
+        require(user.balance == eth_amount - premium - fee, "incorrect ETH balance");
     }
 
     function writeOption(
@@ -147,7 +149,8 @@ contract ERC20WasabiPoolTest is PTest {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(AGENT_KEY, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        pool.writeOption{value: premium}(poolAsk, signature);
+        (, uint256 fee) = feeManager.getFeeData(address(this), premium);
+        pool.writeOption{value: premium + fee}(poolAsk, signature);
     }
 
     //////////////////////
@@ -195,4 +198,5 @@ contract ERC20WasabiPoolTest is PTest {
                 )
             );
     }
+    receive() external payable virtual {}
 }

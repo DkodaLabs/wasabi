@@ -1,5 +1,6 @@
 import { TestERC721Instance } from "../../types/truffle-contracts";
 import {
+  FunctionCallData,
   PoolAsk,
   OptionType,
   AMMOrder,
@@ -8,6 +9,8 @@ import {
   PricingConfig,
   PoolBid,
 } from "./TestTypes";
+
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
 import * as ethUtil from "eth-sig-util";
 
@@ -69,6 +72,28 @@ export const makeRequest = (
   };
 };
 
+export const makeRequests = (
+  id : number,
+  poolAddress: string,
+  optionType: OptionType,
+  strikePrice: any,
+  premium: any,
+  expiry: number,
+  tokenId = 0,
+  orderExpiry = 0
+): PoolAsk => {
+  return {
+    id,
+    poolAddress,
+    optionType: optionType.valueOf(),
+    strikePrice: strikePrice,
+    premium: premium,
+    expiry,
+    tokenId,
+    orderExpiry,
+  };
+};
+
 export const makeAmmRequest = (
   collection: string,
   price: any,
@@ -109,6 +134,18 @@ export const signRequest = async (
       },
     },
     request
+  );
+  return await signEncodedRequest(encoded, address);
+};
+
+export const signFunctionCallData = async (
+  data: FunctionCallData,
+  address: string
+): Promise<string> => {
+
+  const encoded = await web3.eth.abi.encodeParameters(
+    ["address", "uint256", "bytes"],
+    [data.to, data.value, data.data],
   );
   return await signEncodedRequest(encoded, address);
 };
@@ -400,6 +437,48 @@ export const signPoolBidWithEIP712 = async (
   return signature;
 };
 
+export const signPoolAsk = async (
+  request: PoolAsk,
+  verifyingContract: string,
+  buyer: SignerWithAddress,
+  chainId: number
+) => {
+  const domain = {
+    name: "PoolAskSignature",
+    version: "1",
+    chainId: chainId,
+    verifyingContract,
+  };
+
+  const types = {
+      PoolAsk: [
+        { name: "id", type: "uint256" },
+        { name: "poolAddress", type: "address" },
+        { name: "optionType", type: "uint8" },
+        { name: "strikePrice", type: "uint256" },
+        { name: "premium", type: "uint256" },
+        { name: "expiry", type: "uint256" },
+        { name: "tokenId", type: "uint256" },
+        { name: "orderExpiry", type: "uint256" },
+      ],
+    };
+
+    const value = {
+      id: request.id,
+      poolAddress: request.poolAddress,
+      optionType: request.optionType,
+      strikePrice: request.strikePrice,
+      premium: request.premium,
+      expiry: request.expiry,
+      tokenId: request.tokenId,
+      orderExpiry: request.orderExpiry,
+    };
+
+  const signature = await buyer._signTypedData(domain, types, value);
+  // return utils.splitSignature(signature);
+  return signature;
+};
+
 export const gasOfTxn = (receipt: TransactionReceipt): BN => {
   const gasUsed = toBN(receipt.gasUsed);
   const gasPrice = toBN(receipt.effectiveGasPrice);
@@ -489,4 +568,12 @@ export async function getAllTokenIds(address: string, nft: TestERC721Instance): 
     result.push(tokenId);
   }
   return result;
+}
+
+export function getFee(value: BN): BN {
+  return value.mul(toBN(2)).div(toBN(100));
+}
+
+export function withFee(value: BN): BN {
+  return value.add(getFee(value));
 }

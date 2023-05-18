@@ -9,7 +9,7 @@ import "../contracts/pools/ERC20WasabiPool.sol";
 import {WasabiFeeManager} from "../contracts/fees/WasabiFeeManager.sol";
 import {WasabiConduit} from "../contracts/conduit/WasabiConduit.sol";
 
-import {PTest} from "@narya-ai/contracts/PTest.sol";
+import {PTest, console} from "@narya-ai/contracts/PTest.sol";
 
 contract ETHWasabiPoolTest is PTest {
     TestAzuki internal nft;
@@ -83,12 +83,14 @@ contract ETHWasabiPoolTest is PTest {
 
     function testWriteOption(
         uint256 id,
-        uint256 eth_amount,
         uint256 premium
     ) public {
         vm.assume(id > 0 && id <= nftId2);
-        vm.assume(eth_amount >= premium && premium > 0 && premium < 1e28);
-        deal(user, eth_amount);
+        vm.assume(premium > 0 && premium < 1e28);
+
+        (, uint256 fee) = feeManager.getFeeData(address(this), premium);
+
+        deal(user, premium + fee);
 
         vm.startPrank(user);
         writeOption(
@@ -101,9 +103,10 @@ contract ETHWasabiPoolTest is PTest {
             nftId0,
             block.timestamp + 10 days
         );
-        (, uint256 fee) = feeManager.getFeeData(address(this), premium);
+        
         vm.stopPrank();
-        require(user.balance == eth_amount - premium - fee, "incorrect ETH balance");
+
+        require(user.balance == 0, "incorrect ETH balance");
     }
 
     function writeOption(

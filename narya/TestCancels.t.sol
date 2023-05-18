@@ -11,7 +11,7 @@ import {WasabiConduit} from "../contracts/conduit/WasabiConduit.sol";
 
 import {PTest} from "@narya-ai/contracts/PTest.sol";
 
-contract ERC20LockedNFT is PTest {
+contract TestCancels is PTest {
     TestAzuki internal nft;
     DemoETH internal token;
     WasabiFeeManager feeManager;

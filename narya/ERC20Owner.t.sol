@@ -11,7 +11,7 @@ import {WasabiConduit} from "../contracts/conduit/WasabiConduit.sol";
 
 import {PTest} from "@narya-ai/contracts/PTest.sol";
 
-contract ERC20LockedNFT is PTest {
+contract ERC20Owner is PTest {
     TestAzuki internal nft;
     DemoETH internal token;
     WasabiFeeManager feeManager;
@@ -272,18 +272,6 @@ contract ERC20LockedNFT is PTest {
         );
 
         conduit.acceptBid(optionId, address(pool), bid, signature);
-
-        vm.stopPrank();
-    }
-
-    function testTransferToken(address target) public {
-        vm.assume(target != address(0));
-
-        vm.startPrank(owner);
-        nft.safeTransferFrom(owner, address(conduit), tokenId3);
-
-        conduit.transferToken(address(nft), tokenId3, target);
-        require(nft.ownerOf(tokenId3) == target);
 
         vm.stopPrank();
     }

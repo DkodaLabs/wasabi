@@ -952,6 +952,11 @@
   resolved "https://registry.npmjs.org/@metamask/safe-event-emitter/-/safe-event-emitter-2.0.0.tgz"
   integrity sha512-/kSXhY692qiV1MXu6EeOZvg5nECLclxNXcKCxJ3cXQgYuRymRHpdx/t7JXfsK+JLjwA1e1c1/SBrlQYpusC29Q==
 
+"@narya-ai/contracts@0.4.0":
+  version "0.4.0"
+  resolved "https://registry.yarnpkg.com/@narya-ai/contracts/-/contracts-0.4.0.tgz#afb64ab7100d052f4454dc8ccdc92d23f7b40c05"
+  integrity sha512-kYiwS2bNcxVZwCr0vxS5C3Z5fIwNC+/rUIxias9eiorJdzL/yLk3yUkrwpQ+BvbP+o8TLEl4/Xaghrxijy1/IQ==
+
 "@noble/hashes@1.1.2", "@noble/hashes@~1.1.1":
   version "1.1.2"
   resolved "https://registry.npmjs.org/@noble/hashes/-/hashes-1.1.2.tgz"

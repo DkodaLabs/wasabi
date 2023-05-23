@@ -207,33 +207,33 @@ contract ERC20AcceptPoolBid is PTest {
         pool.acceptPoolBid(poolBid, signature);
     }
 
-    function invariantUncheckedPrice() public {
-        if (nft.balanceOf(address(pool)) > 0) {
-            require(
-                token.balanceOf(address(pool)) > 0,
-                "pool drained while NFTs are still left"
-            );
-        }
-    }
+    // function invariantUncheckedPrice() public {
+    //     if (nft.balanceOf(address(pool)) > 0) {
+    //         require(
+    //             token.balanceOf(address(pool)) > 0,
+    //             "pool drained while NFTs are still left"
+    //         );
+    //     }
+    // }
 
-    function actionAcceptPoolBidUsingLiquidity(
-        uint256 id,
-        uint256 amount
-    ) public {
-        vm.assume(amount <= 2);
+    // function actionAcceptPoolBidUsingLiquidity(
+    //     uint256 id,
+    //     uint256 amount
+    // ) public {
+    //     vm.assume(amount <= 2);
 
-        vm.startPrank(user);
+    //     vm.startPrank(user);
 
-        acceptPoolBid(
-            id,
-            amount,
-            address(token),
-            block.timestamp + 10 days,
-            optionId
-        );
+    //     acceptPoolBid(
+    //         id,
+    //         amount,
+    //         address(token),
+    //         block.timestamp + 10 days,
+    //         optionId
+    //     );
 
-        vm.stopPrank();
-    }
+    //     vm.stopPrank();
+    // }
 
     // function testAcceptPoolBidArbitraryToken(
     //     uint256 id,

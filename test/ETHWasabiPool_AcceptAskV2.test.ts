@@ -1,0 +1,156 @@
+const truffleAssert = require('truffle-assertions');
+
+import { WasabiPoolFactoryV2Instance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolV2Instance, WasabiConduitV2Instance} from "../types/truffle-contracts";
+import { OptionIssued } from "../types/truffle-contracts/IWasabiPoolV2";
+import { PoolAsk, OptionType, ZERO_ADDRESS, Ask } from "./util/TestTypesV2";
+import { advanceTime, assertIncreaseInBalance, gasOfTxn, makeRequest, metadata, toBN, toEth, signAskWithEIP712, expectRevertCustomError, signPoolAskWithEIP712 } from "./util/TestUtilsV2";
+
+const SigningV2 = artifacts.require("SigningV2");
+const WasabiPoolFactoryV2 = artifacts.require("WasabiPoolFactoryV2");
+const WasabiConduitV2Factory = artifacts.require("WasabiConduitV2");
+const WasabiOption = artifacts.require("WasabiOption");
+const ETHWasabiPoolV2 = artifacts.require("ETHWasabiPoolV2");
+const TestERC721 = artifacts.require("TestERC721");
+
+contract("ETHWasabiPoolV2: AcceptAsk", accounts => {
+    let poolFactory: WasabiPoolFactoryV2Instance;
+    let conduit: WasabiConduitV2Instance;
+    let option: WasabiOptionInstance;
+    let testNft: TestERC721Instance;
+    let pool: ETHWasabiPoolV2Instance;
+    let optionId: BN | string;
+    let request: PoolAsk;
+
+    const lp = accounts[2];
+    const buyer = accounts[3];
+    const someoneElse = accounts[5];
+
+    const initialPoolBalance = 10;
+    const strikePrice = 10;
+    const premium = 1;
+    const duration = 86400;
+    const buyerPrivateKey = "c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c";
+    const lpPrivateKey = "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1";
+
+    before("Prepare State", async function () {
+        testNft = await TestERC721.deployed();
+        await SigningV2.deployed();
+        option = await WasabiOption.deployed();
+        poolFactory = await WasabiPoolFactoryV2.deployed();
+        conduit = await WasabiConduitV2Factory.deployed();
+        await option.toggleFactory(poolFactory.address, true);
+        await conduit.setOption(option.address);
+        await conduit.setPoolFactoryAddress(poolFactory.address);
+        poolFactory.setConduitAddress(conduit.address);
+
+        let mintResult = await testNft.mint(metadata(buyer));
+        mintResult = await testNft.mint(metadata(someoneElse));
+
+    });
+
+    it("Create Pool", async() => {
+        const createPoolResult =
+            await poolFactory.createPool(
+                [testNft.address],
+                lp,
+                metadata(lp, initialPoolBalance));
+
+        truffleAssert.eventEmitted(createPoolResult, "NewPool", null, "Pool wasn't created");
+        truffleAssert.eventEmitted(createPoolResult, "OwnershipTransferred", { previousOwner: ZERO_ADDRESS, newOwner: lp }, "Pool didn't change owners correctly");
+
+        const poolAddress = createPoolResult.logs.find(e => e.event === 'NewPool')!.args[0];
+        pool = await ETHWasabiPoolV2.at(poolAddress);
+
+        assert.equal(await pool.owner(), lp, "Pool creator and owner not same");
+        assert.equal(await web3.eth.getBalance(pool.address), toEth(initialPoolBalance), "Incorrect total balance in pool");
+        assert.equal((await pool.availableBalance()).toString(), toEth(initialPoolBalance), "Incorrect available balance in pool");
+    });
+
+    it("Write Option (only owner)", async () => {
+        const id = 1;
+        let blockNumber = await web3.eth.getBlockNumber();
+        let timestamp = Number((await web3.eth.getBlock(blockNumber)).timestamp);
+        let expiry = timestamp + duration;
+        let orderExpiry = timestamp + duration;
+        request = makeRequest(id, pool.address, testNft.address, OptionType.PUT, strikePrice, premium, expiry, 0, orderExpiry);
+        const signature = await signPoolAskWithEIP712(request, pool.address, lpPrivateKey);
+        const writeOptionResult = await pool.writeOption(request, signature, metadata(lp, 1));
+        truffleAssert.eventEmitted(writeOptionResult, "OptionIssued", null, "Asset wasn't locked");
+        await assertIncreaseInBalance(pool.address, toBN(toEth(initialPoolBalance)), toBN(request.premium));
+
+        const log = writeOptionResult.logs.find(l => l.event == "OptionIssued")! as Truffle.TransactionLog<OptionIssued>;
+        optionId = log.args.optionId;
+        assert.equal(await option.ownerOf(optionId), lp, "Buyer not the owner of option");
+    });
+
+    it("Accept ask - should revert if not an owner", async () => {
+        const price = 1;
+        let optionOwner = await option.ownerOf(optionId);
+
+        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const ask: Ask = {
+            id: 1,
+            optionId: optionId.toString(),
+            orderExpiry: Number(blockTimestamp) + 20,
+            price: toEth(price),
+            seller: optionOwner,
+            tokenAddress: ZERO_ADDRESS,
+        };
+
+        const signature = await signAskWithEIP712(ask, conduit.address, lpPrivateKey);
+
+        await truffleAssert.reverts(pool.acceptAsk(ask, signature, metadata(buyer)), "Ownable: caller is not the owner");
+    });
+
+    it("Accept ask - should revert if pool balance is not enough", async () => {
+        const price = 15;
+        let optionOwner = await option.ownerOf(optionId);
+
+        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const ask: Ask = {
+            id: 1,
+            optionId: optionId.toString(),
+            orderExpiry: Number(blockTimestamp) + 20,
+            price: toEth(price),
+            seller: optionOwner,
+            tokenAddress: ZERO_ADDRESS,
+        };
+
+        const signature = await signAskWithEIP712(ask, conduit.address, lpPrivateKey);
+
+        await expectRevertCustomError(
+            pool.acceptAsk(ask, signature, metadata(lp)),
+            "InsufficientAvailableLiquidity");
+    });
+
+    it("Accept ask", async () => {
+        const price = 1;
+        let optionOwner = await option.ownerOf(optionId);
+
+        await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+        let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+        const ask: Ask = {
+            id: 1,
+            optionId: optionId.toString(),
+            orderExpiry: Number(blockTimestamp) + 20,
+            price: toEth(price),
+            seller: optionOwner,
+            tokenAddress: ZERO_ADDRESS,
+        };
+
+        const signature = await signAskWithEIP712(ask, conduit.address, lpPrivateKey);
+
+        const initialBalanceSeller = await web3.eth.getBalance(optionOwner);
+        const acceptAskResult = await pool.acceptAsk(ask, signature, metadata(lp));
+        const finalBalanceSeller = await web3.eth.getBalance(optionOwner);
+        const resultsOfConduit= await truffleAssert.createTransactionResult(conduit, acceptAskResult.tx)
+
+        await truffleAssert.eventEmitted(resultsOfConduit, "AskTaken", null, "Ask wasn't taken");
+        await assertIncreaseInBalance(lp, toBN(initialBalanceSeller), toBN(Number(ask.price)).sub(gasOfTxn(acceptAskResult.receipt)));
+    });
+});

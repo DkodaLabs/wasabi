@@ -168,8 +168,7 @@ abstract contract AbstractWasabiPoolV2 is IERC721Receiver, IERC1155Receiver, Own
 
         // Lock NFT / Token into a vault
         if (_request.optionType == WasabiStructsV2.OptionType.CALL) {
-            // tokenIdToOptionId[_request.tokenId] = optionId;
-            transferNFT(_request.collection, _msgSender(), address(this), _request.tokenId);
+            transferNFT(_request.collection, admin, address(this), _request.tokenId);
         }
         optionIds.add(optionId);
         idToFilledOrCancelled[_request.id] = true;
@@ -199,7 +198,7 @@ abstract contract AbstractWasabiPoolV2 is IERC721Receiver, IERC1155Receiver, Own
         if (_request.orderExpiry < block.timestamp) {
             revert IWasabiErrors.HasExpired();
         }
-        
+
         require(_request.poolAddress == address(this), "WasabiPool: Signature doesn't belong to this pool");
         validateAndWithdrawPayment(_request.premium, "WasabiPool: Not enough premium is supplied");
 
@@ -214,17 +213,7 @@ abstract contract AbstractWasabiPoolV2 is IERC721Receiver, IERC1155Receiver, Own
         // 4. Type specific validation
         if (_request.optionType == WasabiStructsV2.OptionType.CALL) {
 
-            if (isERC721(_request.collection)) {
-                if(IERC721(_request.collection).ownerOf(_request.tokenId) != admin) {
-                    revert IWasabiErrors.NftIsInvalid();
-                }
-            } else if (isERC721(_request.collection)) {
-                if(IERC1155(_request.collection).balanceOf(admin, _request.tokenId) == 0) {
-                    revert IWasabiErrors.NftIsInvalid();
-                }
-            }
-
-            if (isAvailableTokenId(_request.collection, _request.tokenId)) {
+            if (!isAvailableTokenId(_request.collection, _request.tokenId)) {
                 revert IWasabiErrors.NftIsInvalid();
             }
         } else if (_request.optionType == WasabiStructsV2.OptionType.PUT) {

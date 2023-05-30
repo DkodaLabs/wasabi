@@ -63,19 +63,19 @@ contract WasabiPoolFactoryV2 is Ownable, IWasabiPoolFactoryV2 {
         poolState[_poolAddress] = PoolState.ACTIVE;
 
         // Checking approval for initial NFTs from sender
-        uint256 numNFTs = _nfts.length;
-        for (uint256 i; i < numNFTs; ) {
-            if (IERC721(_nfts[i]).supportsInterface(_INTERFACE_ID_ERC721)) {
-                require(IERC721(_nfts[i]).isApprovedForAll(_msgSender(), address(this)), "NFTs are not approved");
+        // uint256 numNFTs = _nfts.length;
+        // for (uint256 i; i < numNFTs; ) {
+        //     if (IERC721(_nfts[i]).supportsInterface(_INTERFACE_ID_ERC721)) {
+        //         require(IERC721(_nfts[i]).isApprovedForAll(_msgSender(), address(this)), "NFTs are not approved");
 
-            } else if (IERC1155(_nfts[i]).supportsInterface(_INTERFACE_ID_ERC1155)) {
-                require(IERC1155(_nfts[i]).isApprovedForAll(_msgSender(), address(this)), "NFTs are not approved");
-            }
+        //     } else if (IERC1155(_nfts[i]).supportsInterface(_INTERFACE_ID_ERC1155)) {
+        //         require(IERC1155(_nfts[i]).isApprovedForAll(_msgSender(), address(this)), "NFTs are not approved");
+        //     }
 
-            unchecked {
-                ++i;
-            }
-        }
+        //     unchecked {
+        //         ++i;
+        //     }
+        // }
     }
 
     /**
@@ -105,20 +105,20 @@ contract WasabiPoolFactoryV2 is Ownable, IWasabiPoolFactoryV2 {
             }
         }
 
-        // Checking approval for initial NFTs from sender
-        uint256 numNFTs = _nfts.length;
-        for (uint256 i; i < numNFTs; ) {
-            if (IERC721(_nfts[i]).supportsInterface(_INTERFACE_ID_ERC721)) {
-                require(IERC721(_nfts[i]).isApprovedForAll(_msgSender(), address(this)), "NFTs are not approved");
+        // // Checking approval for initial NFTs from sender
+        // uint256 numNFTs = _nfts.length;
+        // for (uint256 i; i < numNFTs; ) {
+        //     if (IERC721(_nfts[i]).supportsInterface(_INTERFACE_ID_ERC721)) {
+        //         require(IERC721(_nfts[i]).isApprovedForAll(_msgSender(), address(this)), "NFTs are not approved");
 
-            } else if (IERC1155(_nfts[i]).supportsInterface(_INTERFACE_ID_ERC1155)) {
-                require(IERC1155(_nfts[i]).isApprovedForAll(_msgSender(), address(this)), "NFTs are not approved");
-            }
+        //     } else if (IERC1155(_nfts[i]).supportsInterface(_INTERFACE_ID_ERC1155)) {
+        //         require(IERC1155(_nfts[i]).isApprovedForAll(_msgSender(), address(this)), "NFTs are not approved");
+        //     }
 
-            unchecked {
-                ++i;
-            }
-        }
+        //     unchecked {
+        //         ++i;
+        //     }
+        // }
     }
     
     /**

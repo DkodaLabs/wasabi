@@ -13,7 +13,7 @@ library PoolAskVerifierV2 {
         );
     bytes32 constant POOLASK_TYPEHASH =
         keccak256(
-            "PoolAsk(uint256 id,address poolAddress,uint8 optionType,uint256 strikePrice,uint256 premium,uint256 expiry,uint256 tokenId,uint256 orderExpiry)"
+            "PoolAsk(uint256 id,address poolAddress,address collection,uint8 optionType,uint256 strikePrice,uint256 premium,uint256 expiry,uint256 tokenId,uint256 orderExpiry)"
         );
 
     /**
@@ -52,6 +52,7 @@ library PoolAskVerifierV2 {
                     POOLASK_TYPEHASH,
                     _poolAsk.id,
                     _poolAsk.poolAddress,
+                    _poolAsk.collection,
                     _poolAsk.optionType,
                     _poolAsk.strikePrice,
                     _poolAsk.premium,

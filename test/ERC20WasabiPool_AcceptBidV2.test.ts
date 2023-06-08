@@ -227,9 +227,8 @@ contract("ERC20WasabiPoolV2: Accept Bid From Pool", accounts => {
         await poolFactory.setConduitAddress(conduit.address, metadata(owner));
         await conduit.setPoolFactoryAddress(poolFactory.address);
         const signature = await signBidWithEIP712(bid, conduit.address, buyerPrivateKey); // buyer signs it
-
         await expectRevertCustomError(
-            pool.acceptBid(bid, signature, 1001, metadata(lp)),
+            pool.acceptBid(bid, signature, 1006, metadata(lp)),
             "NftIsInvalid");
     });
 

@@ -26,6 +26,8 @@ abstract contract AbstractWasabiPoolV2 is IERC721Receiver, IERC1155Receiver, Own
     IWasabiPoolFactoryV2 public factory;
     WasabiOption private optionNFT;
     address private admin;
+    mapping(bytes => uint256) private erc721TokenToOptions;
+    mapping(bytes => EnumerableSet.UintSet) private erc1155TokenToOptions;
 
     // Option state
     EnumerableSet.UintSet private optionIds;
@@ -168,7 +170,25 @@ abstract contract AbstractWasabiPoolV2 is IERC721Receiver, IERC1155Receiver, Own
 
         // Lock NFT / Token into a vault
         if (_request.optionType == WasabiStructsV2.OptionType.CALL) {
-            transferNFT(_request.collection, admin, address(this), _request.tokenId);
+            if (isERC721(_request.collection)) {
+                erc721TokenToOptions[abi.encodePacked(_request.collection, _request.tokenId)] = optionId;
+                if (IERC721(_request.collection).ownerOf(_request.tokenId) == owner()){
+                    transferNFT(_request.collection, owner(), address(this), _request.tokenId);        
+                }
+            } else if (isERC1155(_request.collection)) {
+                EnumerableSet.UintSet storage optionIdsForToken = erc1155TokenToOptions[abi.encodePacked(_request.collection, _request.tokenId)];
+                bool isUnlocked;
+                for (uint256 i = 0; i < optionIdsForToken.length(); i++) {
+                    if (!isValid(optionIdsForToken.at(i))) {
+                        isUnlocked = true;
+                        break;
+                    }
+                }
+                if (!isUnlocked) {
+                    transferNFT(_request.collection, owner(), address(this), _request.tokenId);        
+                }
+                optionIdsForToken.add(optionId);
+            }
         }
         optionIds.add(optionId);
         idToFilledOrCancelled[_request.id] = true;
@@ -215,6 +235,26 @@ abstract contract AbstractWasabiPoolV2 is IERC721Receiver, IERC1155Receiver, Own
 
             if (!isAvailableTokenId(_request.collection, _request.tokenId)) {
                 revert IWasabiErrors.NftIsInvalid();
+            }
+
+            if (isERC721(_request.collection)) {
+                uint256 optionId = erc721TokenToOptions[abi.encodePacked(_request.collection, _request.tokenId)];
+                if (isValid(optionId) && IERC721(_request.collection).ownerOf(_request.tokenId) != owner()) {
+                    revert IWasabiErrors.NftIsInvalid();         
+                }
+            } else if (isERC1155(_request.collection)) {
+                EnumerableSet.UintSet storage optionIdsForToken = erc1155TokenToOptions[abi.encodePacked(_request.collection, _request.tokenId)];
+                
+                bool isUnlocked;
+                for (uint256 i = 0; i < optionIdsForToken.length(); i++) {
+                    if (!isValid(optionIdsForToken.at(i))) {
+                        isUnlocked = true;
+                        break;
+                    }
+                }
+                if (IERC1155(_request.collection).balanceOf(owner(), _request.tokenId) == 0 && !isUnlocked) {
+                    revert IWasabiErrors.NftIsInvalid();
+                }
             }
         } else if (_request.optionType == WasabiStructsV2.OptionType.PUT) {
             if (availableBalance() < _request.strikePrice) {
@@ -281,7 +321,25 @@ abstract contract AbstractWasabiPoolV2 is IERC721Receiver, IERC1155Receiver, Own
         // Lock NFT / Token into a vault
         uint256 _optionId = optionNFT.mint(_bid.buyer, address(factory));
         if (_bid.optionType == WasabiStructsV2.OptionType.CALL) {
-            transferNFT(_bid.collection, admin, address(this), _tokenId);
+            if (isERC721(_bid.collection)) {
+                erc721TokenToOptions[abi.encodePacked(_bid.collection, _tokenId)] = _optionId;
+                if (IERC721(_bid.collection).ownerOf(_tokenId) == owner()){
+                    transferNFT(_bid.collection, owner(), address(this), _tokenId);        
+                }
+            } else if (isERC1155(_bid.collection)) {
+                EnumerableSet.UintSet storage optionIdsForToken = erc1155TokenToOptions[abi.encodePacked(_bid.collection, _tokenId)];
+                bool isUnlocked;
+                for (uint256 i = 0; i < optionIdsForToken.length(); i++) {
+                    if (!isValid(optionIdsForToken.at(i))) {
+                        isUnlocked = true;
+                        break;
+                    }
+                }
+                if (!isUnlocked) {
+                    transferNFT(_bid.collection, owner(), address(this), _tokenId);
+                }
+                optionIdsForToken.add(_optionId);
+            }
         }
 
         WasabiStructsV2.OptionData memory optionData = WasabiStructsV2.OptionData(
@@ -454,30 +512,46 @@ abstract contract AbstractWasabiPoolV2 is IERC721Receiver, IERC1155Receiver, Own
     }
 
     /// @inheritdoc IWasabiPoolV2
-    function withdrawERC721(uint256[] calldata _optionIds) external onlyOwner nonReentrant {
-
-        uint256 numNFTs = _optionIds.length;
-        for (uint256 i; i < numNFTs; ) {
-            WasabiStructsV2.OptionData memory optionData = getOptionData(_optionIds[i]);
-            address nft = optionData.collection;
-
-            if (isERC721(nft)) {
-                if (IERC721(nft).ownerOf(optionData.tokenId) != address(this)) {
+    function withdrawNFT(address _nft, uint256[] calldata _tokenIds) external onlyOwner nonReentrant {
+        uint256 numNFTs = _tokenIds.length;
+        if (isERC721(_nft)) {
+            for (uint256 i; i < numNFTs; ) {
+                if (IERC721(_nft).ownerOf(_tokenIds[i]) != address(this)) {
                     revert IWasabiErrors.NftIsInvalid();
                 }
-            } else if (isERC1155(nft)) {
-                if (IERC1155(nft).balanceOf(address(this), optionData.tokenId) == 0) {
-                    revert IWasabiErrors.NftIsInvalid();
+                uint256 optionId = erc721TokenToOptions[abi.encodePacked(_nft, _tokenIds[i])];
+                if (isValid(optionId)) {
+                    revert IWasabiErrors.RequestNftIsLocked();
+                }
+                delete erc721TokenToOptions[abi.encodePacked(_nft, _tokenIds[i])];
+
+                IERC721(_nft).safeTransferFrom(address(this), owner(), _tokenIds[i]);
+                unchecked {
+                    ++i;
                 }
             }
-            
-            if (isValid(_optionIds[i])) {
-                revert IWasabiErrors.RequestNftIsLocked();
-            }
+        } else if (isERC1155(_nft)) {
+            for (uint256 i; i < numNFTs; ) {
 
-            transferNFT(nft, address(this), owner(), optionData.tokenId);
-            unchecked {
-                ++i;
+                if (IERC1155(_nft).balanceOf(address(this), _tokenIds[i]) == 0) {
+                    revert IWasabiErrors.NftIsInvalid();
+                }
+                EnumerableSet.UintSet storage _optionIds = erc1155TokenToOptions[abi.encodePacked(_nft, _tokenIds[i])];
+
+                for (uint256 j; j < _optionIds.length(); ) {
+                    if (isValid(_optionIds.at(j))) {
+                        revert IWasabiErrors.RequestNftIsLocked();
+                    }
+                    _optionIds.remove(_optionIds.at(j));
+                    unchecked {
+                        ++j;
+                    }
+                }
+                IERC1155(_nft).safeTransferFrom(address(this), owner(), _tokenIds[i], 1, "");
+
+                unchecked {
+                    ++i;
+                }
             }
         }
     }
@@ -522,14 +596,6 @@ abstract contract AbstractWasabiPoolV2 is IERC721Receiver, IERC1155Receiver, Own
         return options[_optionId];
     }
 
-    // /// @inheritdoc IWasabiPoolV2
-    // function getOptionIdForToken(uint256 _tokenId) external view returns(uint256) {
-    //     if (nft.ownerOf(_tokenId) != address(this)) {
-    //         revert IWasabiErrors.NftIsInvalid();
-    //     }
-    //     return tokenIdToOptionId[_tokenId];
-    // }
-
     /// @inheritdoc IWasabiPoolV2
     function getOptionIds() public view returns(uint256[] memory) {
         return optionIds.values();
@@ -538,9 +604,10 @@ abstract contract AbstractWasabiPoolV2 is IERC721Receiver, IERC1155Receiver, Own
     /// @inheritdoc IWasabiPoolV2
     function isAvailableTokenId(address _collection, uint256 _tokenId) public view returns(bool) {
         if (isERC721(_collection)) {
-            return IERC721(_collection).ownerOf(_tokenId) == admin;
+            address tokenOwner = IERC721(_collection).ownerOf(_tokenId);
+            return tokenOwner == owner() || tokenOwner == address(this);
         } else if (isERC1155(_collection)) {
-            return IERC1155(_collection).balanceOf(admin, _tokenId) != 0;
+            return IERC1155(_collection).balanceOf(owner(), _tokenId) != 0 || IERC1155(_collection).balanceOf(address(this), _tokenId) != 0;
         }
         return false;
     }
@@ -552,6 +619,9 @@ abstract contract AbstractWasabiPoolV2 is IERC721Receiver, IERC1155Receiver, Own
         return _amount / 10;
     }
 
+    /**
+     * @dev transfer a given _tokenId of _nft from _from address to _to address
+     */
     function transferNFT(address _nft, address _from, address _to, uint256 _tokenId) internal {
         if (isERC721(_nft)) {
             IERC721(_nft).safeTransferFrom(_from, _to, _tokenId);

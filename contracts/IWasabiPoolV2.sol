@@ -117,9 +117,9 @@ interface IWasabiPoolV2 is IERC165, IERC721Receiver {
     function cancelOrder(uint256 _orderId) external;
 
     /**
-     * @dev Withdraws ERC721 tokens from the pool.
+     * @dev Withdraws NFTs from the pool.
      */
-    function withdrawERC721(uint256[] calldata _optionIds) external;
+    function withdrawNFT(address _nft, uint256[] calldata _tokenIds) external;
 
     /**
      * @dev Deposits ERC721 tokens to the pool.
@@ -165,11 +165,6 @@ interface IWasabiPoolV2 is IERC165, IERC721Receiver {
      * @dev Returns an array of ids of all outstanding (issued or expired) options
      */
     function getOptionIds() external view returns(uint256[] memory);
-
-    // /**
-    //  * @dev Returns the id of the option that locked the given token id, reverts if there is none
-    //  */
-    // function getOptionIdForToken(uint256 _tokenId) external view returns(uint256);
 
     /**
      * @dev Returns the option data for the given option id

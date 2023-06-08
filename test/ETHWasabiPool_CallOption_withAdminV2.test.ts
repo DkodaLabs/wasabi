@@ -69,11 +69,6 @@ contract("ETHWasabiPoolV2: CallOption (with Admin)", accounts => {
         await truffleAssert.reverts(pool.removeAdmin(), "caller is not the owner", "Only owner can change the admin.");
         const setAdminResult = await pool.setAdmin(admin, metadata(lp));
         truffleAssert.eventEmitted(setAdminResult, "AdminChanged", {admin: admin}, "Admin wasn't changed");
-        await testNft.transferFrom(lp, admin, 1001, metadata(lp));
-        await testNft.transferFrom(lp, admin, 1002, metadata(lp));
-        await testNft.transferFrom(lp, admin, 1003, metadata(lp));
-        await testNft.setApprovalForAll.sendTransaction(pool.address, true, metadata(admin));
-
     });
     
     it("Validate Option Requests", async () => {
@@ -160,7 +155,7 @@ contract("ETHWasabiPoolV2: CallOption (with Admin)", accounts => {
     
     it("Issue Option & Send/Sell Back to Pool", async () => {
         let initialPoolBalance = toBN(await web3.eth.getBalance(pool.address));
-        assert.deepEqual(await getAllTokenIds(admin, testNft), [1003, 1002], "Pool doesn't have the correct tokens");
+        assert.deepEqual(await getAllTokenIds(lp, testNft), [1003, 1002], "Pool doesn't have the correct tokens");
 
         const id = 3;
         let blockNumber = await web3.eth.getBlockNumber();

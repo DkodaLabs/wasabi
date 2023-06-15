@@ -61,8 +61,6 @@ contract("ERC20WasabiPoolV2: Accept Ask From Pool", accounts => {
     it("Create Pool", async () => {
         assert.equal((await token.balanceOf(buyer)).toString(), toEth(100), 'Not enough minted');
 
-        await testNft.setApprovalForAll.sendTransaction(poolFactory.address, true, metadata(lp));
-
         const createPoolResult =
             await poolFactory.createERC20Pool(
                 token.address,

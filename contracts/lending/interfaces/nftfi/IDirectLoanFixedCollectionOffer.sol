@@ -39,7 +39,7 @@ interface IDirectLoanFixedCollectionOffer {
         uint16 referralFeeInBasisPoints;
     }
 
-    function loanIdToLoan(uint32) external view returns (LoanTerms memory);
+    function loanIdToLoan(uint32 _loanId) external view returns (LoanTerms memory);
 
     function acceptOffer(
         Offer memory _offer,

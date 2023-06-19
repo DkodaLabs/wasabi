@@ -5,37 +5,28 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "./NFTLendingBase.sol";
+import "./interfaces/INFTLending.sol";
 import "./interfaces/nftfi/IDirectLoanFixedCollectionOffer.sol";
 import "./interfaces/nftfi/IDirectLoanCoordinator.sol";
 
 /// @title NFTfi Lending
 /// @notice Manages creating and repaying a loan on NFTfi
-contract NFTfiLending is NFTLendingBase {
+contract NFTfiLending is INFTLending {
     using SafeERC20 for IERC20;
 
-    /// @notice NFTfi DirectLoanFixedCollectionOffer Contract
+    /// @notice DirectLoanFixedCollectionOffer Contract
     IDirectLoanFixedCollectionOffer
-        public immutable directLoanFixedCollectionOffer;
+        public constant directLoanFixedCollectionOffer =
+        IDirectLoanFixedCollectionOffer(
+            0xE52Cec0E90115AbeB3304BaA36bc2655731f7934
+        );
 
-    /// @notice NFTfi DirectLoanCoordinator Contract
-    IDirectLoanCoordinator public immutable directLoanCoordinator;
-
-    /// @notice NFTFILending Constructor
-    /// @param _directLoanFixedCollectionOffer DirectLoanFixedCollectionOffer contract address
-    constructor(
-        address _globalBNPL,
-        IDirectLoanFixedCollectionOffer _directLoanFixedCollectionOffer,
-        IDirectLoanCoordinator _directLoanCoordinator
-    ) NFTLendingBase(_globalBNPL) {
-        directLoanFixedCollectionOffer = _directLoanFixedCollectionOffer;
-        directLoanCoordinator = _directLoanCoordinator;
-    }
+    /// @notice DirectLoanCoordinator Contract
+    IDirectLoanCoordinator public constant directLoanCoordinator =
+        IDirectLoanCoordinator(0x0C90C8B4aa8549656851964d5fB787F0e4F54082);
 
     /// @inheritdoc INFTLending
-    function borrow(
-        bytes calldata _inputData
-    ) external onlyBNPL returns (uint256) {
+    function borrow(bytes calldata _inputData) external returns (uint256) {
         // Decode `inputData` into Offer, Signature and BorrowerSettings
         (
             IDirectLoanFixedCollectionOffer.Offer memory offer,
@@ -52,15 +43,11 @@ contract NFTfiLending is NFTLendingBase {
             );
 
         IERC721 nft = IERC721(offer.nftCollateralContract);
-        uint256 nftId = offer.nftCollateralId;
-
-        // Transfer NFT from BNPL contract
-        nft.safeTransferFrom(msg.sender, address(this), nftId);
 
         // Approve
         nft.setApprovalForAll(address(directLoanFixedCollectionOffer), true);
 
-        // Accetp offer on NFTfi
+        // Accept offer on NFTfi
         directLoanFixedCollectionOffer.acceptOffer(
             offer,
             signature,
@@ -72,7 +59,7 @@ contract NFTfiLending is NFTLendingBase {
     }
 
     /// @inheritdoc INFTLending
-    function repay(uint256 _loanId) external onlyBNPL {
+    function repay(uint256 _loanId, address _receiver) external {
         uint32 loanId = uint32(_loanId);
 
         // Get LoanTerms for loanId
@@ -81,15 +68,8 @@ contract NFTfiLending is NFTLendingBase {
                 loanId
             );
 
-        // Transfer payment from BNPL
-        IERC20 token = IERC20(loanTerms.loanERC20Denomination);
-        token.safeTransferFrom(
-            msg.sender,
-            address(this),
-            loanTerms.maximumRepaymentAmount
-        );
-
         // Approve token to `directLoanFixedCollectionOffer`
+        IERC20 token = IERC20(loanTerms.loanERC20Denomination);
         token.safeApprove(address(directLoanFixedCollectionOffer), 0);
         token.safeApprove(
             address(directLoanFixedCollectionOffer),
@@ -99,10 +79,10 @@ contract NFTfiLending is NFTLendingBase {
         // Pay back loan
         directLoanFixedCollectionOffer.payBackLoan(loanId);
 
-        // Transfer collateral NFT to BNPL
+        // Transfer collateral NFT to the user
         IERC721(loanTerms.nftCollateralContract).safeTransferFrom(
             address(this),
-            msg.sender,
+            _receiver,
             loanTerms.nftCollateralId
         );
     }

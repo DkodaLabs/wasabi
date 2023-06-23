@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.19;
+
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
+import "../lib/Signing.sol";
+import {IWETH} from "../IWETH.sol";
+import "./interfaces/IWasabiBNPL.sol";
+import "./interfaces/IAddressProvider.sol";
+
+contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
+    /// @notice Wasabi Address Provider
+    IAddressProvider public addressProvider;
+
+    /// @notice Loan premium value
+    uint256 public loanPremiumValue;
+
+    /// @notice Loan premium fraction
+    uint256 public immutable loanPremiumFraction;
+
+    /// @notice WasabiBNPL Constructor
+    /// @param _addressProvider Wasabi Address Provider address
+    constructor(IAddressProvider _addressProvider) {
+        addressProvider = _addressProvider;
+        loanPremiumValue = 9;
+        loanPremiumFraction = 10_000; // 0.09%
+    }
+
+    /// @notice Executes BNPL flow
+    /// @dev BNLP flow
+    ///      1. take flashloan
+    ///      2. buy nft from marketplace
+    ///      3. get loan from nft lending protocol
+    /// @param _value Call value
+    /// @param _marketplaceCallData List of marketplace calldata
+    /// @param _signatures Signatures
+    function bnpl(
+        bytes calldata _borrowData,
+        uint256 _value,
+        FunctionCallData[] calldata _marketplaceCallData,
+        bytes[] calldata _signatures,
+        address _nftLending
+    ) external payable nonReentrant {
+        validate(_marketplaceCallData, _signatures);
+
+        if (!addressProvider.isLending(_nftLending)) {
+            revert InvalidParam();
+        }
+
+        uint256 balanceBefore = address(this).balance;
+        if (balanceBefore < _value) {
+            revert InsufficientBalance();
+        }
+
+        // Buy NFT
+        bool marketSuccess = executeFunctions(_marketplaceCallData);
+        if (!marketSuccess) {
+            revert FunctionCallFailed();
+        }
+
+        (bool success, bytes memory result) = _nftLending.delegatecall(
+            abi.encodeWithSignature("borrow(bytes)", _borrowData)
+        );
+        if (!success) {
+            revert BorrowFailed();
+        }
+        uint256 loanId = abi.decode(result, (uint256));
+        // TODO: store loanId
+
+        // repay flashloan
+        uint256 loanPremium = ((_value - msg.value) * loanPremiumValue) /
+            loanPremiumFraction;
+
+        if (address(this).balance < balanceBefore + loanPremium) {
+            revert LoanNotPaid();
+        }
+        uint256 payout = address(this).balance - balanceBefore - loanPremium;
+
+        (bool sent, ) = payable(_msgSender()).call{value: payout}("");
+        if (!sent) {
+            revert EthTransferFailed();
+        }
+    }
+
+    /// @notice Executes a given list of functions
+    /// @param _marketplaceCallData List of marketplace calldata
+    function executeFunctions(
+        FunctionCallData[] memory _marketplaceCallData
+    ) internal returns (bool) {
+        uint256 length = _marketplaceCallData.length;
+        for (uint256 i; i != length; ++i) {
+            FunctionCallData memory functionCallData = _marketplaceCallData[i];
+            (bool success, ) = functionCallData.to.call{
+                value: functionCallData.value
+            }(functionCallData.data);
+            if (success == false) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// @notice Validates if the FunctionCallData list has been approved
+    /// @param _marketplaceCallData List of marketplace calldata
+    /// @param _signatures Signatures
+    function validate(
+        FunctionCallData[] calldata _marketplaceCallData,
+        bytes[] calldata _signatures
+    ) internal view {
+        uint256 calldataLength = _marketplaceCallData.length;
+        require(calldataLength > 0, "Need marketplace calls");
+        require(calldataLength == _signatures.length, "Length is invalid");
+        for (uint256 i; i != calldataLength; ++i) {
+            bytes32 ethSignedMessageHash = Signing.getEthSignedMessageHash(
+                getMessageHash(_marketplaceCallData[i])
+            );
+            require(
+                Signing.recoverSigner(ethSignedMessageHash, _signatures[i]) ==
+                    owner(),
+                "Owner is not signer"
+            );
+        }
+    }
+
+    /// @notice Returns the message hash for the given _data
+    function getMessageHash(
+        FunctionCallData calldata _data
+    ) public pure returns (bytes32) {
+        return keccak256(abi.encode(_data.to, _data.value, _data.data));
+    }
+
+    /// @dev Withdraws any stuck ETH in this contract
+    function withdrawETH(uint256 _amount) external payable onlyOwner {
+        if (_amount > address(this).balance) {
+            _amount = address(this).balance;
+        }
+        (bool sent, ) = payable(owner()).call{value: _amount}("");
+        if (!sent) {
+            revert EthTransferFailed();
+        }
+    }
+
+    /// @dev Withdraws any stuck ERC20 in this contract
+    function withdrawERC20(IERC20 _token, uint256 _amount) external onlyOwner {
+        _token.safeTransfer(msg.sender, _amount);
+    }
+
+    /// @dev Withdraws any stuck ERC721 in this contract
+    function withdrawERC721(
+        IERC721 _token,
+        uint256 _tokenId
+    ) external onlyOwner {
+        _token.safeTransferFrom(address(this), owner(), _tokenId);
+    }
+
+    /// @dev Sets the loan premium value
+    function setLoanPremiumValue(uint256 _loanPremiumValue) external onlyOwner {
+        loanPremiumValue = _loanPremiumValue;
+    }
+
+    function onERC721Received(
+        address /* operator */,
+        address /* from */,
+        uint256 /* tokenId */,
+        bytes memory /* data */
+    ) public virtual override returns (bytes4) {
+        return this.onERC721Received.selector;
+    }
+
+    receive() external payable {}
+}

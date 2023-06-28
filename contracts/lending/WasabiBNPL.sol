@@ -11,13 +11,21 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../lib/Signing.sol";
 import {IWETH} from "../IWETH.sol";
 import "./interfaces/IWasabiBNPL.sol";
+import "./interfaces/IWasabiOption.sol";
 import "./interfaces/IAddressProvider.sol";
+import "./interfaces/INFTLending.sol";
 
 contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    /// @notice Wasabi Option
+    IWasabiOption public wasabiOption;
+
     /// @notice Wasabi Address Provider
     IAddressProvider public addressProvider;
+
+    /// @notice Wasabi Pool Factory
+    address public factory;
 
     /// @notice Loan premium value
     uint256 public loanPremiumValue;
@@ -27,8 +35,10 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
 
     /// @notice WasabiBNPL Constructor
     /// @param _addressProvider Wasabi Address Provider address
-    constructor(IAddressProvider _addressProvider) {
+    /// @param _factory Wasabi Pool Factory address
+    constructor(IAddressProvider _addressProvider, address _factory) {
         addressProvider = _addressProvider;
+        factory = _factory;
         loanPremiumValue = 9;
         loanPremiumFraction = 10_000; // 0.09%
     }
@@ -66,13 +76,14 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         }
 
         (bool success, bytes memory result) = _nftLending.delegatecall(
-            abi.encodeWithSignature("borrow(bytes)", _borrowData)
+            abi.encodeWithSelector(INFTLending.borrow.selector, _borrowData)
         );
         if (!success) {
             revert BorrowFailed();
         }
         uint256 loanId = abi.decode(result, (uint256));
-        // TODO: store loanId
+
+        uint256 optionId = wasabiOption.mint(msg.sender, factory);
 
         // repay flashloan
         uint256 loanPremium = ((_value - msg.value) * loanPremiumValue) /

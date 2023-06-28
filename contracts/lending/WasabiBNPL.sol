@@ -33,6 +33,9 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     /// @notice Loan premium fraction
     uint256 public immutable loanPremiumFraction;
 
+    /// @notice Option ID to LoanInfo mapping
+    mapping(uint256 => LoanInfo) public optionToLoan;
+
     /// @notice WasabiBNPL Constructor
     /// @param _addressProvider Wasabi Address Provider address
     /// @param _factory Wasabi Pool Factory address
@@ -84,6 +87,10 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         uint256 loanId = abi.decode(result, (uint256));
 
         uint256 optionId = wasabiOption.mint(msg.sender, factory);
+        optionToLoan[optionId] = LoanInfo({
+            nftLending: _nftLending,
+            loanId: loanId
+        });
 
         // repay flashloan
         uint256 loanPremium = ((_value - msg.value) * loanPremiumValue) /

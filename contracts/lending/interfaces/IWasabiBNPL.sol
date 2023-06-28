@@ -13,6 +13,14 @@ interface IWasabiBNPL {
         bytes data;
     }
 
+    /// @notice Loan Info Struct
+    /// @param nftLending INFTLending address
+    /// @param loanId loan id
+    struct LoanInfo {
+        address nftLending;
+        uint256 loanId;
+    }
+
     /// @notice Insufficient Balance
     error InsufficientBalance();
 

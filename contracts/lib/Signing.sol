@@ -11,7 +11,7 @@ library Signing {
     /**
      * @dev Returns the message hash for the given request
      */
-    function getMessageHash(WasabiStructs.PoolAsk calldata _request) public pure returns (bytes32) {
+    function getMessageHash(WasabiStructs.PoolAsk calldata _request) internal pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 _request.id,
@@ -27,7 +27,7 @@ library Signing {
     /**
      * @dev Returns the message hash for the given request
      */
-    function getAskHash(WasabiStructs.Ask calldata _ask) public pure returns (bytes32) {
+    function getAskHash(WasabiStructs.Ask calldata _ask) internal pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 _ask.id,
@@ -38,7 +38,7 @@ library Signing {
                 _ask.optionId));
     }
 
-    function getBidHash(WasabiStructs.Bid calldata _bid) public pure returns (bytes32) {
+    function getBidHash(WasabiStructs.Bid calldata _bid) internal pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 _bid.id,
@@ -56,7 +56,7 @@ library Signing {
     /**
      * @dev creates an ETH signed message hash
      */
-    function getEthSignedMessageHash(bytes32 _messageHash) public pure returns (bytes32) {
+    function getEthSignedMessageHash(bytes32 _messageHash) internal pure returns (bytes32) {
         /*
         Signature is produced by signing a keccak256 hash with the following format:
         "\x19Ethereum Signed Message\n" + len(msg) + msg
@@ -67,7 +67,7 @@ library Signing {
     function getSigner(
         WasabiStructs.PoolAsk calldata _request,
         bytes memory signature
-    ) public pure returns (address) {
+    ) internal pure returns (address) {
         bytes32 messageHash = getMessageHash(_request);
         bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
 
@@ -77,7 +77,7 @@ library Signing {
     function getAskSigner(
         WasabiStructs.Ask calldata _ask,
         bytes memory signature
-    ) public pure returns (address) {
+    ) internal pure returns (address) {
         bytes32 messageHash = getAskHash(_ask);
         bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
 
@@ -85,7 +85,7 @@ library Signing {
     }
 
     function recoverSigner(bytes32 _ethSignedMessageHash, bytes memory _signature)
-        public
+        internal
         pure
         returns (address)
     {
@@ -95,7 +95,7 @@ library Signing {
     }
 
     function splitSignature(bytes memory sig)
-        public
+        internal
         pure
         returns (
             bytes32 r,

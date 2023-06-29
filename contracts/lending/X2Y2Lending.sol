@@ -19,7 +19,7 @@ contract X2Y2Lending is INFTLending {
     /// @inheritdoc INFTLending
     function borrow(
         bytes calldata _inputData
-    ) external returns (uint256) {
+    ) external payable returns (uint256) {
         // Decode `inputData` into Offer, Signature and BorrowerSettings
         (
             IXY3.Offer memory offer,

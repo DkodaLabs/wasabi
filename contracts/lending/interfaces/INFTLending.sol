@@ -8,7 +8,7 @@ interface INFTLending {
     /// @return _loanId The loan id
     function borrow(
         bytes calldata _inputData
-    ) external returns (uint256 _loanId);
+    ) external payable returns (uint256 _loanId);
 
     /// @notice Repay the loan
     /// @param _loanId The loan id to repay

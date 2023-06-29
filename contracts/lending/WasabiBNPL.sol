@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 import "../lib/Signing.sol";
 import {IWETH} from "../IWETH.sol";
@@ -17,6 +18,7 @@ import "./interfaces/INFTLending.sol";
 
 contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     using SafeERC20 for IERC20;
+    using Address for address;
 
     /// @notice Wasabi Option
     IWasabiOption public wasabiOption;
@@ -37,9 +39,11 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     mapping(uint256 => LoanInfo) public optionToLoan;
 
     /// @notice WasabiBNPL Constructor
+    /// @param _wasabiOption Wasabi Option address
     /// @param _addressProvider Wasabi Address Provider address
     /// @param _factory Wasabi Pool Factory address
-    constructor(IAddressProvider _addressProvider, address _factory) {
+    constructor(IWasabiOption _wasabiOption, IAddressProvider _addressProvider, address _factory) {
+        wasabiOption = _wasabiOption;
         addressProvider = _addressProvider;
         factory = _factory;
         loanPremiumValue = 9;
@@ -51,15 +55,17 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     ///      1. take flashloan
     ///      2. buy nft from marketplace
     ///      3. get loan from nft lending protocol
+    /// @param _nftLending NFTLending contract address
+    /// @param _borrowData Borrow data
     /// @param _value Call value
     /// @param _marketplaceCallData List of marketplace calldata
     /// @param _signatures Signatures
     function bnpl(
+        address _nftLending,
         bytes calldata _borrowData,
         uint256 _value,
         FunctionCallData[] calldata _marketplaceCallData,
-        bytes[] calldata _signatures,
-        address _nftLending
+        bytes[] calldata _signatures
     ) external payable nonReentrant {
         validate(_marketplaceCallData, _signatures);
 
@@ -71,6 +77,7 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         if (balanceBefore < _value) {
             revert InsufficientBalance();
         }
+        balanceBefore -= msg.value;
 
         // Buy NFT
         bool marketSuccess = executeFunctions(_marketplaceCallData);
@@ -78,12 +85,9 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
             revert FunctionCallFailed();
         }
 
-        (bool success, bytes memory result) = _nftLending.delegatecall(
+        bytes memory result = _nftLending.functionDelegateCall(
             abi.encodeWithSelector(INFTLending.borrow.selector, _borrowData)
         );
-        if (!success) {
-            revert BorrowFailed();
-        }
         uint256 loanId = abi.decode(result, (uint256));
 
         uint256 optionId = wasabiOption.mint(msg.sender, factory);

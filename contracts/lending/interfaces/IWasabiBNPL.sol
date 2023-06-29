@@ -33,9 +33,6 @@ interface IWasabiBNPL {
     /// @notice ETH Transfer Failed
     error EthTransferFailed();
 
-    /// @notice Borrow Failed
-    error BorrowFailed();
-
     /// @notice Invalid Param
     error InvalidParam();
 }

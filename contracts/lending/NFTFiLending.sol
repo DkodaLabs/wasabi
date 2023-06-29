@@ -26,7 +26,9 @@ contract NFTfiLending is INFTLending {
         IDirectLoanCoordinator(0x0C90C8B4aa8549656851964d5fB787F0e4F54082);
 
     /// @inheritdoc INFTLending
-    function borrow(bytes calldata _inputData) external returns (uint256) {
+    function borrow(
+        bytes calldata _inputData
+    ) external payable returns (uint256) {
         // Decode `inputData` into Offer, Signature and BorrowerSettings
         (
             IDirectLoanFixedCollectionOffer.Offer memory offer,

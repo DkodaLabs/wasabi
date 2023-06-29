@@ -17,6 +17,18 @@ contract X2Y2Lending is INFTLending {
     IXY3 public constant xy3 = IXY3(0xFa4D5258804D7723eb6A934c11b1bd423bC31623);
 
     /// @inheritdoc INFTLending
+    function getNFTDetails(
+        uint256 _loanId
+    ) external view returns (address, uint256) {
+        uint32 loanId = uint32(_loanId);
+
+        // Get LoanDetail for loanId
+        IXY3.LoanDetail memory loanDetail = xy3.loanDetails(loanId);
+
+        return (loanDetail.nftAsset, loanDetail.nftTokenId);
+    }
+
+    /// @inheritdoc INFTLending
     function borrow(
         bytes calldata _inputData
     ) external payable returns (uint256) {

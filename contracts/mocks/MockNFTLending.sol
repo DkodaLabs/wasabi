@@ -32,6 +32,13 @@ contract MockNFTLending is INFTLending {
     address public constant lending =
         0x4EeE4559BD589b1cdFc419f0EEd2Ff9cBD47F439;
 
+    function getNFTDetails(
+        uint256 _loanId
+    ) external view returns (address, uint256) {
+        ILending.Loan memory loan = ILending(lending).loans(_loanId);
+        return (loan.nft, loan.nftId);
+    }
+
     function borrow(
         bytes calldata _inputData
     ) external payable returns (uint256 loanId) {

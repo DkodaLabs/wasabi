@@ -9,7 +9,6 @@ import { ETHWasabiPoolInstance } from "../types/truffle-contracts/ETHWasabiPool.
 import { WasabiConduitInstance } from "../types/truffle-contracts/WasabiConduit";
 import { WasabiFeeManagerInstance } from "../types/truffle-contracts/WasabiFeeManager";
 
-const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const ETHWasabiPool = artifacts.require("ETHWasabiPool");
@@ -42,7 +41,6 @@ contract("WasabiConduit ETH", accounts => {
     before("Prepare State", async function () {
         conduit = await WasabiConduit.deployed();
         testNft = await TestERC721.deployed();
-        await Signing.deployed();
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
         await option.toggleFactory(poolFactory.address, true);

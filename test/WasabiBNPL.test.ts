@@ -15,13 +15,8 @@ import {
 import { PoolState } from "./util/TestTypes";
 import {
   signFunctionCallData,
-  gasOfTxn,
-  makeRequest,
   metadata,
-  signPoolAskWithEIP712,
-  toBN,
   toEth,
-  withFee,
 } from "./util/TestUtils";
 
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -49,8 +44,6 @@ contract("WasabiBNPL", (accounts) => {
   const deployer = accounts[0];
   const lp = accounts[2];
   const buyer = accounts[3];
-  const deployerPrivateKey =
-    "0dbbe8e4ae425a6d2687f1a7e3ba17bc98c673636790f1b8ad91193c05875ef1";
 
   const initialFlashLoanPoolBalance = 15;
 

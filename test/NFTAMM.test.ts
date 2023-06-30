@@ -9,7 +9,6 @@ import { NFTAMMInstance } from "../types/truffle-contracts/NFTAMM.js";
 import { ERC20WasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/truffle-contracts/ERC20WasabiPool.js";
 import { DemoETHInstance, MockArbitrageInstance } from "../types/truffle-contracts";
 
-const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
@@ -41,7 +40,6 @@ contract("OptionFMVPurchaser", accounts => {
     const fee = 5;
 
     before("Prepare State", async function () {
-        await Signing.deployed();
         nftAmm = await NFTAMM.deployed();
         token = await DemoETH.deployed();
         testNft = await TestERC721.deployed();

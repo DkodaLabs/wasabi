@@ -30,7 +30,7 @@ contract MockNFTLending is INFTLending {
     using SafeERC20 for IERC20;
 
     address public constant lending =
-        0x4EeE4559BD589b1cdFc419f0EEd2Ff9cBD47F439;
+        0x855d1c79Ad3fb086D516554Dc7187E3Fdfc1C79a;
 
     function getNFTDetails(
         uint256 _loanId

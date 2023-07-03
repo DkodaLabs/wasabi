@@ -13,7 +13,7 @@ import "../lib/Signing.sol";
 import {IWETH} from "../IWETH.sol";
 import "./interfaces/IWasabiBNPL.sol";
 import "./interfaces/IWasabiOption.sol";
-import "./interfaces/IAddressProvider.sol";
+import "./interfaces/ILendingAddressProvider.sol";
 import "./interfaces/INFTLending.sol";
 
 contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
@@ -24,16 +24,16 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     IWasabiOption public wasabiOption;
 
     /// @notice Wasabi Address Provider
-    IAddressProvider public addressProvider;
+    ILendingAddressProvider public addressProvider;
 
     /// @notice Wasabi Pool Factory
     address public factory;
 
-    /// @notice Loan premium value
-    uint256 public loanPremiumValue;
+    /// @notice Flashloan premium value
+    uint256 public flashloanPremiumValue;
 
-    /// @notice Loan premium fraction
-    uint256 public immutable loanPremiumFraction;
+    /// @notice Flashloan premium fraction
+    uint256 public immutable flashloanPremiumFraction;
 
     /// @notice Option ID to LoanInfo mapping
     mapping(uint256 => LoanInfo) public optionToLoan;
@@ -42,12 +42,12 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     /// @param _wasabiOption Wasabi Option address
     /// @param _addressProvider Wasabi Address Provider address
     /// @param _factory Wasabi Pool Factory address
-    constructor(IWasabiOption _wasabiOption, IAddressProvider _addressProvider, address _factory) {
+    constructor(IWasabiOption _wasabiOption, ILendingAddressProvider _addressProvider, address _factory) {
         wasabiOption = _wasabiOption;
         addressProvider = _addressProvider;
         factory = _factory;
-        loanPremiumValue = 9;
-        loanPremiumFraction = 10_000; // 0.09%
+        flashloanPremiumValue = 9;
+        flashloanPremiumFraction = 10_000; // 0.09%
     }
 
     /// @notice Executes BNPL flow
@@ -90,15 +90,15 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         );
         uint256 loanId = abi.decode(result, (uint256));
 
-        uint256 optionId = wasabiOption.mint(msg.sender, factory);
+        uint256 optionId = wasabiOption.mint(_msgSender(), factory);
         optionToLoan[optionId] = LoanInfo({
             nftLending: _nftLending,
             loanId: loanId
         });
 
         // repay flashloan
-        uint256 loanPremium = ((_value - msg.value) * loanPremiumValue) /
-            loanPremiumFraction;
+        uint256 loanPremium = ((_value - msg.value) * flashloanPremiumValue) /
+            flashloanPremiumFraction;
 
         if (address(this).balance < balanceBefore + loanPremium) {
             revert LoanNotPaid();
@@ -171,7 +171,7 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
 
     /// @dev Withdraws any stuck ERC20 in this contract
     function withdrawERC20(IERC20 _token, uint256 _amount) external onlyOwner {
-        _token.safeTransfer(msg.sender, _amount);
+        _token.safeTransfer(_msgSender(), _amount);
     }
 
     /// @dev Withdraws any stuck ERC721 in this contract
@@ -182,9 +182,9 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         _token.safeTransferFrom(address(this), owner(), _tokenId);
     }
 
-    /// @dev Sets the loan premium value
-    function setLoanPremiumValue(uint256 _loanPremiumValue) external onlyOwner {
-        loanPremiumValue = _loanPremiumValue;
+    /// @dev Sets the flashloan loan premium value
+    function setFlashloanPremiumValue(uint256 _flashloanPremiumValue) external onlyOwner {
+        flashloanPremiumValue = _flashloanPremiumValue;
     }
 
     function onERC721Received(

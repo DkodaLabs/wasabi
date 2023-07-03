@@ -3,11 +3,11 @@ pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./interfaces/IAddressProvider.sol";
+import "./interfaces/ILendingAddressProvider.sol";
 
-/// @title Address Provider
+/// @title Lending Address Provider
 /// @notice Manages addresses across Wasabi lending
-contract AddressProvider is Ownable, IAddressProvider {
+contract LendingAddressProvider is Ownable, ILendingAddressProvider {
     mapping(address => bool) private _isLending;
 
     /// @notice Checks if given address is lending contract or not

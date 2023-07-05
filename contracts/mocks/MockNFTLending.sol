@@ -55,7 +55,7 @@ contract MockNFTLending is INFTLending {
         IWETH(loan.currency).withdraw(loan.loanAmount);
     }
 
-    function repay(uint256 _loanId, address _receiver) external {
+    function repay(uint256 _loanId, address _receiver) external payable {
         ILending.Loan memory loan = ILending(lending).loans(_loanId);
         IWETH(loan.currency).deposit{value: loan.repayment}();
         IERC20 weth = IERC20(loan.currency);

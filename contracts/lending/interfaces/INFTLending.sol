@@ -19,5 +19,5 @@ interface INFTLending {
     /// @notice Repay the loan
     /// @param _loanId The loan id to repay
     /// @param _receiver The user address to receive collateral NFT
-    function repay(uint256 _loanId, address _receiver) external;
+    function repay(uint256 _loanId, address _receiver) external payable;
 }

@@ -33,9 +33,6 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     /// @notice Wasabi Pool Factory
     address public factory;
 
-    /// @notice Flashloan premium fraction
-    uint256 public immutable flashloanPremiumFraction;
-
     /// @notice Option ID to LoanInfo mapping
     mapping(uint256 => LoanInfo) public optionToLoan;
 
@@ -54,7 +51,6 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         flashloan = _flashloan;
         addressProvider = _addressProvider;
         factory = _factory;
-        flashloanPremiumFraction = 10_000; // 0.09%
     }
 
     /// @notice Executes BNPL flow
@@ -80,7 +76,7 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
             revert InvalidParam();
         }
 
-        uint256 flashloanPremiumValue = flashloan.flashloan(_flashLoanAmount);
+        uint256 flashLoanRepayAmount = flashloan.borrow(_flashLoanAmount);
 
         // Buy NFT
         bool marketSuccess = executeFunctions(_marketplaceCallData);
@@ -100,15 +96,12 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         });
 
         // repay flashloan
-        uint256 loanPremium = (_flashLoanAmount * flashloanPremiumValue) /
-            flashloanPremiumFraction;
-        uint256 repayment = _flashLoanAmount + loanPremium;
-        if (address(this).balance < repayment) {
+        if (address(this).balance < flashLoanRepayAmount) {
             revert LoanNotPaid();
         }
-        uint256 payout = address(this).balance - repayment;
+        uint256 payout = address(this).balance - flashLoanRepayAmount;
 
-        (bool sent, ) = payable(address(flashloan)).call{value: repayment}("");
+        (bool sent, ) = payable(address(flashloan)).call{value: flashLoanRepayAmount}("");
         if (!sent) {
             revert EthTransferFailed();
         }

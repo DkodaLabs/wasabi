@@ -14,8 +14,8 @@ interface IFlashloan {
     /// @notice ETH Transfer Failed
     error EthTransferFailed();
 
-    /// @notice Get flashloan
+    /// @notice Borrow ETH
     /// @param amount Flashloan amount
-    /// @return premium Flashloan premium value
-    function flashloan(uint256 amount) external returns (uint256 premium);
+    /// @return flashLoanRepayAmount Flashloan repayment amount
+    function borrow(uint256 amount) external returns (uint256 flashLoanRepayAmount);
 }

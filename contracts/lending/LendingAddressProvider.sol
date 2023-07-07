@@ -23,4 +23,13 @@ contract LendingAddressProvider is Ownable, ILendingAddressProvider {
 
         emit LendingAdded(_lending);
     }
+
+    /// @notice Remove NFTLending contract address
+    /// @param _lending NFTLending contract address to remove
+    function removeLending(address _lending) external onlyOwner {
+        require(_lending != address(0), "zero address");
+        _isLending[_lending] = false;
+
+        emit LendingRemoved(_lending);
+    }
 }

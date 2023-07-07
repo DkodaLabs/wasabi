@@ -21,9 +21,6 @@ interface IWasabiBNPL {
         uint256 loanId;
     }
 
-    /// @notice Insufficient Balance
-    error InsufficientBalance();
-
     /// @notice Function Call Failed
     error FunctionCallFailed();
 

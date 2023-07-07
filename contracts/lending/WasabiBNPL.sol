@@ -13,6 +13,7 @@ import "../lib/Signing.sol";
 import {IWETH} from "../IWETH.sol";
 import "./interfaces/IWasabiBNPL.sol";
 import "./interfaces/IWasabiOption.sol";
+import "./interfaces/IFlashloan.sol";
 import "./interfaces/ILendingAddressProvider.sol";
 import "./interfaces/INFTLending.sol";
 
@@ -23,14 +24,14 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     /// @notice Wasabi Option
     IWasabiOption public wasabiOption;
 
+    /// @notice Wasabi Flashloan
+    IFlashloan public flashloan;
+
     /// @notice Wasabi Address Provider
     ILendingAddressProvider public addressProvider;
 
     /// @notice Wasabi Pool Factory
     address public factory;
-
-    /// @notice Flashloan premium value
-    uint256 public flashloanPremiumValue;
 
     /// @notice Flashloan premium fraction
     uint256 public immutable flashloanPremiumFraction;
@@ -40,13 +41,19 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
 
     /// @notice WasabiBNPL Constructor
     /// @param _wasabiOption Wasabi Option address
+    /// @param _flashloan Wasabi Flashloan address
     /// @param _addressProvider Wasabi Address Provider address
     /// @param _factory Wasabi Pool Factory address
-    constructor(IWasabiOption _wasabiOption, ILendingAddressProvider _addressProvider, address _factory) {
+    constructor(
+        IWasabiOption _wasabiOption,
+        IFlashloan _flashloan,
+        ILendingAddressProvider _addressProvider,
+        address _factory
+    ) {
         wasabiOption = _wasabiOption;
+        flashloan = _flashloan;
         addressProvider = _addressProvider;
         factory = _factory;
-        flashloanPremiumValue = 9;
         flashloanPremiumFraction = 10_000; // 0.09%
     }
 
@@ -57,13 +64,13 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     ///      3. get loan from nft lending protocol
     /// @param _nftLending NFTLending contract address
     /// @param _borrowData Borrow data
-    /// @param _value Call value
+    /// @param _flashLoanAmount Call value
     /// @param _marketplaceCallData List of marketplace calldata
     /// @param _signatures Signatures
     function bnpl(
         address _nftLending,
         bytes calldata _borrowData,
-        uint256 _value,
+        uint256 _flashLoanAmount,
         FunctionCallData[] calldata _marketplaceCallData,
         bytes[] calldata _signatures
     ) external payable nonReentrant {
@@ -73,11 +80,7 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
             revert InvalidParam();
         }
 
-        uint256 balanceBefore = address(this).balance;
-        if (balanceBefore < _value) {
-            revert InsufficientBalance();
-        }
-        balanceBefore -= msg.value;
+        uint256 flashloanPremiumValue = flashloan.flashloan(_flashLoanAmount);
 
         // Buy NFT
         bool marketSuccess = executeFunctions(_marketplaceCallData);
@@ -97,17 +100,23 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         });
 
         // repay flashloan
-        uint256 loanPremium = ((_value - msg.value) * flashloanPremiumValue) /
+        uint256 loanPremium = (_flashLoanAmount * flashloanPremiumValue) /
             flashloanPremiumFraction;
-
-        if (address(this).balance < balanceBefore + loanPremium) {
+        uint256 repayment = _flashLoanAmount + loanPremium;
+        if (address(this).balance < repayment) {
             revert LoanNotPaid();
         }
-        uint256 payout = address(this).balance - balanceBefore - loanPremium;
+        uint256 payout = address(this).balance - repayment;
 
-        (bool sent, ) = payable(_msgSender()).call{value: payout}("");
+        (bool sent, ) = payable(address(flashloan)).call{value: repayment}("");
         if (!sent) {
             revert EthTransferFailed();
+        }
+        if (payout > 0) {
+            (sent, ) = payable(_msgSender()).call{value: payout}("");
+            if (!sent) {
+                revert EthTransferFailed();
+            }
         }
     }
 
@@ -180,11 +189,6 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         uint256 _tokenId
     ) external onlyOwner {
         _token.safeTransferFrom(address(this), owner(), _tokenId);
-    }
-
-    /// @dev Sets the flashloan loan premium value
-    function setFlashloanPremiumValue(uint256 _flashloanPremiumValue) external onlyOwner {
-        flashloanPremiumValue = _flashloanPremiumValue;
     }
 
     function onERC721Received(

@@ -15,6 +15,7 @@ contract MockLending is IERC721Receiver {
         address currency;
         uint256 loanAmount;
         uint256 repayment;
+        uint256 expiration;
     }
 
     uint256 private loanIdTracker;
@@ -41,7 +42,8 @@ contract MockLending is IERC721Receiver {
             nftId: nftId,
             currency: wethAddress,
             loanAmount: loanAmount,
-            repayment: repayment
+            repayment: repayment,
+            expiration: block.timestamp + 30 days
         });
 
         IERC721(nft).safeTransferFrom(msg.sender, address(this), nftId);

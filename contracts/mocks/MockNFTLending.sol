@@ -15,6 +15,7 @@ interface ILending {
         address currency;
         uint256 loanAmount;
         uint256 repayment;
+        uint256 expiration;
     }
 
     function loans(uint256 loanId) external view returns (Loan memory);
@@ -31,6 +32,17 @@ contract MockNFTLending is INFTLending {
 
     address public constant lending =
         0x855d1c79Ad3fb086D516554Dc7187E3Fdfc1C79a;
+
+    /// @inheritdoc INFTLending
+    function getLoanDetails(
+        uint256 _loanId
+    ) external view returns (LoanDetails memory loanDetails) {
+        ILending.Loan memory loan = ILending(lending).loans(_loanId);
+
+        loanDetails.borrowAmount = loan.loanAmount;
+        loanDetails.repayAmount = loan.repayment;
+        loanDetails.loanExpiration = loan.expiration;
+    }
 
     function getNFTDetails(
         uint256 _loanId

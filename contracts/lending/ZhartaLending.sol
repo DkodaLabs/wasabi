@@ -27,6 +27,25 @@ contract ZhartaLending is INFTLending {
     error InvalidCollateralLength();
 
     /// @inheritdoc INFTLending
+    function getLoanDetails(
+        uint256 _loanId
+    ) external view returns (LoanDetails memory loanDetails) {
+        // Get Loan for loanId
+        ILoansCore.Loan memory loanDetail = loansCore.getLoan(
+            address(this),
+            _loanId
+        );
+
+        loanDetails.borrowAmount = loanDetail.amount;
+        loanDetails.repayAmount = loansPeripheral.getLoanPayableAmount(
+            address(this),
+            _loanId,
+            block.timestamp
+        );
+        loanDetails.loanExpiration = loanDetail.maturity;
+    }
+
+    /// @inheritdoc INFTLending
     function getNFTDetails(
         uint256 _loanId
     ) external view returns (address, uint256) {

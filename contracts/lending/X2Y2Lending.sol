@@ -22,6 +22,20 @@ contract X2Y2Lending is INFTLending {
         IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
     /// @inheritdoc INFTLending
+    function getLoanDetails(
+        uint256 _loanId
+    ) external view returns (LoanDetails memory loanDetails) {
+        uint32 loanId = uint32(_loanId);
+
+        // Get LoanDetail for loanId
+        IXY3.LoanDetail memory loanDetail = xy3.loanDetails(loanId);
+
+        loanDetails.borrowAmount = loanDetail.borrowAmount;
+        loanDetails.repayAmount = loanDetail.repayAmount;
+        loanDetails.loanExpiration = loanDetail.loanStart + loanDetail.loanDuration;
+    }
+
+    /// @inheritdoc INFTLending
     function getNFTDetails(
         uint256 _loanId
     ) external view returns (address, uint256) {

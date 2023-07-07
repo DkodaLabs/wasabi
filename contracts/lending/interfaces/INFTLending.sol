@@ -3,6 +3,22 @@ pragma solidity 0.8.19;
 
 /// @notice NFTLending Interface
 interface INFTLending {
+    /// @notice Loan Details struct
+    /// @param borrowAmount Borrow amount
+    /// @param repayAmount Repay amount
+    /// @param loanExpiration Loan expiration
+    struct LoanDetails {
+        uint256 borrowAmount;
+        uint256 repayAmount;
+        uint256 loanExpiration;
+    }
+
+    /// @notice Get loan details for given loan id
+    /// @param _loanId The loan id
+    function getLoanDetails(
+        uint256 _loanId
+    ) external view returns (LoanDetails memory);
+
     /// @notice Get NFT address and id for given loan id
     /// @param _loanId The loan id
     function getNFTDetails(

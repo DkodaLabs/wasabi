@@ -31,6 +31,23 @@ contract NFTfiLending is INFTLending {
         IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
     /// @inheritdoc INFTLending
+    function getLoanDetails(
+        uint256 _loanId
+    ) external view returns (LoanDetails memory loanDetails) {
+        uint32 loanId = uint32(_loanId);
+
+        // Get LoanTerms for loanId
+        IDirectLoanFixedCollectionOffer.LoanTerms
+            memory loanTerms = directLoanFixedCollectionOffer.loanIdToLoan(
+                loanId
+            );
+
+        loanDetails.borrowAmount = loanTerms.loanPrincipalAmount;
+        loanDetails.repayAmount = loanTerms.maximumRepaymentAmount;
+        loanDetails.loanExpiration = loanTerms.loanStartTime + loanTerms.loanDuration;
+    }
+
+    /// @inheritdoc INFTLending
     function getNFTDetails(
         uint256 _loanId
     ) external view returns (address, uint256) {

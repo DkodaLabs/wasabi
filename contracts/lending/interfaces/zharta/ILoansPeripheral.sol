@@ -35,4 +35,10 @@ interface ILoansPeripheral {
     ) external returns (uint256);
 
     function pay(uint256 _loanId) external payable;
+
+    function getLoanPayableAmount(
+        address _borrower,
+        uint256 _loanId,
+        uint256 _timestamp
+    ) external view returns (uint256);
 }

@@ -14,7 +14,7 @@ contract Flashloan is IFlashloan, Ownable {
 
     modifier onlyEnabledBorrower() {
         require(
-            enabledFlashLoaners[msg.sender].enabled == true,
+            enabledFlashLoaners[_msgSender()].enabled == true,
             "Borrower not enabled"
         );
         _;
@@ -26,13 +26,15 @@ contract Flashloan is IFlashloan, Ownable {
 
     /// @notice Enable Flashloaner
     /// @param loaner Flashloaner address
+    /// @param enabled Enabled flag
     /// @param flashloanPremiumValue Flashloan premium ratio
     function enableFlashloaner(
         address loaner,
+        bool enabled,
         uint256 flashloanPremiumValue
     ) external onlyOwner {
         enabledFlashLoaners[loaner] = FlashLoanInfo({
-            enabled: true,
+            enabled: enabled,
             flashloanPremiumValue: flashloanPremiumValue
         });
     }
@@ -41,13 +43,13 @@ contract Flashloan is IFlashloan, Ownable {
     function borrow(
         uint256 amount
     ) external onlyEnabledBorrower returns (uint256 flashLoanRepayAmount) {
-        (bool success, ) = msg.sender.call{value: amount}("");
+        (bool success, ) = _msgSender().call{value: amount}("");
         if (!success) {
             revert EthTransferFailed();
         }
 
         uint256 loanPremium = (amount *
-            enabledFlashLoaners[msg.sender].flashloanPremiumValue) /
+            enabledFlashLoaners[_msgSender()].flashloanPremiumValue) /
             flashloanPremiumFraction;
         flashLoanRepayAmount = amount + loanPremium;
     }

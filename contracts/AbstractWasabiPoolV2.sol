@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./IWasabiPoolFactory.sol";
+import "./IWasabiPoolFactoryV2.sol";
 import "./IWasabiConduitV2.sol";
 import "./IWasabiPoolV2.sol";
 import "./WasabiOption.sol";
@@ -26,7 +26,7 @@ abstract contract AbstractWasabiPoolV2 is
     using EnumerableSet for EnumerableSet.UintSet;
 
     // Pool metadata
-    IWasabiPoolFactory public factory;
+    IWasabiPoolFactoryV2 public factory;
     WasabiOption private optionNFT;
     address private admin;
 
@@ -46,7 +46,7 @@ abstract contract AbstractWasabiPoolV2 is
      * @dev Initializes this pool
      */
     function baseInitialize(
-        IWasabiPoolFactory _factory,
+        IWasabiPoolFactoryV2 _factory,
         address _optionNFT,
         address _owner,
         address _admin
@@ -193,7 +193,11 @@ abstract contract AbstractWasabiPoolV2 is
             if (
                 IERC721(_request.nft).ownerOf(_request.tokenId) != address(this)
             ) {
-                revert IWasabiErrors.NftIsInvalid();
+                IERC721(_request.nft).safeTransferFrom(
+                    owner(),
+                    address(this),
+                    _request.tokenId
+                );
             }
             // Check that the token is free
             uint256 optionId = nftToOptionId[_request.nft][_request.tokenId];
@@ -449,20 +453,26 @@ abstract contract AbstractWasabiPoolV2 is
 
     /// @inheritdoc IWasabiPoolV2
     function clearExpiredOptions(uint256[] memory _optionIds) public {
-        if (_optionIds.length > 0) {
-            for (uint256 i = 0; i < _optionIds.length; i++) {
+        uint256 length = _optionIds.length;
+        if (length > 0) {
+            for (uint256 i; i != length; ) {
                 uint256 _optionId = _optionIds[i];
                 if (!isValid(_optionId)) {
                     optionIds.remove(_optionId);
                 }
+                unchecked {
+                    ++i;
+                }
             }
         } else {
-            for (uint256 i = 0; i < optionIds.length(); ) {
+            for (uint256 i; i != optionIds.length(); ) {
                 uint256 _optionId = optionIds.at(i);
                 if (!isValid(_optionId)) {
                     optionIds.remove(_optionId);
                 } else {
-                    i++;
+                    unchecked {
+                        ++i;
+                    }
                 }
             }
         }
@@ -514,7 +524,7 @@ abstract contract AbstractWasabiPoolV2 is
         uint256[] calldata _tokenIds
     ) external onlyOwner nonReentrant {
         uint256 numNFTs = _tokenIds.length;
-        for (uint256 i; i < numNFTs; ) {
+        for (uint256 i; i != numNFTs; ) {
             if (IERC721(_nft).ownerOf(_tokenIds[i]) != address(this)) {
                 revert IWasabiErrors.NftIsInvalid();
             }
@@ -542,7 +552,7 @@ abstract contract AbstractWasabiPoolV2 is
         uint256[] calldata _tokenIds
     ) external onlyOwner nonReentrant {
         uint256 numNFTs = _tokenIds.length;
-        for (uint256 i; i < numNFTs; ) {
+        for (uint256 i; i != numNFTs; ) {
             _nft.safeTransferFrom(_msgSender(), address(this), _tokenIds[i]);
             unchecked {
                 ++i;

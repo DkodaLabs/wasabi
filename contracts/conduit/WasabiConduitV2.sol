@@ -89,7 +89,6 @@ contract WasabiConduitV2 is
         WasabiStructsV2.PoolAsk calldata _request,
         bytes calldata _signature
     ) public payable returns (uint256) {
-
         IWasabiPoolFactory poolFactory = IWasabiPoolFactory(factory);
         IWasabiFeeManager feeManager = IWasabiFeeManager(poolFactory.getFeeManager());
         (, uint256 feeAmount) = feeManager.getFeeData(_request.poolAddress, _request.premium);

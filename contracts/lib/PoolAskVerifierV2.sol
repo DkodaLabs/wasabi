@@ -6,7 +6,6 @@ import "./SigningV2.sol";
  * @dev Signature Verification for PoolAsk
  */
 library PoolAskVerifierV2 {
-
     bytes32 constant EIP712DOMAIN_TYPEHASH =
         keccak256(
             "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
@@ -45,15 +44,15 @@ library PoolAskVerifierV2 {
      */
     function hashForPoolAsk(
         WasabiStructsV2.PoolAsk memory _poolAsk
-    ) public pure returns (bytes32) {
+    ) internal pure returns (bytes32) {
         return
             keccak256(
                 abi.encode(
                     POOLASK_TYPEHASH,
                     _poolAsk.id,
                     _poolAsk.poolAddress,
-                    _poolAsk.nft,
                     _poolAsk.optionType,
+                    _poolAsk.nft,
                     _poolAsk.strikePrice,
                     _poolAsk.premium,
                     _poolAsk.expiry,
@@ -73,7 +72,7 @@ library PoolAskVerifierV2 {
     function getSignerForPoolAsk(
         WasabiStructsV2.PoolAsk memory _poolAsk,
         bytes memory _signature
-    ) public view returns (address) {
+    ) internal view returns (address) {
         bytes32 domainSeparator = hashDomain(
             WasabiStructsV2.EIP712Domain({
                 name: "PoolAskSignature",
@@ -83,7 +82,11 @@ library PoolAskVerifierV2 {
             })
         );
         bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", domainSeparator, hashForPoolAsk(_poolAsk))
+            abi.encodePacked(
+                "\x19\x01",
+                domainSeparator,
+                hashForPoolAsk(_poolAsk)
+            )
         );
         return SigningV2.recoverSigner(digest, _signature);
     }

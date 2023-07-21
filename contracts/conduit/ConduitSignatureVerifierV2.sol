@@ -107,7 +107,7 @@ abstract contract ConduitSignatureVerifierV2 {
         bytes32 domainSeparator = hashDomain(
             WasabiStructsV2.EIP712Domain({
                 name: "ConduitSignature",
-                version: "1",
+                version: "2",
                 chainId: getChainID(),
                 verifyingContract: address(this)
             })
@@ -132,7 +132,7 @@ abstract contract ConduitSignatureVerifierV2 {
         bytes32 domainSeparator = hashDomain(
             WasabiStructsV2.EIP712Domain({
                 name: "ConduitSignature",
-                version: "1",
+                version: "2",
                 chainId: getChainID(),
                 verifyingContract: address(this)
             })

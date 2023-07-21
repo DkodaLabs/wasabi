@@ -491,7 +491,7 @@ abstract contract AbstractWasabiPoolV2 is
         if (optionData.optionType == WasabiStructsV2.OptionType.CALL) {
             if (_exercised) {
                 // Sell to executor, the validateOptionForExecution already checked if strike is paid
-                IERC721(_nft).safeTransferFrom(
+                IERC721(optionData.nft).safeTransferFrom(
                     address(this),
                     _msgSender(),
                     optionData.tokenId

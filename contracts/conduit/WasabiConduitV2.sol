@@ -75,10 +75,7 @@ contract WasabiConduitV2 is
         }
         for (uint256 index = 0; index < _asks.length; index++) {
             uint256 sigIndex = index + _requests.length;
-            uint256 tokenId = acceptAsk(
-                _asks[index],
-                _signatures[sigIndex]
-            );
+            uint256 tokenId = acceptAsk(_asks[index], _signatures[sigIndex]);
             optionIds[sigIndex] = tokenId;
         }
         return optionIds;
@@ -90,8 +87,13 @@ contract WasabiConduitV2 is
         bytes calldata _signature
     ) public payable returns (uint256) {
         IWasabiPoolFactory poolFactory = IWasabiPoolFactory(factory);
-        IWasabiFeeManager feeManager = IWasabiFeeManager(poolFactory.getFeeManager());
-        (, uint256 feeAmount) = feeManager.getFeeData(_request.poolAddress, _request.premium);
+        IWasabiFeeManager feeManager = IWasabiFeeManager(
+            poolFactory.getFeeManager()
+        );
+        (, uint256 feeAmount) = feeManager.getFeeData(
+            _request.poolAddress,
+            _request.premium
+        );
         uint256 amount = _request.premium + feeAmount;
 
         IWasabiPoolV2 pool = IWasabiPoolV2(_request.poolAddress);
@@ -105,7 +107,12 @@ contract WasabiConduitV2 is
             return pool.writeOptionTo(_request, _signature, _msgSender());
         } else {
             require(msg.value >= amount, "Not enough ETH supplied");
-            return pool.writeOptionTo{value: amount}(_request, _signature, _msgSender());
+            return
+                pool.writeOptionTo{value: amount}(
+                    _request,
+                    _signature,
+                    _msgSender()
+                );
         }
     }
 
@@ -168,7 +175,9 @@ contract WasabiConduitV2 is
         if (_ask.tokenAddress == address(0)) {
             require(msg.value >= price, "Not enough ETH supplied");
             if (royaltyAmount > 0) {
-                (bool sent, ) = payable(royaltyAddress).call{value: royaltyAmount}("");
+                (bool sent, ) = payable(royaltyAddress).call{
+                    value: royaltyAmount
+                }("");
                 if (!sent) {
                     revert IWasabiErrors.FailedToSend();
                 }
@@ -181,7 +190,13 @@ contract WasabiConduitV2 is
         } else {
             IERC20 erc20 = IERC20(_ask.tokenAddress);
             if (royaltyAmount > 0) {
-                if(!erc20.transferFrom(_msgSender(), royaltyAddress, royaltyAmount)) {
+                if (
+                    !erc20.transferFrom(
+                        _msgSender(),
+                        royaltyAddress,
+                        royaltyAmount
+                    )
+                ) {
                     revert IWasabiErrors.FailedToSend();
                 }
                 price -= royaltyAmount;
@@ -223,7 +238,9 @@ contract WasabiConduitV2 is
 
         IERC20 erc20 = IERC20(_bid.tokenAddress);
         if (royaltyAmount > 0) {
-            if (!erc20.transferFrom(_bid.buyer, royaltyAddress, royaltyAmount)) {
+            if (
+                !erc20.transferFrom(_bid.buyer, royaltyAddress, royaltyAmount)
+            ) {
                 revert IWasabiErrors.FailedToSend();
             }
             price -= royaltyAmount;
@@ -238,7 +255,11 @@ contract WasabiConduitV2 is
     }
 
     /// @inheritdoc IWasabiConduitV2
-    function poolAcceptBid(WasabiStructsV2.Bid calldata _bid, bytes calldata _signature, uint256 _optionId) external {
+    function poolAcceptBid(
+        WasabiStructsV2.Bid calldata _bid,
+        bytes calldata _signature,
+        uint256 _optionId
+    ) external {
         bytes memory id = getBidId(_bid);
 
         address poolAddress = _msgSender();
@@ -246,22 +267,36 @@ contract WasabiConduitV2 is
             !idToFinalizedOrCancelled[id],
             "Order was finalized or cancelled"
         );
-        
-        require(IWasabiPoolFactory(factory).isValidPool(_msgSender()), "Pool is not valid");
+
+        require(
+            IWasabiPoolFactory(factory).isValidPool(_msgSender()),
+            "Pool is not valid"
+        );
 
         IWasabiPoolV2 pool = IWasabiPoolV2(poolAddress);
         validateBid(pool, _bid, _signature);
 
         IERC20 erc20 = IERC20(_bid.tokenAddress);
 
-        (address royaltyAddress, uint256 royaltyAmount) = option.royaltyInfo(_optionId, _bid.price);
+        (address royaltyAddress, uint256 royaltyAmount) = option.royaltyInfo(
+            _optionId,
+            _bid.price
+        );
 
         if (royaltyAmount > 0) {
-            if (!erc20.transferFrom(_bid.buyer, royaltyAddress, royaltyAmount)) {
+            if (
+                !erc20.transferFrom(_bid.buyer, royaltyAddress, royaltyAmount)
+            ) {
                 revert IWasabiErrors.FailedToSend();
             }
         }
-        if (!erc20.transferFrom(_bid.buyer, poolAddress, _bid.price - royaltyAmount)) {
+        if (
+            !erc20.transferFrom(
+                _bid.buyer,
+                poolAddress,
+                _bid.price - royaltyAmount
+            )
+        ) {
             revert IWasabiErrors.FailedToSend();
         }
 
@@ -284,7 +319,8 @@ contract WasabiConduitV2 is
         address currentOwner = option.ownerOf(_ask.optionId);
 
         require(
-            verifyAsk(_ask, _signature, owner()) || verifyAsk(_ask, _signature, currentOwner),
+            verifyAsk(_ask, _signature, owner()) ||
+                verifyAsk(_ask, _signature, currentOwner),
             "Incorrect signature"
         );
         require(currentOwner == _ask.seller, "Seller is not owner");
@@ -310,7 +346,9 @@ contract WasabiConduitV2 is
             "Seller is not owner"
         );
 
-        WasabiStructsV2.OptionData memory optionData = _pool.getOptionData(_optionId);
+        WasabiStructsV2.OptionData memory optionData = _pool.getOptionData(
+            _optionId
+        );
 
         require(
             optionData.optionType == _bid.optionType,
@@ -353,7 +391,10 @@ contract WasabiConduitV2 is
         require(_bid.orderExpiry >= block.timestamp, "Order expired");
         require(_bid.price > 0, "Price needs to be greater than 0");
 
-        require(_pool.getLiquidityAddress() == _bid.optionTokenAddress, "Option liquidity doesn't match");
+        require(
+            _pool.getLiquidityAddress() == _bid.optionTokenAddress,
+            "Option liquidity doesn't match"
+        );
     }
 
     /// @inheritdoc IWasabiConduitV2
@@ -362,7 +403,10 @@ contract WasabiConduitV2 is
         bytes calldata _signature
     ) external {
         // Validate Signature
-        require(verifyAsk(_ask, _signature, _ask.seller), "Incorrect signature");
+        require(
+            verifyAsk(_ask, _signature, _ask.seller),
+            "Incorrect signature"
+        );
         require(_msgSender() == _ask.seller, "Only the signer can cancel");
 
         bytes memory id = getAskId(_ask);

@@ -6,7 +6,6 @@ import "./SigningV2.sol";
  * @dev Signature Verification for PoolBid
  */
 library PoolBidVerifierV2 {
-
     bytes32 constant EIP712DOMAIN_TYPEHASH =
         keccak256(
             "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
@@ -45,7 +44,7 @@ library PoolBidVerifierV2 {
      */
     function hashForPoolBid(
         WasabiStructsV2.PoolBid memory _poolBid
-    ) public pure returns (bytes32) {
+    ) internal pure returns (bytes32) {
         return
             keccak256(
                 abi.encode(
@@ -69,17 +68,21 @@ library PoolBidVerifierV2 {
     function getSignerForPoolBid(
         WasabiStructsV2.PoolBid memory _poolBid,
         bytes memory _signature
-    ) public view returns (address) {
+    ) internal view returns (address) {
         bytes32 domainSeparator = hashDomain(
             WasabiStructsV2.EIP712Domain({
                 name: "PoolBidVerifier",
-                version: "1",
+                version: "2",
                 chainId: getChainID(),
                 verifyingContract: address(this)
             })
         );
         bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", domainSeparator, hashForPoolBid(_poolBid))
+            abi.encodePacked(
+                "\x19\x01",
+                domainSeparator,
+                hashForPoolBid(_poolBid)
+            )
         );
         return SigningV2.recoverSigner(digest, _signature);
     }

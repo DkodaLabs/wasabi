@@ -7,67 +7,89 @@ import {WasabiStructsV2} from "./WasabiStructsV2.sol";
  * @dev Signature Verification
  */
 library SigningV2 {
-
     /**
      * @dev Returns the message hash for the given request
      */
-    function getMessageHash(WasabiStructsV2.PoolAsk calldata _request) public pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                _request.id,
-                _request.poolAddress,
-                _request.optionType,
-                _request.strikePrice,
-                _request.premium,
-                _request.expiry,
-                _request.tokenId,
-                _request.orderExpiry));
+    function getMessageHash(
+        WasabiStructsV2.PoolAsk calldata _request
+    ) internal pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(
+                    _request.id,
+                    _request.poolAddress,
+                    _request.optionType,
+                    _request.strikePrice,
+                    _request.premium,
+                    _request.expiry,
+                    _request.tokenId,
+                    _request.orderExpiry
+                )
+            );
     }
 
     /**
      * @dev Returns the message hash for the given request
      */
-    function getAskHash(WasabiStructsV2.Ask calldata _ask) public pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                _ask.id,
-                _ask.price,
-                _ask.tokenAddress,
-                _ask.orderExpiry,
-                _ask.seller,
-                _ask.optionId));
+    function getAskHash(
+        WasabiStructsV2.Ask calldata _ask
+    ) internal pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(
+                    _ask.id,
+                    _ask.price,
+                    _ask.tokenAddress,
+                    _ask.orderExpiry,
+                    _ask.seller,
+                    _ask.optionId
+                )
+            );
     }
 
-    function getBidHash(WasabiStructsV2.Bid calldata _bid) public pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                _bid.id,
-                _bid.price,
-                _bid.tokenAddress,
-                _bid.collection,
-                _bid.orderExpiry,
-                _bid.buyer,
-                _bid.optionType,
-                _bid.strikePrice,
-                _bid.expiry,
-                _bid.expiryAllowance));
+    function getBidHash(
+        WasabiStructsV2.Bid calldata _bid
+    ) internal pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(
+                    _bid.id,
+                    _bid.price,
+                    _bid.tokenAddress,
+                    _bid.collection,
+                    _bid.orderExpiry,
+                    _bid.buyer,
+                    _bid.optionType,
+                    _bid.strikePrice,
+                    _bid.expiry,
+                    _bid.expiryAllowance
+                )
+            );
     }
 
     /**
      * @dev creates an ETH signed message hash
      */
-    function getEthSignedMessageHash(bytes32 _messageHash) public pure returns (bytes32) {
+    function getEthSignedMessageHash(
+        bytes32 _messageHash
+    ) internal pure returns (bytes32) {
         /*
         Signature is produced by signing a keccak256 hash with the following format:
         "\x19Ethereum Signed Message\n" + len(msg) + msg
         */
-        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _messageHash));
+        return
+            keccak256(
+                abi.encodePacked(
+                    "\x19Ethereum Signed Message:\n32",
+                    _messageHash
+                )
+            );
     }
 
     function getSigner(
         WasabiStructsV2.PoolAsk calldata _request,
         bytes memory signature
-    ) public pure returns (address) {
+    ) internal pure returns (address) {
         bytes32 messageHash = getMessageHash(_request);
         bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
 
@@ -77,32 +99,25 @@ library SigningV2 {
     function getAskSigner(
         WasabiStructsV2.Ask calldata _ask,
         bytes memory signature
-    ) public pure returns (address) {
+    ) internal pure returns (address) {
         bytes32 messageHash = getAskHash(_ask);
         bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
 
         return recoverSigner(ethSignedMessageHash, signature);
     }
 
-    function recoverSigner(bytes32 _ethSignedMessageHash, bytes memory _signature)
-        public
-        pure
-        returns (address)
-    {
+    function recoverSigner(
+        bytes32 _ethSignedMessageHash,
+        bytes memory _signature
+    ) internal pure returns (address) {
         (bytes32 r, bytes32 s, uint8 v) = splitSignature(_signature);
 
         return ecrecover(_ethSignedMessageHash, v, r, s);
     }
 
-    function splitSignature(bytes memory sig)
-        public
-        pure
-        returns (
-            bytes32 r,
-            bytes32 s,
-            uint8 v
-        )
-    {
+    function splitSignature(
+        bytes memory sig
+    ) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
         require(sig.length == 65, "invalid signature length");
 
         assembly {

@@ -30,6 +30,18 @@ export interface PoolAsk {
     orderExpiry: number | BN | string;
 }
 
+export interface PoolAskV2 {
+    id: number;
+    poolAddress: string;
+    optionType: number | BN | string;
+    strikePrice: number | BN | string;
+    premium: number | BN | string;
+    expiry: number | BN | string;
+    nft: string;
+    tokenId: number | BN | string;
+    orderExpiry: number | BN | string;
+}
+
 export interface FunctionCallData {
     to: string;
     value: number | BN | string;

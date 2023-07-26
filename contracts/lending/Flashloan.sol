@@ -2,6 +2,8 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import "./interfaces/IFlashloan.sol";
 
@@ -52,6 +54,26 @@ contract Flashloan is IFlashloan, Ownable {
             enabledFlashLoaners[_msgSender()].flashloanPremiumValue) /
             flashloanPremiumFraction;
         flashLoanRepayAmount = amount + loanPremium;
+    }
+
+    /// @dev withdraws any stuck eth in this contract
+    function withdrawETH(uint256 amount) external payable onlyOwner {
+        require(amount <= address(this).balance, "Invalid amount");
+        address payable to = payable(owner());
+        to.transfer(amount);
+    }
+
+    /// @dev withdraws any stuck ERC20 in this contract
+    function withdrawERC20(IERC20 token, uint256 amount) external onlyOwner {
+        token.transfer(msg.sender, amount);
+    }
+
+    /// @dev withdraws any stuck ERC721 in this contract
+    function withdrawERC721(
+        IERC721 token,
+        uint256 tokenId
+    ) external onlyOwner {
+        token.safeTransferFrom(address(this), owner(), tokenId);
     }
 
     receive() external payable {}

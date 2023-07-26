@@ -15,7 +15,7 @@ contract X2Y2Lending is INFTLending {
     using SafeERC20 for IERC20;
 
     /// @notice XY3 Contract
-    IXY3 public constant xy3 = IXY3(0xFa4D5258804D7723eb6A934c11b1bd423bC31623);
+    IXY3 public constant xy3 = IXY3(0xB81965DdFdDA3923f292a47A1be83ba3A36B5133);
 
     /// @notice WETH Contract
     IWETH public constant weth =

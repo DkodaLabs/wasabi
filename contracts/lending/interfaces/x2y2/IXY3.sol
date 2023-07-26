@@ -19,17 +19,15 @@ interface IXY3 {
         RESOLVED
     }
 
-    struct LoanDetail {
-        StatusType state;
-        uint64 reserved;
-        uint32 loanDuration;
-        uint16 adminShare;
-        uint64 loanStart;
-        uint8 borrowAssetIndex;
-        uint32 nftAssetIndex;
-        uint112 borrowAmount;
-        uint112 repayAmount;
-        uint256 nftTokenId;
+    struct LoanInfo {
+        uint32 loanId;
+        address nftAsset;
+        address borrowAsset;
+        uint nftId;
+        uint256 adminFee;
+        uint payoffAmount;
+        uint borrowAmount;
+        uint maturityDate;
     }
 
     enum ItemType {
@@ -59,9 +57,9 @@ interface IXY3 {
         bytes32[] proof;
     }
 
-    function loanDetails(
+    function getLoanInfo(
         uint32 _loanId
-    ) external view returns (LoanDetail memory);
+    ) external view returns (LoanInfo memory);
 
     function borrow(
         Offer memory _offer,

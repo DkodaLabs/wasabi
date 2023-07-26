@@ -27,12 +27,12 @@ contract X2Y2Lending is INFTLending {
     ) external view returns (LoanDetails memory loanDetails) {
         uint32 loanId = uint32(_loanId);
 
-        // Get LoanDetail for loanId
-        IXY3.LoanDetail memory loanDetail = xy3.loanDetails(loanId);
+        // Get LoanInfo for loanId
+        IXY3.LoanInfo memory loanInfo = xy3.getLoanInfo(loanId);
 
-        loanDetails.borrowAmount = loanDetail.borrowAmount;
-        loanDetails.repayAmount = loanDetail.repayAmount;
-        loanDetails.loanExpiration = loanDetail.loanStart + loanDetail.loanDuration;
+        loanDetails.borrowAmount = loanInfo.borrowAmount;
+        loanDetails.repayAmount = loanInfo.payoffAmount;
+        loanDetails.loanExpiration = loanInfo.maturityDate;
     }
 
     /// @inheritdoc INFTLending
@@ -41,10 +41,10 @@ contract X2Y2Lending is INFTLending {
     ) external view returns (address, uint256) {
         uint32 loanId = uint32(_loanId);
 
-        // Get LoanDetail for loanId
-        IXY3.LoanDetail memory loanDetail = xy3.loanDetails(loanId);
+        // Get LoanInfo for loanId
+        IXY3.LoanInfo memory loanInfo = xy3.getLoanInfo(loanId);
 
-        return (loanDetail.nftAsset, loanDetail.nftTokenId);
+        return (loanInfo.nftAsset, loanInfo.nftId);
     }
 
     /// @inheritdoc INFTLending
@@ -55,18 +55,14 @@ contract X2Y2Lending is INFTLending {
         (
             IXY3.Offer memory offer,
             uint256 nftId,
-            bool isCollectionOffer,
-            IXY3.Signature memory lenderSignature,
-            IXY3.Signature memory brokerSignature,
-            IXY3.CallData memory extraDeal
+            IXY3.BrokerSignature memory brokerSignature,
+            IXY3.CallData memory extraData
         ) = abi.decode(
                 _inputData,
                 (
                     IXY3.Offer,
                     uint256,
-                    bool,
-                    IXY3.Signature,
-                    IXY3.Signature,
+                    IXY3.BrokerSignature,
                     IXY3.CallData
                 )
             );
@@ -80,10 +76,8 @@ contract X2Y2Lending is INFTLending {
         uint32 loanId = xy3.borrow(
             offer,
             nftId,
-            isCollectionOffer,
-            lenderSignature,
             brokerSignature,
-            extraDeal
+            extraData
         );
 
         // Unwrap WETH into ETH
@@ -97,25 +91,25 @@ contract X2Y2Lending is INFTLending {
     function repay(uint256 _loanId, address _receiver) external payable {
         uint32 loanId = uint32(_loanId);
 
-        // Get LoanDetail for loanId
-        IXY3.LoanDetail memory loanDetail = xy3.loanDetails(loanId);
+        // Get LoanInfo for loanId
+        IXY3.LoanInfo memory loanInfo = xy3.getLoanInfo(loanId);
 
         // Wrap ETH into WETH
-        weth.deposit{value: loanDetail.repayAmount}();
+        weth.deposit{value: loanInfo.payoffAmount}();
 
         // Approve token to `xy3`
-        IERC20 token = IERC20(loanDetail.borrowAsset);
+        IERC20 token = IERC20(loanInfo.borrowAsset);
         token.safeApprove(address(xy3), 0);
-        token.safeApprove(address(xy3), loanDetail.repayAmount);
+        token.safeApprove(address(xy3), loanInfo.payoffAmount);
 
         // Pay back loan
         xy3.repay(loanId);
 
         // Transfer collateral NFT to the user
-        IERC721(loanDetail.nftAsset).safeTransferFrom(
+        IERC721(loanInfo.nftAsset).safeTransferFrom(
             address(this),
             _receiver,
-            loanDetail.nftTokenId
+            loanInfo.nftId
         );
     }
 

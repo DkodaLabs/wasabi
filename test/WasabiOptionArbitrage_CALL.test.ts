@@ -6,7 +6,6 @@ import { OptionExecuted, OptionIssued } from "../types/truffle-contracts/IWasabi
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { signFunctionCallData, gasOfTxn, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth, withFee } from "./util/TestUtils";
 
-const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const ETHWasabiPool = artifacts.require("ETHWasabiPool");
@@ -43,7 +42,6 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
 
     before("Prepare State", async function () {
         testNft = await TestERC721.deployed();
-        await Signing.deployed();
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
         await option.toggleFactory(poolFactory.address, true);

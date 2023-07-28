@@ -8,7 +8,6 @@ import { WasabiOptionInstance } from "../types/truffle-contracts/WasabiOption.js
 import { ERC20WasabiPoolInstance, OptionIssued } from "../types/truffle-contracts/ERC20WasabiPool.js";
 import { DemoETHInstance } from "../types/truffle-contracts";
 
-const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
@@ -43,7 +42,6 @@ contract("ERC20WasabiPool: Accept Pool Bid", accounts => {
     before("Prepare State", async function () {
         token = await DemoETH.deployed();
         testNft = await TestERC721.deployed();
-        await Signing.deployed();
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
         await option.toggleFactory(poolFactory.address, true);

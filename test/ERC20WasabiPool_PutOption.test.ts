@@ -11,7 +11,6 @@ import { OptionExecuted, OptionIssued } from "../types/truffle-contracts/IWasabi
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
 import { assertIncreaseInBalance, expectRevertCustomError, gasOfTxn, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
 
-const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const ETHWasabiPool = artifacts.require("ETHWasabiPool");
@@ -45,7 +44,6 @@ contract("Erc20WasabiPool: PutOption", accounts => {
         token = await DemoETH.deployed();
 
         testNft = await TestERC721.deployed();
-        await Signing.deployed();
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
         await option.toggleFactory(poolFactory.address, true);

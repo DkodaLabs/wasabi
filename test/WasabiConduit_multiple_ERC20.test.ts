@@ -10,7 +10,6 @@ import { DemoETHInstance } from "../types/truffle-contracts";
 import { WasabiConduitInstance } from "../types/truffle-contracts/WasabiConduit";
 import { request } from "http";
 
-const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
@@ -43,7 +42,6 @@ contract("WasabiConduit Multibuy ERC20", accounts => {
         conduit = await WasabiConduit.deployed();
         token = await DemoETH.deployed();
         testNft = await TestERC721.deployed();
-        await Signing.deployed();
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
         await option.toggleFactory(poolFactory.address, true);

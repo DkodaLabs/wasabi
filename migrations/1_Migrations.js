@@ -1,4 +1,3 @@
-const Signing = artifacts.require("Signing");
 const WasabiStructs = artifacts.require("WasabiStructs");
 const PoolAskVerifier = artifacts.require("PoolAskVerifier");
 const PoolBidVerifier = artifacts.require("PoolBidVerifier");
@@ -11,8 +10,6 @@ const WasabiFeeManager = artifacts.require("WasabiFeeManager");
 
 module.exports = async function (deployer, _network, accounts) {
   await deployer.deploy(WasabiStructs);
-  await deployer.deploy(Signing);
-  await deployer.link(Signing,[PoolAskVerifier, PoolBidVerifier]);
   await deployer.deploy(PoolAskVerifier);
   await deployer.deploy(PoolBidVerifier);
   await deployer.deploy(WasabiOption);
@@ -25,7 +22,6 @@ module.exports = async function (deployer, _network, accounts) {
   } else {
     await deployer.deploy(WasabiFeeManager, 0, 10000);
   }
-  await deployer.link(Signing, [WasabiConduit]);
   await deployer.deploy(WasabiConduit, WasabiOption.address);
   await deployer.deploy(WasabiPoolFactory, WasabiOption.address, ETHWasabiPool.address, ERC20WasabiPool.address, WasabiFeeManager.address, WasabiConduit.address);
 };

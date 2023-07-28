@@ -9,7 +9,6 @@ import { ERC20WasabiPoolInstance, OptionIssued, OptionExecuted } from "../types/
 import { DemoETHInstance } from "../types/truffle-contracts";
 import { Transfer } from "../types/truffle-contracts/ERC721";
 
-const Signing = artifacts.require("Signing");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
@@ -39,7 +38,6 @@ contract("ERC20WasabiPool: CallOption", accounts => {
     before("Prepare State", async function () {
         token = await DemoETH.deployed();
         testNft = await TestERC721.deployed();
-        await Signing.deployed();
         option = await WasabiOption.deployed();
         poolFactory = await WasabiPoolFactory.deployed();
         await option.toggleFactory(poolFactory.address, true);

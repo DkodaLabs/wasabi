@@ -11,7 +11,7 @@ import {
   MockNFTLendingInstance,
   MockLendingInstance,
   WETH9Instance,
-  AddressProviderInstance,
+  LendingAddressProviderInstance,
 } from "../types/truffle-contracts";
 import { PoolState } from "./util/TestTypes";
 import {
@@ -23,7 +23,7 @@ import {
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const TestERC721 = artifacts.require("TestERC721");
-const AddressProvider = artifacts.require("AddressProvider");
+const LendingAddressProvider = artifacts.require("LendingAddressProvider");
 const WasabiBNPL = artifacts.require("WasabiBNPL");
 const Flashloan = artifacts.require("Flashloan");
 const WETH9 = artifacts.require("WETH9");
@@ -34,7 +34,7 @@ const MockMarketplace = artifacts.require("MockMarketplace");
 contract("WasabiBNPL", (accounts) => {
   let poolFactory: WasabiPoolFactoryInstance;
   let option: WasabiOptionInstance;
-  let addressProvider: AddressProviderInstance;
+  let addressProvider: LendingAddressProviderInstance;
   let testNft: TestERC721Instance;
   let tokenToBuy: BN;
   let bnpl: WasabiBNPLInstance;
@@ -55,7 +55,7 @@ contract("WasabiBNPL", (accounts) => {
     option = await WasabiOption.deployed();
     poolFactory = await WasabiPoolFactory.deployed();
     await option.toggleFactory(poolFactory.address, true);
-    addressProvider = await AddressProvider.new();
+    addressProvider = await LendingAddressProvider.new();
 
     let mintResult = await testNft.mint();
     tokenToBuy = mintResult.logs.find((e) => e.event == "Transfer")

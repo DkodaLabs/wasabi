@@ -66,7 +66,7 @@ contract("WasabiBNPL", (accounts) => {
     lending = await MockLending.new(weth.address);
     nftLending = await MockNFTLending.new();
     flashloan = await Flashloan.new();
-    bnpl = await WasabiBNPL.new(option.address, flashloan.address, addressProvider.address, poolFactory.address);
+    bnpl = await WasabiBNPL.new(option.address, flashloan.address, addressProvider.address, weth.address, poolFactory.address);
 
     await poolFactory.togglePool(bnpl.address, PoolState.ACTIVE);
 

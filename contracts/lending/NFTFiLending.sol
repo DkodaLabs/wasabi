@@ -33,7 +33,7 @@ contract NFTfiLending is INFTLending {
     /// @inheritdoc INFTLending
     function getLoanDetails(
         uint256 _loanId
-    ) external view returns (LoanDetails memory loanDetails) {
+    ) external view returns (LoanDetails memory) {
         uint32 loanId = uint32(_loanId);
 
         // Get LoanTerms for loanId
@@ -42,24 +42,13 @@ contract NFTfiLending is INFTLending {
                 loanId
             );
 
-        loanDetails.borrowAmount = loanTerms.loanPrincipalAmount;
-        loanDetails.repayAmount = loanTerms.maximumRepaymentAmount;
-        loanDetails.loanExpiration = loanTerms.loanStartTime + loanTerms.loanDuration;
-    }
-
-    /// @inheritdoc INFTLending
-    function getNFTDetails(
-        uint256 _loanId
-    ) external view returns (address, uint256) {
-        uint32 loanId = uint32(_loanId);
-
-        // Get LoanTerms for loanId
-        IDirectLoanFixedCollectionOffer.LoanTerms
-            memory loanTerms = directLoanFixedCollectionOffer.loanIdToLoan(
-                loanId
-            );
-
-        return (loanTerms.nftCollateralContract, loanTerms.nftCollateralId);
+        return LoanDetails(
+            loanTerms.loanPrincipalAmount, // borrowAmount
+            loanTerms.maximumRepaymentAmount, // repayAmount
+            loanTerms.loanStartTime + loanTerms.loanDuration, // loanExpiration
+            loanTerms.nftCollateralContract, // nftAddress
+            loanTerms.nftCollateralId // tokenId
+        );
     }
 
     /// @inheritdoc INFTLending
@@ -128,13 +117,15 @@ contract NFTfiLending is INFTLending {
 
         // Pay back loan
         directLoanFixedCollectionOffer.payBackLoan(loanId);
-
-        // Transfer collateral NFT to the user
-        IERC721(loanTerms.nftCollateralContract).safeTransferFrom(
-            address(this),
-            _receiver,
-            loanTerms.nftCollateralId
-        );
+        
+        if (_receiver != address(this)) {
+            // Transfer collateral NFT to the user
+            IERC721(loanTerms.nftCollateralContract).safeTransferFrom(
+                address(this),
+                _receiver,
+                loanTerms.nftCollateralId
+            );
+        }
     }
 
     receive() external payable {}

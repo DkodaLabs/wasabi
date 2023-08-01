@@ -11,6 +11,8 @@ interface INFTLending {
         uint256 borrowAmount;
         uint256 repayAmount;
         uint256 loanExpiration;
+        address nftAddress;
+        uint256 tokenId;
     }
 
     /// @notice Get loan details for given loan id
@@ -18,12 +20,6 @@ interface INFTLending {
     function getLoanDetails(
         uint256 _loanId
     ) external view returns (LoanDetails memory);
-
-    /// @notice Get NFT address and id for given loan id
-    /// @param _loanId The loan id
-    function getNFTDetails(
-        uint256 _loanId
-    ) external view returns (address, uint256);
 
     /// @notice Borrow WETH from the protocol
     /// @param _inputData Encoded input parameters

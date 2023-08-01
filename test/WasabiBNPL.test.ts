@@ -6,11 +6,12 @@ import {
   WasabiOptionInstance,
   TestERC721Instance,
   WasabiBNPLInstance,
+  FlashloanInstance,
   MockMarketplaceInstance,
   MockNFTLendingInstance,
   MockLendingInstance,
   WETH9Instance,
-  AddressProviderInstance,
+  LendingAddressProviderInstance,
 } from "../types/truffle-contracts";
 import { PoolState } from "./util/TestTypes";
 import {
@@ -22,8 +23,9 @@ import {
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const TestERC721 = artifacts.require("TestERC721");
-const AddressProvider = artifacts.require("AddressProvider");
+const LendingAddressProvider = artifacts.require("LendingAddressProvider");
 const WasabiBNPL = artifacts.require("WasabiBNPL");
+const Flashloan = artifacts.require("Flashloan");
 const WETH9 = artifacts.require("WETH9");
 const MockLending = artifacts.require("MockLending");
 const MockNFTLending = artifacts.require("MockNFTLending");
@@ -32,10 +34,11 @@ const MockMarketplace = artifacts.require("MockMarketplace");
 contract("WasabiBNPL", (accounts) => {
   let poolFactory: WasabiPoolFactoryInstance;
   let option: WasabiOptionInstance;
-  let addressProvider: AddressProviderInstance;
+  let addressProvider: LendingAddressProviderInstance;
   let testNft: TestERC721Instance;
   let tokenToBuy: BN;
   let bnpl: WasabiBNPLInstance;
+  let flashloan: FlashloanInstance;
   let marketplace: MockMarketplaceInstance;
   let lending: MockLendingInstance;
   let nftLending: MockNFTLendingInstance;
@@ -52,7 +55,7 @@ contract("WasabiBNPL", (accounts) => {
     option = await WasabiOption.deployed();
     poolFactory = await WasabiPoolFactory.deployed();
     await option.toggleFactory(poolFactory.address, true);
-    addressProvider = await AddressProvider.new();
+    addressProvider = await LendingAddressProvider.new();
 
     let mintResult = await testNft.mint();
     tokenToBuy = mintResult.logs.find((e) => e.event == "Transfer")
@@ -62,15 +65,17 @@ contract("WasabiBNPL", (accounts) => {
     marketplace = await MockMarketplace.deployed();
     lending = await MockLending.new(weth.address);
     nftLending = await MockNFTLending.new();
-    bnpl = await WasabiBNPL.new(option.address, addressProvider.address, poolFactory.address);
+    flashloan = await Flashloan.new();
+    bnpl = await WasabiBNPL.new(option.address, flashloan.address, addressProvider.address, poolFactory.address);
 
     await poolFactory.togglePool(bnpl.address, PoolState.ACTIVE);
 
     await web3.eth.sendTransaction({
       from: lp,
-      to: bnpl.address,
+      to: flashloan.address,
       value: toEth(initialFlashLoanPoolBalance),
     });
+    await flashloan.enableFlashloaner(bnpl.address, true, 100);
 
     await weth.deposit(metadata(lp, 10));
     await weth.transfer(lending.address, toEth(10), metadata(lp));

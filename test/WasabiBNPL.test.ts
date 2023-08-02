@@ -121,15 +121,6 @@ contract("WasabiBNPL", (accounts) => {
       [testNft.address, tokenToBuy.toString(), loanAmount, repayment]
     );
 
-    optionId = await bnpl.bnpl.call(
-      nftLending.address,
-      borrowData,
-      toEth(13),
-      [buyCall],
-      signatures,
-      metadata(buyer, 3.5)
-    );
-
     // List of marketplace calldata and Signature's length is not same, should revert.
     await truffleAssert.reverts(
       bnpl.bnpl(
@@ -187,6 +178,15 @@ contract("WasabiBNPL", (accounts) => {
       "Nft Lending Address is invalid."
     );
 
+    optionId = await bnpl.bnpl.call(
+      nftLending.address,
+      borrowData,
+      toEth(13),
+      [buyCall],
+      signatures,
+      metadata(buyer, 3.5)
+    );
+
     await bnpl.bnpl(
       nftLending.address,
       borrowData,
@@ -195,6 +195,8 @@ contract("WasabiBNPL", (accounts) => {
       signatures,
       metadata(buyer, 3.5)
     );
+
+    assert.equal(await option.ownerOf(optionId), buyer);
   });
 
   it("should get option data", async () => {

@@ -59,6 +59,27 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         factory = _factory;
     }
 
+    /// @dev Returns the option data for the given option id
+    function getOptionData(
+        uint256 _optionId
+    ) external view returns (WasabiStructs.OptionData memory optionData) {
+        LoanInfo memory loanInfo = optionToLoan[_optionId];
+        INFTLending.LoanDetails memory loanDetails = INFTLending(
+            loanInfo.nftLending
+        ).getLoanDetails(loanInfo.loanId);
+        (, uint256 _tokenId) = INFTLending(loanInfo.nftLending).getNFTDetails(
+            loanInfo.loanId
+        );
+
+        optionData = WasabiStructs.OptionData(
+            true,
+            WasabiStructs.OptionType.CALL,
+            loanDetails.repayAmount,
+            loanDetails.loanExpiration,
+            _tokenId
+        );
+    }
+
     /// @notice Executes BNPL flow
     /// @dev BNLP flow
     ///      1. take flashloan
@@ -109,7 +130,9 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         }
         uint256 payout = address(this).balance - flashLoanRepayAmount;
 
-        (bool sent, ) = payable(address(flashloan)).call{value: flashLoanRepayAmount}("");
+        (bool sent, ) = payable(address(flashloan)).call{
+            value: flashLoanRepayAmount
+        }("");
         if (!sent) {
             revert EthTransferFailed();
         }

@@ -18,6 +18,8 @@ import {
   signFunctionCallData,
   metadata,
   toEth,
+  advanceTime,
+  advanceBlock,
 } from "./util/TestUtils";
 
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -37,6 +39,7 @@ contract("WasabiBNPL", (accounts) => {
   let addressProvider: LendingAddressProviderInstance;
   let testNft: TestERC721Instance;
   let tokenToBuy: BN;
+  let optionId: BN;
   let bnpl: WasabiBNPLInstance;
   let flashloan: FlashloanInstance;
   let marketplace: MockMarketplaceInstance;
@@ -111,7 +114,7 @@ contract("WasabiBNPL", (accounts) => {
       [testNft.address, tokenToBuy.toString(), loanAmount, repayment]
     );
 
-    const optionId = await bnpl.bnpl.call(
+    optionId = await bnpl.bnpl.call(
       nftLending.address,
       borrowData,
       toEth(13),
@@ -128,11 +131,22 @@ contract("WasabiBNPL", (accounts) => {
       signatures,
       metadata(buyer, 3.5)
     );
+  });
 
-    const optionData = await bnpl.getOptionData(optionId);
+  it("should get option data", async () => {
+    let optionData = await bnpl.getOptionData(optionId);
     assert.equal(optionData.active, true);
     assert.equal(optionData.optionType.toString(), "0");
-    assert.equal(optionData.strikePrice.toString(), repayment.toString());
+    assert.equal(optionData.strikePrice.toString(), toEth(10.5).toString());
+    assert.equal(optionData.tokenId.toString(), tokenToBuy.toString());
+
+    await advanceTime(3600 * 24 * 30);
+    await advanceBlock();
+
+    optionData = await bnpl.getOptionData(optionId);
+    assert.equal(optionData.active, false);
+    assert.equal(optionData.optionType.toString(), "0");
+    assert.equal(optionData.strikePrice.toString(), toEth(10.5).toString());
     assert.equal(optionData.tokenId.toString(), tokenToBuy.toString());
   });
 });

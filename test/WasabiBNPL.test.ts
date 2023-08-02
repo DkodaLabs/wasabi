@@ -111,6 +111,15 @@ contract("WasabiBNPL", (accounts) => {
       [testNft.address, tokenToBuy.toString(), loanAmount, repayment]
     );
 
+    const optionId = await bnpl.bnpl.call(
+      nftLending.address,
+      borrowData,
+      toEth(13),
+      [buyCall],
+      signatures,
+      metadata(buyer, 3.5)
+    );
+
     const res = await bnpl.bnpl(
       nftLending.address,
       borrowData,
@@ -119,5 +128,11 @@ contract("WasabiBNPL", (accounts) => {
       signatures,
       metadata(buyer, 3.5)
     );
+
+    const optionData = await bnpl.getOptionData(optionId);
+    assert.equal(optionData.active, true);
+    assert.equal(optionData.optionType.toString(), "0");
+    assert.equal(optionData.strikePrice.toString(), repayment.toString());
+    assert.equal(optionData.tokenId.toString(), tokenToBuy.toString());
   });
 });

@@ -20,6 +20,7 @@ import {
   toEth,
   advanceTime,
   advanceBlock,
+  expectRevertCustomError,
 } from "./util/TestUtils";
 
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -69,7 +70,13 @@ contract("WasabiBNPL", (accounts) => {
     lending = await MockLending.new(weth.address);
     nftLending = await MockNFTLending.new();
     flashloan = await Flashloan.new();
-    bnpl = await WasabiBNPL.new(option.address, flashloan.address, addressProvider.address, weth.address, poolFactory.address);
+    bnpl = await WasabiBNPL.new(
+      option.address,
+      flashloan.address,
+      addressProvider.address,
+      weth.address,
+      poolFactory.address
+    );
 
     await poolFactory.togglePool(bnpl.address, PoolState.ACTIVE);
 
@@ -123,7 +130,64 @@ contract("WasabiBNPL", (accounts) => {
       metadata(buyer, 3.5)
     );
 
-    const res = await bnpl.bnpl(
+    // List of marketplace calldata and Signature's length is not same, should revert.
+    await truffleAssert.reverts(
+      bnpl.bnpl(
+        nftLending.address,
+        borrowData,
+        toEth(13),
+        [buyCall],
+        [],
+        metadata(buyer, 3.5)
+      ),
+      "Length is invalid"
+    );
+
+    // List of marketplace calldata's length can't be zero, should revert.
+    await truffleAssert.reverts(
+      bnpl.bnpl(
+        nftLending.address,
+        borrowData,
+        toEth(13),
+        [],
+        signatures,
+        metadata(buyer, 3.5)
+      ),
+      "Need marketplace calls"
+    );
+
+    // When trying to sign with buyer address, should revert.
+    const wrongSignature = await signFunctionCallData(buyCall, buyer);
+
+    await truffleAssert.reverts(
+      bnpl.bnpl(
+        nftLending.address,
+        borrowData,
+        toEth(13),
+        [buyCall],
+        [wrongSignature],
+        metadata(buyer, 3.5)
+      ),
+      "Owner is not signer"
+    );
+
+    const invalidLendingAddress = "0xb0d1140a09f669935b4848f6826fd16ff19787b9";
+
+    // Nft Lending address should be added in AddressProvider, should revert.
+    await expectRevertCustomError(
+      bnpl.bnpl(
+        invalidLendingAddress,
+        borrowData,
+        toEth(13),
+        [buyCall],
+        signatures,
+        metadata(buyer, 3.5)
+      ),
+      "InvalidParam",
+      "Nft Lending Address is invalid."
+    );
+
+    await bnpl.bnpl(
       nftLending.address,
       borrowData,
       toEth(13),
@@ -148,5 +212,19 @@ contract("WasabiBNPL", (accounts) => {
     assert.equal(optionData.optionType.toString(), "0");
     assert.equal(optionData.strikePrice.toString(), toEth(10.5).toString());
     assert.equal(optionData.tokenId.toString(), tokenToBuy.toString());
+  });
+
+  it("should execute option", async () => {
+    await truffleAssert.reverts(
+      bnpl.executeOption(optionId, { from: deployer }),
+      "Only owner can exercise option"
+    );
+
+    await truffleAssert.reverts(
+      bnpl.executeOption(optionId, { from: buyer }),
+      "Loan has expired"
+    );
+
+    //  await bnpl.executeOption(optionId, { from: buyer, value: toEth(5) });
   });
 });

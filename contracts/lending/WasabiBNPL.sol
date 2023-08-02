@@ -67,16 +67,13 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         INFTLending.LoanDetails memory loanDetails = INFTLending(
             loanInfo.nftLending
         ).getLoanDetails(loanInfo.loanId);
-        (, uint256 _tokenId) = INFTLending(loanInfo.nftLending).getNFTDetails(
-            loanInfo.loanId
-        );
 
         optionData = WasabiStructs.OptionData(
             true,
             WasabiStructs.OptionType.CALL,
             loanDetails.repayAmount,
             loanDetails.loanExpiration,
-            _tokenId
+            loanDetails.tokenId
         );
     }
 

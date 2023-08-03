@@ -20,6 +20,8 @@ import {
   toEth,
   advanceTime,
   advanceBlock,
+  takeSnapshot,
+  revert,
   expectRevertCustomError,
 } from "./util/TestUtils";
 
@@ -47,11 +49,12 @@ contract("WasabiBNPL", (accounts) => {
   let lending: MockLendingInstance;
   let nftLending: MockNFTLendingInstance;
   let weth: WETH9Instance;
+  let wholeSnapshotId: any;
+  let unitSnapshotId: any;
 
   const deployer = accounts[0];
   const lp = accounts[2];
   const buyer = accounts[3];
-
   const initialFlashLoanPoolBalance = 15;
 
   before("Prepare State", async function () {
@@ -200,6 +203,8 @@ contract("WasabiBNPL", (accounts) => {
   });
 
   it("should get option data", async () => {
+    wholeSnapshotId = await takeSnapshot();
+
     let optionData = await bnpl.getOptionData(optionId);
     assert.equal(optionData.active, true);
     assert.equal(optionData.optionType.toString(), "0");
@@ -214,19 +219,60 @@ contract("WasabiBNPL", (accounts) => {
     assert.equal(optionData.optionType.toString(), "0");
     assert.equal(optionData.strikePrice.toString(), toEth(10.5).toString());
     assert.equal(optionData.tokenId.toString(), tokenToBuy.toString());
+
+    // Revert advanced time as previous time
+    await revert(wholeSnapshotId);
   });
 
   it("should execute option", async () => {
+    wholeSnapshotId = await takeSnapshot();
+
+    // Only owner can exerciese option, should revert
     await truffleAssert.reverts(
       bnpl.executeOption(optionId, { from: deployer }),
       "Only owner can exercise option"
     );
 
+    // Insufficient repay amount option, should revert
+    await truffleAssert.reverts(
+      bnpl.executeOption(optionId, { from: buyer, value: toEth(5) }),
+      "Insufficient repay amount supplied"
+    );
+
+    // Take snapshot, before advancing time and block
+    unitSnapshotId = await takeSnapshot();
+
+    // Advance 30 days
+    await advanceTime(3600 * 24 * 30);
+    await advanceBlock();
+
+    // Because time is past at loan's expiration date, should revert
     await truffleAssert.reverts(
       bnpl.executeOption(optionId, { from: buyer }),
       "Loan has expired"
     );
 
-    //  await bnpl.executeOption(optionId, { from: buyer, value: toEth(5) });
+    // Revert advanced time as previous one
+    await revert(unitSnapshotId);
+
+    // Check if event emitted.
+    const executeOptionResult = await bnpl.executeOption(optionId, {
+      from: buyer,
+      value: toEth(15),
+    });
+    await truffleAssert.eventEmitted(
+      executeOptionResult,
+      "OptionExecuted",
+      null,
+      "Executed Option"
+    );
+
+    // Once executing Option is finished, Option should be burned.
+    await truffleAssert.reverts(
+      option.ownerOf(optionId),
+      "ERC721: invalid token ID"
+    );
+
+    await revert(wholeSnapshotId);
   });
 });

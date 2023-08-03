@@ -90,8 +90,9 @@ contract("WasabiBNPL", (accounts) => {
     });
     await flashloan.enableFlashloaner(bnpl.address, true, 100);
 
-    await weth.deposit(metadata(lp, 10));
+    await weth.deposit(metadata(lp, 30));
     await weth.transfer(lending.address, toEth(10), metadata(lp));
+    await weth.transfer(marketplace.address, toEth(20), metadata(lp));
 
     await addressProvider.addLending(nftLending.address);
 
@@ -265,6 +266,105 @@ contract("WasabiBNPL", (accounts) => {
       "OptionExecuted",
       null,
       "Executed Option"
+    );
+
+    // Once executing Option is finished, Option should be burned.
+    await truffleAssert.reverts(
+      option.ownerOf(optionId),
+      "ERC721: invalid token ID"
+    );
+
+    await revert(wholeSnapshotId);
+  });
+
+  it("should execute option with arbitrage", async () => {
+    wholeSnapshotId = await takeSnapshot();
+
+    const approveCallData = web3.eth.abi.encodeFunctionCall(
+      testNft.abi.find((a) => a.name === "approve")!,
+      [marketplace.address, tokenToBuy.toString()]
+    );
+    const approveCall = {
+      to: testNft.address,
+      value: 0,
+      data: approveCallData,
+    };
+
+    const sellCallData = web3.eth.abi.encodeFunctionCall(
+      marketplace.abi.find((a) => a.name === "sell")!,
+      [testNft.address, tokenToBuy.toString()]
+    );
+    const sellCall = {
+      to: marketplace.address,
+      value: 0,
+      data: sellCallData,
+    };
+
+    const approveSignature = await signFunctionCallData(approveCall, deployer);
+    const sellSignature = await signFunctionCallData(sellCall, deployer);
+
+    const signatures = [];
+    signatures.push(approveSignature);
+    signatures.push(sellSignature);
+
+    // List of marketplace calldata and Signature's length is not same, should revert.
+    await truffleAssert.reverts(
+      bnpl.executeOptionWithArbitrage(optionId, [approveCall, sellCall], []),
+      "Length is invalid"
+    );
+
+    // List of marketplace calldata's length can't be zero, should revert.
+    await truffleAssert.reverts(
+      bnpl.executeOptionWithArbitrage(optionId, [], signatures),
+      "Need marketplace calls"
+    );
+
+    // When trying to sign with buyer address, should revert.
+    const wrongSignature = await signFunctionCallData(sellCall, buyer);
+
+    // List of marketplace calldata's length can't be zero, should revert.
+    await truffleAssert.reverts(
+      bnpl.executeOptionWithArbitrage(
+        optionId,
+        [approveCall, sellCall],
+        [approveSignature, wrongSignature],
+        { from: deployer }
+      ),
+      "Owner is not signer"
+    );
+
+    // Take snapshot, before advancing time and block
+    unitSnapshotId = await takeSnapshot();
+
+    // Advance 30 days
+    await advanceTime(3600 * 24 * 30);
+    await advanceBlock();
+
+    // Because time is past at loan's expiration date, should revert.
+    await truffleAssert.reverts(
+      bnpl.executeOptionWithArbitrage(
+        optionId,
+        [approveCall, sellCall],
+        signatures,
+        { from: buyer }
+      ),
+      "Loan has expired"
+    );
+
+    await revert(unitSnapshotId);
+
+    const executeAritrageResult = await bnpl.executeOptionWithArbitrage(
+      optionId,
+      [approveCall, sellCall],
+      signatures,
+      { from: buyer }
+    );
+
+    await truffleAssert.eventEmitted(
+      executeAritrageResult,
+      "OptionExecutedWithArbitrage",
+      null,
+      "Executed Option With Arbitrage"
     );
 
     // Once executing Option is finished, Option should be burned.

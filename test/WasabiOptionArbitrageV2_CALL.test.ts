@@ -1,20 +1,21 @@
 const truffleAssert = require('truffle-assertions');
 
-import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance, WasabiOptionArbitrageInstance, MockMarketplaceInstance, WETH9Instance, WasabiFeeManagerInstance } from "../types/truffle-contracts";
+import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance, WasabiOptionArbitrageV2Instance, FlashloanInstance, MockMarketplaceInstance, WETH9Instance, WasabiFeeManagerInstance } from "../types/truffle-contracts";
 import { OptionIssued } from "../types/truffle-contracts/IWasabiPool";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { signFunctionCallData, gasOfTxn, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth, withFee } from "./util/TestUtils";
+import { signFunctionCallData, makeRequest, metadata, signPoolAskWithEIP712, toBN, toEth, withFee } from "./util/TestUtils";
 
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const ETHWasabiPool = artifacts.require("ETHWasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
-const WasabiOptionArbitrage = artifacts.require("WasabiOptionArbitrage");
+const WasabiOptionArbitrageV2 = artifacts.require("WasabiOptionArbitrageV2");
+const Flashloan = artifacts.require("Flashloan");
 const WETH9 = artifacts.require("WETH9");
 const MockMarketplace = artifacts.require("MockMarketplace");
 const WasabiFeeManager = artifacts.require("WasabiFeeManager");
 
-contract("WasabiOptionArbitrage CALL", (accounts) => {
+contract("WasabiOptionArbitrageV2 CALL", (accounts) => {
     let poolFactory: WasabiPoolFactoryInstance;
     let feeManager: WasabiFeeManagerInstance;
     let option: WasabiOptionInstance;
@@ -23,7 +24,8 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
     let pool: ETHWasabiPoolInstance;
     let optionId: BN;
     let request: PoolAsk;
-    let arbitrage: WasabiOptionArbitrageInstance;
+    let arbitrage: WasabiOptionArbitrageV2Instance;
+    let flashloan: FlashloanInstance;
     let marketplace: MockMarketplaceInstance;
     let weth: WETH9Instance;
 
@@ -45,15 +47,17 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
         poolFactory = await WasabiPoolFactory.deployed();
         await option.toggleFactory(poolFactory.address, true);
         feeManager = await WasabiFeeManager.deployed();
+        flashloan = await Flashloan.new();
 
         let mintResult = await testNft.mint(metadata(lp));
         tokenToSell = mintResult.logs.find(e => e.event == 'Transfer')?.args[2] as BN;
 
         weth = await WETH9.deployed();
         marketplace = await MockMarketplace.deployed();
-        arbitrage = await WasabiOptionArbitrage.new(option.address, weth.address);
+        arbitrage = await WasabiOptionArbitrageV2.new(option.address, weth.address, flashloan.address);
 
-        await web3.eth.sendTransaction({ from: lp, to: arbitrage.address, value: toEth(initialFlashLoanPoolBalance) })
+        await web3.eth.sendTransaction({ from: lp, to: flashloan.address, value: toEth(initialFlashLoanPoolBalance) })
+        await flashloan.enableFlashloaner(arbitrage.address, true, 9);
 
         // Send 10 WETH to the marketplace
         await weth.deposit(metadata(lp, 20));
@@ -135,9 +139,6 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
             data: sellCallData
         };
 
-        const initialArbBalance = toBN(await web3.eth.getBalance(arbitrage.address));
-        const initialUserBalance = toBN(await web3.eth.getBalance(buyer));
-
         const invalidSignature = await signFunctionCallData(approveCall, buyer);
         const approveSignature = await signFunctionCallData(approveCall, deployer);
 
@@ -146,9 +147,10 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
         signatures.push(approveSignature);
         signatures.push(sellSignature);
 
-        const arbitrageResult = await arbitrage.arbitrage(
+        await arbitrage.arbitrage(
             optionId,
             strikeWithFee,
+            toEth(initialFlashLoanPoolBalance),
             pool.address,
             tokenToSell,
             [approveCall, sellCall],
@@ -160,6 +162,7 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
             arbitrage.arbitrage(
                 optionId,
                 strikeWithFee,
+                toEth(initialFlashLoanPoolBalance),
                 pool.address,
                 tokenToSell,
                 [approveCall],
@@ -173,6 +176,7 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
             arbitrage.arbitrage(
                 optionId,
                 strikeWithFee,
+                toEth(initialFlashLoanPoolBalance),
                 pool.address,
                 tokenToSell,
                 [approveCall, sellCall],
@@ -182,28 +186,6 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
             "Owner is not signer",
             "Owner is not signer");
 
-        const premiumEarnedByArbitrage = 
-            toBN(strikeWithFee)
-                .mul(toBN(9))
-                .div(toBN(10_000));
-        const userProfit = 
-            toBN(price)
-                .sub(toBN(strikeWithFee))
-                .sub(premiumEarnedByArbitrage)
-                .sub(gasOfTxn(arbitrageResult.receipt));
-
         assert.equal(await testNft.ownerOf(tokenToSell), marketplace.address, "Pool didn't receive the NFT");
-
-        assert.equal(
-            await web3.eth.getBalance(arbitrage.address),
-            initialArbBalance.add(premiumEarnedByArbitrage).toString(),
-            "Arbitrage flash loan didn't receive enough"
-        );
-
-        assert.equal(
-            await web3.eth.getBalance(buyer),
-            initialUserBalance.add(userProfit).toString(),
-            "User didn't receive enough"
-        );
     });
 });

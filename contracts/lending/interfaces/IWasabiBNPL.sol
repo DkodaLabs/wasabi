@@ -32,4 +32,10 @@ interface IWasabiBNPL {
 
     /// @notice Invalid Param
     error InvalidParam();
+
+    /// @dev Emitted when an option is executed
+    event OptionExecuted(uint256 optionId);
+
+    /// @dev Emitted when an option is executed and the NFT is sold to the market
+    event OptionExecutedWithArbitrage(uint256 optionId, uint256 payout);
 }

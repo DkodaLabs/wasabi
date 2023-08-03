@@ -36,20 +36,26 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     /// @notice Option ID to LoanInfo mapping
     mapping(uint256 => LoanInfo) public optionToLoan;
 
+    /// @notice
+    address public wethAddress;
+
     /// @notice WasabiBNPL Constructor
     /// @param _wasabiOption Wasabi Option address
     /// @param _flashloan Wasabi Flashloan address
     /// @param _addressProvider Wasabi Address Provider address
+    /// @param _wethAddress Wrapped ETH address
     /// @param _factory Wasabi Pool Factory address
     constructor(
         IWasabiOption _wasabiOption,
         IFlashloan _flashloan,
         ILendingAddressProvider _addressProvider,
+        address _wethAddress,
         address _factory
     ) {
         wasabiOption = _wasabiOption;
         flashloan = _flashloan;
         addressProvider = _addressProvider;
+        wethAddress = _wethAddress;
         factory = _factory;
     }
 
@@ -76,14 +82,16 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
             revert InvalidParam();
         }
 
+        // 1. Get flash loan
         uint256 flashLoanRepayAmount = flashloan.borrow(_flashLoanAmount);
 
-        // Buy NFT
+        // 2. Buy NFT
         bool marketSuccess = executeFunctions(_marketplaceCallData);
         if (!marketSuccess) {
             revert FunctionCallFailed();
         }
 
+        // 3. Get loan
         bytes memory result = _nftLending.functionDelegateCall(
             abi.encodeWithSelector(INFTLending.borrow.selector, _borrowData)
         );
@@ -95,7 +103,7 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
             loanId: loanId
         });
 
-        // repay flashloan
+        // 4. Repay flashloan
         if (address(this).balance < flashLoanRepayAmount) {
             revert LoanNotPaid();
         }
@@ -194,4 +202,92 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     }
 
     receive() external payable {}
+
+    /**
+     * @dev Executes the given option id
+     * @param _optionId The option id
+     */
+    function executeOption(uint256 _optionId) external payable nonReentrant {
+        require(wasabiOption.ownerOf(_optionId) == _msgSender(), "Only owner can exercise option");
+
+        LoanInfo storage loanInfo = optionToLoan[_optionId];
+        require(loanInfo.nftLending != address(0), "Invalid Option");
+
+        INFTLending.LoanDetails memory loanDetails = INFTLending(loanInfo.nftLending).getLoanDetails(loanInfo.loanId);
+        require(loanDetails.loanExpiration > block.timestamp, "Loan has expired");
+        require(msg.value >= loanDetails.repayAmount, "Insufficient repay amount supplied");
+
+        loanInfo.nftLending.functionDelegateCall(
+            abi.encodeWithSelector(INFTLending.repay.selector, loanInfo.loanId, _msgSender())
+        );
+
+        wasabiOption.burn(_optionId);
+        emit OptionExecuted(_optionId);
+    }
+
+    /**
+     * @dev Executes the given option id and sells the NFT to the market
+     * @param _optionId The option id
+     * @param _marketplaceCallData List of marketplace calldata
+     * @param _signatures List of signatures of the marketplace call data
+     */
+    function executeOptionWithArbitrage(
+        uint256 _optionId,
+        FunctionCallData[] calldata _marketplaceCallData,
+        bytes[] calldata _signatures)
+    external payable nonReentrant {
+        validate(_marketplaceCallData, _signatures);
+        require(wasabiOption.ownerOf(_optionId) == _msgSender(), "Only owner can exercise option");
+
+        LoanInfo storage loanInfo = optionToLoan[_optionId];
+        require(loanInfo.nftLending != address(0), "Invalid Option");
+
+        INFTLending.LoanDetails memory loanDetails = INFTLending(loanInfo.nftLending).getLoanDetails(loanInfo.loanId);
+        require(loanDetails.loanExpiration > block.timestamp, "Loan has expired");
+
+        uint256 initialBalance = address(this).balance;
+
+        // 1. Get flash loan
+        uint256 flashLoanRepayAmount = flashloan.borrow(loanDetails.repayAmount);
+
+        // 2. Repay loan
+        loanInfo.nftLending.functionDelegateCall(
+            abi.encodeWithSelector(INFTLending.repay.selector, loanInfo.loanId, address(this)));
+        wasabiOption.burn(_optionId);
+
+        // 3. Sell NFT
+        bool marketSuccess = executeFunctions(_marketplaceCallData);
+        if (!marketSuccess) {
+            revert FunctionCallFailed();
+        }
+
+        // Withdraw any WETH received
+        IWETH weth = IWETH(wethAddress);
+        uint256 wethBalance = weth.balanceOf(address(this));
+        if (wethBalance > 0) {
+            weth.withdraw(wethBalance);
+        }
+
+        uint256 balanceChange = address(this).balance - initialBalance;
+
+        // 4. Repay flashloan
+        if (balanceChange < flashLoanRepayAmount) {
+            revert LoanNotPaid();
+        }
+        (bool sent, ) = payable(address(flashloan)).call{value: flashLoanRepayAmount}("");
+        if (!sent) {
+            revert EthTransferFailed();
+        }
+
+        // 5. Give payout
+        uint256 payout = balanceChange - flashLoanRepayAmount;
+        if (payout > 0) {
+            (sent, ) = payable(_msgSender()).call{value: payout}("");
+            if (!sent) {
+                revert EthTransferFailed();
+            }
+        }
+
+        emit OptionExecutedWithArbitrage(_optionId, payout);
+    }
 }

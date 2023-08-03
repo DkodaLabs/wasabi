@@ -39,16 +39,13 @@ contract MockNFTLending is INFTLending {
     ) external view returns (LoanDetails memory loanDetails) {
         ILending.Loan memory loan = ILending(lending).loans(_loanId);
 
-        loanDetails.borrowAmount = loan.loanAmount;
-        loanDetails.repayAmount = loan.repayment;
-        loanDetails.loanExpiration = loan.expiration;
-    }
-
-    function getNFTDetails(
-        uint256 _loanId
-    ) external view returns (address, uint256) {
-        ILending.Loan memory loan = ILending(lending).loans(_loanId);
-        return (loan.nft, loan.nftId);
+        return LoanDetails(
+            loan.loanAmount, // borrowAmount
+            loan.repayment, // repayAmount
+            loan.expiration, // loanExpiration
+            loan.nft, // nftAddress
+            loan.nftId // tokenId
+        );
     }
 
     function borrow(

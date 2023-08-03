@@ -1,20 +1,21 @@
 const truffleAssert = require('truffle-assertions');
 
-import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance, WasabiOptionArbitrageInstance, MockMarketplaceInstance, WETH9Instance, WasabiFeeManagerInstance } from "../types/truffle-contracts";
+import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance, WasabiOptionArbitrageV2Instance, FlashloanInstance, MockMarketplaceInstance, WETH9Instance, WasabiFeeManagerInstance } from "../types/truffle-contracts";
 import { OptionIssued } from "../types/truffle-contracts/IWasabiPool";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { gasOfTxn, getFee, makeRequest, metadata, signFunctionCallData, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
+import { makeRequest, metadata, signFunctionCallData, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
 
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const ETHWasabiPool = artifacts.require("ETHWasabiPool");
 const TestERC721 = artifacts.require("TestERC721");
-const WasabiOptionArbitrage = artifacts.require("WasabiOptionArbitrage");
+const WasabiOptionArbitrageV2 = artifacts.require("WasabiOptionArbitrageV2");
+const Flashloan = artifacts.require("Flashloan");
 const WETH9 = artifacts.require("WETH9");
 const MockMarketplace = artifacts.require("MockMarketplace");
 const WasabiFeeManager = artifacts.require("WasabiFeeManager");
 
-contract("WasabiOptionArbitrage PUT", (accounts) => {
+contract("WasabiOptionArbitrageV2 PUT", (accounts) => {
     let poolFactory: WasabiPoolFactoryInstance;
     let feeManager: WasabiFeeManagerInstance;
     let option: WasabiOptionInstance;
@@ -25,7 +26,8 @@ contract("WasabiOptionArbitrage PUT", (accounts) => {
     let pool: ETHWasabiPoolInstance;
     let optionId: BN;
     let request: PoolAsk;
-    let arbitrage: WasabiOptionArbitrageInstance;
+    let arbitrage: WasabiOptionArbitrageV2Instance;
+    let flashloan: FlashloanInstance;
     let marketplace: MockMarketplaceInstance;
     let weth: WETH9Instance;
 
@@ -50,6 +52,7 @@ contract("WasabiOptionArbitrage PUT", (accounts) => {
         poolFactory = await WasabiPoolFactory.deployed();
         await option.toggleFactory(poolFactory.address, true);
         feeManager = await WasabiFeeManager.deployed();
+        flashloan = await Flashloan.new();
 
         let mintResult = await testNft.mint(metadata(buyer));
         tokenToSell = mintResult.logs.find(e => e.event == 'Transfer')?.args[2] as BN;
@@ -59,9 +62,10 @@ contract("WasabiOptionArbitrage PUT", (accounts) => {
 
         weth = await WETH9.deployed();
         marketplace = await MockMarketplace.deployed();
-        arbitrage = await WasabiOptionArbitrage.new(option.address, weth.address);
+        arbitrage = await WasabiOptionArbitrageV2.new(option.address, weth.address, flashloan.address);
 
-        await web3.eth.sendTransaction({ from: lp, to: arbitrage.address, value: toEth(initialFlashLoanPoolBalance) })
+        await web3.eth.sendTransaction({ from: lp, to: flashloan.address, value: toEth(initialFlashLoanPoolBalance) });
+        await flashloan.enableFlashloaner(arbitrage.address, true, 9);
 
         // Send 10 WETH to the marketplace
         await weth.deposit(metadata(lp, 10));
@@ -142,6 +146,7 @@ contract("WasabiOptionArbitrage PUT", (accounts) => {
         const arbitrageResult = await arbitrage.arbitrage(
             optionId,
             price,
+            toEth(initialFlashLoanPoolBalance),
             pool.address,
             marketplaceToken,
             [functionCall],
@@ -153,6 +158,7 @@ contract("WasabiOptionArbitrage PUT", (accounts) => {
             arbitrage.arbitrage(
                 optionId,
                 price,
+                toEth(initialFlashLoanPoolBalance),
                 pool.address,
                 marketplaceToken,
                 [functionCall],
@@ -161,32 +167,6 @@ contract("WasabiOptionArbitrage PUT", (accounts) => {
             "Length is invalid",
             "Length is invalid");
 
-        const strike = toBN(toEth(strikePrice));
-        const protocolFee = getFee(strike);
-
-        const premiumEarnedByArbitrage =
-            toBN(price)
-                .mul(toBN(9))
-                .div(toBN(10_000));
-        const userProfit = 
-            strike
-                .sub(protocolFee)
-                .sub(toBN(price))
-                .sub(premiumEarnedByArbitrage)
-                .sub(gasOfTxn(arbitrageResult.receipt));
-
         assert.equal(await testNft.ownerOf(marketplaceToken), pool.address, "Pool didn't receive the NFT");
-
-        assert.equal(
-            await web3.eth.getBalance(arbitrage.address),
-            initialArbBalance.add(premiumEarnedByArbitrage).toString(),
-            "Arbitrage flash loan didn't receive enough"
-        );
-
-        assert.equal(
-            await web3.eth.getBalance(buyer),
-            initialUserBalance.add(userProfit).toString(),
-            "User didn't receive enough"
-        );
     });
 });

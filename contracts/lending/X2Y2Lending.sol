@@ -30,21 +30,13 @@ contract X2Y2Lending is INFTLending {
         // Get LoanInfo for loanId
         IXY3.LoanInfo memory loanInfo = xy3.getLoanInfo(loanId);
 
-        loanDetails.borrowAmount = loanInfo.borrowAmount;
-        loanDetails.repayAmount = loanInfo.payoffAmount;
-        loanDetails.loanExpiration = loanInfo.maturityDate;
-    }
-
-    /// @inheritdoc INFTLending
-    function getNFTDetails(
-        uint256 _loanId
-    ) external view returns (address, uint256) {
-        uint32 loanId = uint32(_loanId);
-
-        // Get LoanInfo for loanId
-        IXY3.LoanInfo memory loanInfo = xy3.getLoanInfo(loanId);
-
-        return (loanInfo.nftAsset, loanInfo.nftId);
+        return LoanDetails(
+            loanInfo.borrowAmount, // borrowAmount
+            loanInfo.payoffAmount, // repayAmount
+            loanInfo.maturityDate, // loanExpiration
+            loanInfo.nftAsset, // nftAddress
+            loanInfo.nftId // tokenId
+        );
     }
 
     /// @inheritdoc INFTLending
@@ -105,12 +97,14 @@ contract X2Y2Lending is INFTLending {
         // Pay back loan
         xy3.repay(loanId);
 
-        // Transfer collateral NFT to the user
-        IERC721(loanInfo.nftAsset).safeTransferFrom(
-            address(this),
-            _receiver,
-            loanInfo.nftId
-        );
+        if (_receiver != address(this)) {
+            // Transfer collateral NFT to the user
+            IERC721(loanInfo.nftAsset).safeTransferFrom(
+                address(this),
+                _receiver,
+                loanInfo.nftId
+            );
+        }
     }
 
     receive() external payable {}

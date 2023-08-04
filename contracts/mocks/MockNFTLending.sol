@@ -30,7 +30,7 @@ interface ILending {
 contract MockNFTLending is INFTLending {
     using SafeERC20 for IERC20;
 
-    address public lending;
+    address public immutable lending;
 
     constructor(address _lending) {
         lending = _lending;

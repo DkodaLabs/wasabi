@@ -64,7 +64,7 @@ contract("WasabiBNPL", (accounts) => {
     addressProvider = await LendingAddressProvider.deployed();
 
     weth = await WETH9.deployed();
-    marketplace = await MockMarketplace.deployed();
+    marketplace = await MockMarketplace.new(weth.address);
     lending = await MockLending.deployed();
     nftLending = await MockNFTLending.deployed();
     flashloan = await Flashloan.deployed();
@@ -335,8 +335,8 @@ contract("WasabiBNPL", (accounts) => {
     // Take snapshot, before advancing time and block
     unitSnapshotId = await takeSnapshot();
 
-    // Advance 30 days
-    await advanceTime(3600 * 24 * 30);
+    // Advance 31 days
+    await advanceTime(3600 * 24 * 31);
     await advanceBlock();
 
     // Because time is past at loan's expiration date, should revert.

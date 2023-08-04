@@ -61,18 +61,13 @@ contract("WasabiBNPL", (accounts) => {
     testNft = await TestERC721.deployed();
     option = await WasabiOption.deployed();
     poolFactory = await WasabiPoolFactory.deployed();
-    await option.toggleFactory(poolFactory.address, true);
-    addressProvider = await LendingAddressProvider.new();
-
-    let mintResult = await testNft.mint();
-    tokenToBuy = mintResult.logs.find((e) => e.event == "Transfer")
-      ?.args[2] as BN;
+    addressProvider = await LendingAddressProvider.deployed();
 
     weth = await WETH9.deployed();
     marketplace = await MockMarketplace.deployed();
-    lending = await MockLending.new(weth.address);
-    nftLending = await MockNFTLending.new();
-    flashloan = await Flashloan.new();
+    lending = await MockLending.deployed();
+    nftLending = await MockNFTLending.deployed();
+    flashloan = await Flashloan.deployed();
     bnpl = await WasabiBNPL.new(
       option.address,
       flashloan.address,
@@ -81,6 +76,7 @@ contract("WasabiBNPL", (accounts) => {
       poolFactory.address
     );
 
+    await option.toggleFactory(poolFactory.address, true);
     await poolFactory.togglePool(bnpl.address, PoolState.ACTIVE);
 
     await web3.eth.sendTransaction({
@@ -96,6 +92,9 @@ contract("WasabiBNPL", (accounts) => {
 
     await addressProvider.addLending(nftLending.address);
 
+    let mintResult = await testNft.mint();
+    tokenToBuy = mintResult.logs.find((e) => e.event == "Transfer")
+      ?.args[2] as BN;
     await testNft.transferFrom(deployer, marketplace.address, tokenToBuy);
   });
 

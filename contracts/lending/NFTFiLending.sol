@@ -42,13 +42,14 @@ contract NFTfiLending is INFTLending {
                 loanId
             );
 
-        return LoanDetails(
-            loanTerms.loanPrincipalAmount, // borrowAmount
-            loanTerms.maximumRepaymentAmount, // repayAmount
-            loanTerms.loanStartTime + loanTerms.loanDuration, // loanExpiration
-            loanTerms.nftCollateralContract, // nftAddress
-            loanTerms.nftCollateralId // tokenId
-        );
+        return
+            LoanDetails(
+                loanTerms.loanPrincipalAmount, // borrowAmount
+                loanTerms.maximumRepaymentAmount, // repayAmount
+                loanTerms.loanStartTime + loanTerms.loanDuration, // loanExpiration
+                loanTerms.nftCollateralContract, // nftAddress
+                loanTerms.nftCollateralId // tokenId
+            );
     }
 
     /// @inheritdoc INFTLending
@@ -73,7 +74,12 @@ contract NFTfiLending is INFTLending {
         IERC721 nft = IERC721(offer.nftCollateralContract);
 
         // Approve
-        nft.setApprovalForAll(address(directLoanFixedCollectionOffer), true);
+        if (
+            !nft.isApprovedForAll(
+                msg.sender,
+                address(directLoanFixedCollectionOffer)
+            )
+        ) nft.setApprovalForAll(address(directLoanFixedCollectionOffer), true);
 
         // Accept offer on NFTfi
         directLoanFixedCollectionOffer.acceptOffer(
@@ -117,7 +123,7 @@ contract NFTfiLending is INFTLending {
 
         // Pay back loan
         directLoanFixedCollectionOffer.payBackLoan(loanId);
-        
+
         if (_receiver != address(this)) {
             // Transfer collateral NFT to the user
             IERC721(loanTerms.nftCollateralContract).safeTransferFrom(

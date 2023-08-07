@@ -30,13 +30,14 @@ contract X2Y2Lending is INFTLending {
         // Get LoanInfo for loanId
         IXY3.LoanInfo memory loanInfo = xy3.getLoanInfo(loanId);
 
-        return LoanDetails(
-            loanInfo.borrowAmount, // borrowAmount
-            loanInfo.payoffAmount, // repayAmount
-            loanInfo.maturityDate, // loanExpiration
-            loanInfo.nftAsset, // nftAddress
-            loanInfo.nftId // tokenId
-        );
+        return
+            LoanDetails(
+                loanInfo.borrowAmount, // borrowAmount
+                loanInfo.payoffAmount, // repayAmount
+                loanInfo.maturityDate, // loanExpiration
+                loanInfo.nftAsset, // nftAddress
+                loanInfo.nftId // tokenId
+            );
     }
 
     /// @inheritdoc INFTLending
@@ -51,26 +52,17 @@ contract X2Y2Lending is INFTLending {
             IXY3.CallData memory extraData
         ) = abi.decode(
                 _inputData,
-                (
-                    IXY3.Offer,
-                    uint256,
-                    IXY3.BrokerSignature,
-                    IXY3.CallData
-                )
+                (IXY3.Offer, uint256, IXY3.BrokerSignature, IXY3.CallData)
             );
 
         IERC721 nft = IERC721(offer.nftAsset);
 
         // Approve
-        nft.setApprovalForAll(address(xy3), true);
+        if (!nft.isApprovedForAll(msg.sender, address(xy3)))
+            nft.setApprovalForAll(address(xy3), true);
 
         // Borrow on X2Y2
-        uint32 loanId = xy3.borrow(
-            offer,
-            nftId,
-            brokerSignature,
-            extraData
-        );
+        uint32 loanId = xy3.borrow(offer, nftId, brokerSignature, extraData);
 
         // Unwrap WETH into ETH
         weth.withdraw(offer.borrowAmount);

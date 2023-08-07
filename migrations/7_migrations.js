@@ -1,4 +1,4 @@
-const FlashLoan = artifacts.require("FlashLoan");
+const Flashloan = artifacts.require("Flashloan");
 const MockLending = artifacts.require("MockLending");
 const MockNFTLending = artifacts.require("MockNFTLending");
 const LendingAddressProvider = artifacts.require("LendingAddressProvider");
@@ -23,13 +23,13 @@ module.exports = async function (deployer, _network) {
     wethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
   }
 
-  await deployer.deploy(FlashLoan);
+  await deployer.deploy(Flashloan);
   await deployer.deploy(LendingAddressProvider);
 
   await deployer.deploy(
     WasabiBNPL,
     optionAddress,
-    FlashLoan.address,
+    Flashloan.address,
     LendingAddressProvider.address,
     wethAddress,
     factoryAddres

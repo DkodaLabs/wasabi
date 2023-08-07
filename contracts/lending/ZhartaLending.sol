@@ -42,13 +42,14 @@ contract ZhartaLending is INFTLending {
             block.timestamp
         );
 
-        return LoanDetails(
-            loanDetail.amount, // borrowAmount
-            repayAmount, // repayAmount
-            loanDetail.maturity, // loanExpiration
-            loanDetail.collaterals[0].contractAddress, // nftAddress
-            loanDetail.collaterals[0].tokenId // tokenId
-        );
+        return
+            LoanDetails(
+                loanDetail.amount, // borrowAmount
+                repayAmount, // repayAmount
+                loanDetail.maturity, // loanExpiration
+                loanDetail.collaterals[0].contractAddress, // nftAddress
+                loanDetail.collaterals[0].tokenId // tokenId
+            );
     }
 
     /// @inheritdoc INFTLending
@@ -66,7 +67,8 @@ contract ZhartaLending is INFTLending {
         IERC721 nft = IERC721(callData.collaterals[0].contractAddress);
 
         // Approve
-        nft.setApprovalForAll(address(loansPeripheral), true);
+        if (!nft.isApprovedForAll(msg.sender, address(loansPeripheral)))
+            nft.setApprovalForAll(address(loansPeripheral), true);
 
         // Borrow on Zharta
         uint256 loanId = loansPeripheral.reserveEth(

@@ -38,4 +38,7 @@ interface IWasabiBNPL {
 
     /// @dev Emitted when an option is executed and the NFT is sold to the market
     event OptionExecutedWithArbitrage(uint256 optionId, uint256 payout);
+
+    /// @dev Emitted when flashloan is changed
+    event FlashLoanAddressChanged(address indexed flashloan);
 }

@@ -10,12 +10,12 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./IWasabiPool.sol";
 import "./lib/Signing.sol";
 import "./lending/interfaces/IFlashloan.sol";
-import { IWETH } from "./IWETH.sol";
+import {IWETH} from "./IWETH.sol";
 
 /**
-  * An arbitrage contract that exercises an option and buys/sells from the marketplaces
-  * to take profits without using any user capital.
-  */
+ * An arbitrage contract that exercises an option and buys/sells from the marketplaces
+ * to take profits without using any user capital.
+ */
 contract WasabiOptionArbitrageV2 is IERC721Receiver, Ownable, ReentrancyGuard {
     address private option;
     address wethAddress;
@@ -31,8 +31,9 @@ contract WasabiOptionArbitrageV2 is IERC721Receiver, Ownable, ReentrancyGuard {
         bytes data;
     }
 
-
     event Arbitrage(address account, uint256 optionId, uint256 payout);
+
+    event FlashLoanAddressChanged(address indexed flashloan);
 
     /**
      * @dev Constructs a new WasabiOptionArbitrage contract
@@ -64,9 +65,14 @@ contract WasabiOptionArbitrageV2 is IERC721Receiver, Ownable, ReentrancyGuard {
 
         IWasabiPool pool = IWasabiPool(_poolAddress);
 
-        require(pool.getLiquidityAddress() == address(0), "Cannot perform arbitrage for non ETH pools");
+        require(
+            pool.getLiquidityAddress() == address(0),
+            "Cannot perform arbitrage for non ETH pools"
+        );
 
-        WasabiStructs.OptionData memory optionData = pool.getOptionData(_optionId);
+        WasabiStructs.OptionData memory optionData = pool.getOptionData(
+            _optionId
+        );
 
         if (optionData.optionType == WasabiStructs.OptionType.CALL) {
             // Execute Option
@@ -94,14 +100,22 @@ contract WasabiOptionArbitrageV2 is IERC721Receiver, Ownable, ReentrancyGuard {
             // Execute Option
             address nft = IWasabiPool(_poolAddress).getNftAddress();
             IERC721(nft).approve(_poolAddress, _tokenId);
-            IWasabiPool(_poolAddress).executeOptionWithSell(_optionId, _tokenId);
+            IWasabiPool(_poolAddress).executeOptionWithSell(
+                _optionId,
+                _tokenId
+            );
         }
 
-        require(address(this).balance >= flashLoanRepayAmount, "Loan not paid back");
+        require(
+            address(this).balance >= flashLoanRepayAmount,
+            "Loan not paid back"
+        );
         uint256 payout = address(this).balance - flashLoanRepayAmount;
 
         // Repay flashloan
-        (bool sent, ) = payable(address(flashloan)).call{value: flashLoanRepayAmount}("");
+        (bool sent, ) = payable(address(flashloan)).call{
+            value: flashLoanRepayAmount
+        }("");
         require(sent, "Failed to send ETH");
         // Deliver payout
         (sent, ) = payable(_msgSender()).call{value: payout}("");
@@ -113,10 +127,14 @@ contract WasabiOptionArbitrageV2 is IERC721Receiver, Ownable, ReentrancyGuard {
     /**
      * @dev Executes a given list of functions
      */
-    function executeFunctions(FunctionCallData[] memory _marketplaceCallData) internal returns (bool) {
+    function executeFunctions(
+        FunctionCallData[] memory _marketplaceCallData
+    ) internal returns (bool) {
         for (uint256 i = 0; i < _marketplaceCallData.length; i++) {
             FunctionCallData memory functionCallData = _marketplaceCallData[i];
-            (bool success, ) = functionCallData.to.call{value: functionCallData.value}(functionCallData.data);
+            (bool success, ) = functionCallData.to.call{
+                value: functionCallData.value
+            }(functionCallData.data);
             if (success == false) {
                 return false;
             }
@@ -127,21 +145,36 @@ contract WasabiOptionArbitrageV2 is IERC721Receiver, Ownable, ReentrancyGuard {
     /**
      * @dev Validates if the FunctionCallData list has been approved
      */
-    function validate(FunctionCallData[] calldata _marketplaceCallData, bytes[] calldata _signatures) private view {
+    function validate(
+        FunctionCallData[] calldata _marketplaceCallData,
+        bytes[] calldata _signatures
+    ) private view {
         require(_marketplaceCallData.length > 0, "Need marketplace calls");
-        require(_marketplaceCallData.length == _signatures.length, "Length is invalid");
+        require(
+            _marketplaceCallData.length == _signatures.length,
+            "Length is invalid"
+        );
         for (uint256 i = 0; i < _marketplaceCallData.length; i++) {
-            bytes32 ethSignedMessageHash = Signing.getEthSignedMessageHash(getMessageHash(_marketplaceCallData[i]));
-            require(Signing.recoverSigner(ethSignedMessageHash, _signatures[i]) == owner(), 'Owner is not signer');
+            bytes32 ethSignedMessageHash = Signing.getEthSignedMessageHash(
+                getMessageHash(_marketplaceCallData[i])
+            );
+            require(
+                Signing.recoverSigner(ethSignedMessageHash, _signatures[i]) ==
+                    owner(),
+                "Owner is not signer"
+            );
         }
     }
 
     /**
      * @dev Returns the message hash for the given _data
      */
-    function getMessageHash(FunctionCallData calldata _data) public pure returns (bytes32) {
+    function getMessageHash(
+        FunctionCallData calldata _data
+    ) public pure returns (bytes32) {
         return keccak256(abi.encode(_data.to, _data.value, _data.data));
     }
+
     /**
      * Always returns `IERC721Receiver.onERC721Received.selector`.
      */
@@ -149,20 +182,19 @@ contract WasabiOptionArbitrageV2 is IERC721Receiver, Ownable, ReentrancyGuard {
         address /* operator */,
         address /* from */,
         uint256 /* tokenId */,
-        bytes memory /* data */)
-    public virtual override returns (bytes4) {
+        bytes memory /* data */
+    ) public virtual override returns (bytes4) {
         return this.onERC721Received.selector;
     }
-    
+
     // Payable function to receive ETH
-    receive() external payable {
-    }
+    receive() external payable {}
 
     /**
      * @dev withdraws any stuck eth in this contract
      */
     function withdrawETH(uint256 _amount) external payable onlyOwner {
-        require(_amount <= address(this).balance, 'Invalid amount');
+        require(_amount <= address(this).balance, "Invalid amount");
         address payable to = payable(owner());
         to.transfer(_amount);
     }
@@ -177,7 +209,21 @@ contract WasabiOptionArbitrageV2 is IERC721Receiver, Ownable, ReentrancyGuard {
     /**
      * @dev withdraws any stuck ERC721 in this contract
      */
-    function withdrawERC721(IERC721 _token, uint256 _tokenId) external onlyOwner {
+    function withdrawERC721(
+        IERC721 _token,
+        uint256 _tokenId
+    ) external onlyOwner {
         _token.safeTransferFrom(address(this), owner(), _tokenId);
     }
+
+    /**
+     @dev Sets the flashloan contract address in the current contract.
+     @param _flashloan The address of the flashloan contract. 
+    */
+    function setFlashLoan(IFlashloan _flashloan) external onlyOwner {
+        flashloan = _flashloan;
+
+        emit FlashLoanAddressChanged(address(_flashloan));
+    }
+
 }

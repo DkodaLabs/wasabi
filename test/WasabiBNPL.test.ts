@@ -50,7 +50,6 @@ contract("WasabiBNPL", (accounts) => {
   let nftLending: MockNFTLendingInstance;
   let weth: WETH9Instance;
   let wholeSnapshotId: any;
-  let unitSnapshotId: any;
 
   const deployer = accounts[0];
   const lp = accounts[2];
@@ -240,7 +239,7 @@ contract("WasabiBNPL", (accounts) => {
     );
 
     // Take snapshot, before advancing time and block
-    unitSnapshotId = await takeSnapshot();
+    const unitSnapshotId = await takeSnapshot();
 
     // Advance 30 days
     await advanceTime(3600 * 24 * 30);
@@ -333,7 +332,7 @@ contract("WasabiBNPL", (accounts) => {
     );
 
     // Take snapshot, before advancing time and block
-    unitSnapshotId = await takeSnapshot();
+    const unitSnapshotId = await takeSnapshot();
 
     // Advance 31 days
     await advanceTime(3600 * 24 * 31);
@@ -374,4 +373,28 @@ contract("WasabiBNPL", (accounts) => {
 
     await revert(wholeSnapshotId);
   });
+
+  it("should change flashloan address (only Owner)", async () => {
+    wholeSnapshotId = takeSnapshot();
+
+    const newAddress = "0xB0d1140a09f669935B4848F6826FD16ff19787B9";
+
+    await truffleAssert.reverts(
+      bnpl.setFlashLoan(newAddress, { from: buyer }),
+      "Ownable: caller is not the owner"
+    );
+
+    const setFlashLoanResult = await bnpl.setFlashLoan(newAddress);
+    assert.equal(await bnpl.flashloan(), newAddress, "BNPL flashloan not changed");
+
+    await truffleAssert.eventEmitted(
+      setFlashLoanResult,
+      "FlashLoanAddressChanged",
+      null,
+      "BNPL flashloan changed"
+    );
+
+    await revert(wholeSnapshotId);
+  });
+
 });

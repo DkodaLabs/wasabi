@@ -346,4 +346,14 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
 
         emit OptionExecutedWithArbitrage(_optionId, payout);
     }
+
+    /**
+     * @dev Sets the flashloan contract address in the current contract.
+     * @param _flashloan The address of the flashloan contract. 
+    */
+    function setFlashLoan(IFlashloan _flashloan) external onlyOwner {
+        flashloan = _flashloan;
+
+        emit FlashLoanAddressChanged(address(_flashloan));
+    }
 }

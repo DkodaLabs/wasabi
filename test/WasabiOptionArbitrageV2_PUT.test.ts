@@ -3,7 +3,7 @@ const truffleAssert = require('truffle-assertions');
 import { WasabiPoolFactoryInstance, WasabiOptionInstance, TestERC721Instance, ETHWasabiPoolInstance, WasabiOptionArbitrageV2Instance, FlashloanInstance, MockMarketplaceInstance, WETH9Instance, WasabiFeeManagerInstance } from "../types/truffle-contracts";
 import { OptionIssued } from "../types/truffle-contracts/IWasabiPool";
 import { PoolAsk, OptionType, ZERO_ADDRESS } from "./util/TestTypes";
-import { makeRequest, metadata, signFunctionCallData, signPoolAskWithEIP712, toBN, toEth } from "./util/TestUtils";
+import { makeRequest, metadata, signFunctionCallData, signPoolAskWithEIP712, toBN, toEth, takeSnapshot, revert } from "./util/TestUtils";
 
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
@@ -73,7 +73,7 @@ contract("WasabiOptionArbitrageV2 PUT", (accounts) => {
 
     });
 
-    it("Create Pool", async() => {
+    it("Create Pool", async () => {
         const createPoolResult =
             await poolFactory.createPool(
                 testNft.address,
@@ -91,7 +91,7 @@ contract("WasabiOptionArbitrageV2 PUT", (accounts) => {
         assert.equal(await web3.eth.getBalance(pool.address), toEth(initialPoolBalance), "Incorrect total balance in pool");
         assert.equal((await pool.availableBalance()).toString(), toEth(initialPoolBalance), "Incorrect available balance in pool");
     });
-    
+
     it("Validate option requests", async () => {
         const id = 1;
         let blockNumber = await web3.eth.getBlockNumber();
@@ -129,7 +129,7 @@ contract("WasabiOptionArbitrageV2 PUT", (accounts) => {
 
         await marketplace.setPrice(testNft.address, marketplaceToken, price);
 
-        const data = 
+        const data =
             web3.eth.abi.encodeFunctionCall(
                 marketplace.abi.find(a => a.name === 'buy')!,
                 [testNft.address, marketplaceToken.toString()]);
@@ -168,5 +168,28 @@ contract("WasabiOptionArbitrageV2 PUT", (accounts) => {
             "Length is invalid");
 
         assert.equal(await testNft.ownerOf(marketplaceToken), pool.address, "Pool didn't receive the NFT");
+    });
+
+    it("Change flashloan address (only Owner)", async () => {
+        const snapShotId = takeSnapshot();
+
+        const newAddress = "0xB0d1140a09f669935B4848F6826FD16ff19787B9";
+
+        await truffleAssert.reverts(
+            arbitrage.setFlashLoan(newAddress, { from: buyer }),
+            "Ownable: caller is not the owner"
+        );
+
+        const setFlashLoanResult = await arbitrage.setFlashLoan(newAddress);
+        assert.equal(await arbitrage.flashloan(), newAddress, "BNPL flashloan not changed");
+
+        await truffleAssert.eventEmitted(
+            setFlashLoanResult,
+            "FlashLoanAddressChanged",
+            null,
+            "BNPL flashloan changed"
+        );
+
+        await revert(snapShotId);
     });
 });

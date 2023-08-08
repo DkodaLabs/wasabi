@@ -23,6 +23,9 @@ contract ZhartaLending is INFTLending {
     ILoansCore public constant loansCore =
         ILoansCore(0x5Be916Cff5f07870e9Aef205960e07d9e287eF27);
 
+    /// @notice Collateral Vault Core
+    address public constant collateralVaultCore = 0x7CA34cF45a119bEBEf4D106318402964a331DfeD;
+
     /// @notice Invalid Collateral Length
     error InvalidCollateralLength();
 
@@ -66,7 +69,9 @@ contract ZhartaLending is INFTLending {
         IERC721 nft = IERC721(callData.collaterals[0].contractAddress);
 
         // Approve
-        nft.setApprovalForAll(address(loansPeripheral), true);
+        if (!nft.isApprovedForAll(address(this), collateralVaultCore)) {
+            nft.setApprovalForAll(collateralVaultCore, true);
+        }
 
         // Borrow on Zharta
         uint256 loanId = loansPeripheral.reserveEth(

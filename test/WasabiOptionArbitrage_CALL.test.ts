@@ -50,7 +50,7 @@ contract("WasabiOptionArbitrage CALL", (accounts) => {
         tokenToSell = mintResult.logs.find(e => e.event == 'Transfer')?.args[2] as BN;
 
         weth = await WETH9.deployed();
-        marketplace = await MockMarketplace.deployed();
+        marketplace = await MockMarketplace.new(weth.address);
         arbitrage = await WasabiOptionArbitrage.new(option.address, weth.address);
 
         await web3.eth.sendTransaction({ from: lp, to: arbitrage.address, value: toEth(initialFlashLoanPoolBalance) })

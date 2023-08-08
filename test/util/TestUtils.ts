@@ -51,7 +51,7 @@ export const makeData = (
   };
 };
 export const makeRequest = (
-  id : number,
+  id: number,
   poolAddress: string,
   optionType: OptionType,
   strikePrice: any,
@@ -73,7 +73,7 @@ export const makeRequest = (
 };
 
 export const makeRequests = (
-  id : number,
+  id: number,
   poolAddress: string,
   optionType: OptionType,
   strikePrice: any,
@@ -451,28 +451,28 @@ export const signPoolAsk = async (
   };
 
   const types = {
-      PoolAsk: [
-        { name: "id", type: "uint256" },
-        { name: "poolAddress", type: "address" },
-        { name: "optionType", type: "uint8" },
-        { name: "strikePrice", type: "uint256" },
-        { name: "premium", type: "uint256" },
-        { name: "expiry", type: "uint256" },
-        { name: "tokenId", type: "uint256" },
-        { name: "orderExpiry", type: "uint256" },
-      ],
-    };
+    PoolAsk: [
+      { name: "id", type: "uint256" },
+      { name: "poolAddress", type: "address" },
+      { name: "optionType", type: "uint8" },
+      { name: "strikePrice", type: "uint256" },
+      { name: "premium", type: "uint256" },
+      { name: "expiry", type: "uint256" },
+      { name: "tokenId", type: "uint256" },
+      { name: "orderExpiry", type: "uint256" },
+    ],
+  };
 
-    const value = {
-      id: request.id,
-      poolAddress: request.poolAddress,
-      optionType: request.optionType,
-      strikePrice: request.strikePrice,
-      premium: request.premium,
-      expiry: request.expiry,
-      tokenId: request.tokenId,
-      orderExpiry: request.orderExpiry,
-    };
+  const value = {
+    id: request.id,
+    poolAddress: request.poolAddress,
+    optionType: request.optionType,
+    strikePrice: request.strikePrice,
+    premium: request.premium,
+    expiry: request.expiry,
+    tokenId: request.tokenId,
+    orderExpiry: request.orderExpiry,
+  };
 
   const signature = await buyer._signTypedData(domain, types, value);
   // return utils.splitSignature(signature);
@@ -519,6 +519,47 @@ export const advanceBlock = () => {
   });
 };
 
+export const revert = (snapshotId: any) => {
+  return new Promise((resolve, reject) => {
+    // @ts-ignore
+    web3.currentProvider.send(
+      {
+        jsonrpc: '2.0',
+        method: 'evm_revert',
+        id: new Date().getTime(),
+        params: [snapshotId]
+      },
+      // @ts-ignore
+      (err, result) => {
+        if (err) {
+          return reject(err)
+        }
+        return resolve(result)
+      }
+    );
+  });
+};
+
+export const takeSnapshot = () => {
+  return new Promise((resolve, reject) => {
+    // @ts-ignore
+    web3.currentProvider.send(
+      {
+        jsonrpc: '2.0',
+        method: 'evm_snapshot',
+        id: new Date().getTime()
+      },
+      // @ts-ignore
+      (err, result) => {
+        if (err) {
+          return reject(err)
+        }
+        return resolve(result.result)
+      }
+    );
+  });
+};
+
 export const advanceTime = (seconds: number) => {
   return new Promise((resolve, reject) => {
     // @ts-ignore
@@ -545,16 +586,16 @@ export async function expectRevertCustomError(promise: Promise<any>, customError
     await promise;
     expect.fail(errorMessage || `Expected to fail with custom error [${customError}], but it didn't.`);
   } catch (reason) {
-      if (reason) {
-        // @ts-ignore
-        const reasonId = reason.data.result || reason.data;
-        const expectedId = web3.eth.abi.encodeFunctionSignature(`${customError}()`);
-        assert.equal(
-          reasonId,
-          expectedId,
-          `Expected to fail with custom error [${customError}], but failed with ${reasonId}`
-        )
-      }
+    if (reason) {
+      // @ts-ignore
+      const reasonId = reason.data.result || reason.data;
+      const expectedId = web3.eth.abi.encodeFunctionSignature(`${customError}()`);
+      assert.equal(
+        reasonId,
+        expectedId,
+        `Expected to fail with custom error [${customError}], but failed with ${reasonId}`
+      )
+    }
   }
 }
 
@@ -576,4 +617,48 @@ export function getFee(value: BN): BN {
 
 export function withFee(value: BN): BN {
   return value.add(getFee(value));
+}
+
+export function encodeZhartaData(data: any) {
+  try {
+    const collateralData = [data.collaterals.contractAddress, data.collaterals.tokenId, data.collaterals.amount];
+
+    const calldataTypes = [
+      'uint256',
+      'uint256',
+      'uint256',
+      'tuple(address,uint256,uint256)',
+      'bool',
+      'uint256',
+      'uint256',
+      'uint256',
+      'uint256',
+      'uint256',
+      'uint256',
+    ];
+
+    const encoded = web3.eth.abi.encodeParameters(
+      calldataTypes,
+      [
+        data.amount,
+        data.interest,
+        data.maturity,
+        collateralData,
+        data.delegations,
+        data.deadline,
+        data.nonce,
+        data.genesisToken,
+        data.v,
+        data.r,
+        data.s,
+      ],
+    );
+
+    // const decodedCalldata = web3.eth.abi.decodeParameters(calldataTypes, encoded);
+    // console.log('decodedCalldata', decodedCalldata);
+
+    return encoded;
+  } catch (error) {
+    throw new Error(`Failed to encode data: ${error}`);
+  }
 }

@@ -104,8 +104,10 @@ contract WasabiOptionArbitrageV2 is IERC721Receiver, Ownable, ReentrancyGuard {
         (bool sent, ) = payable(address(flashloan)).call{value: flashLoanRepayAmount}("");
         require(sent, "Failed to send ETH");
         // Deliver payout
-        (sent, ) = payable(_msgSender()).call{value: payout}("");
-        require(sent, "Failed to send ETH");
+        if (payout > 0) {
+            (sent, ) = payable(_msgSender()).call{value: payout}("");
+            require(sent, "Failed to send ETH");
+        }
 
         emit Arbitrage(_msgSender(), _optionId, payout);
     }

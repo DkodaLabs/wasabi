@@ -59,6 +59,26 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         factory = _factory;
     }
 
+    /// @dev Returns the option data for the given option id
+    function getOptionData(
+        uint256 _optionId
+    ) external view returns (WasabiStructs.OptionData memory optionData) {
+        LoanInfo memory loanInfo = optionToLoan[_optionId];
+        INFTLending.LoanDetails memory loanDetails = INFTLending(
+            loanInfo.nftLending
+        ).getLoanDetails(loanInfo.loanId);
+        bool active = wasabiOption.ownerOf(_optionId) != address(0) &&
+            loanDetails.loanExpiration > block.timestamp;
+
+        optionData = WasabiStructs.OptionData(
+            active,
+            WasabiStructs.OptionType.CALL,
+            loanDetails.repayAmount,
+            loanDetails.loanExpiration,
+            loanDetails.tokenId
+        );
+    }
+
     /// @notice Executes BNPL flow
     /// @dev BNLP flow
     ///      1. take flashloan
@@ -75,7 +95,7 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         uint256 _flashLoanAmount,
         FunctionCallData[] calldata _marketplaceCallData,
         bytes[] calldata _signatures
-    ) external payable nonReentrant {
+    ) external payable nonReentrant returns (uint256) {
         validate(_marketplaceCallData, _signatures);
 
         if (!addressProvider.isLending(_nftLending)) {
@@ -109,7 +129,9 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         }
         uint256 payout = address(this).balance - flashLoanRepayAmount;
 
-        (bool sent, ) = payable(address(flashloan)).call{value: flashLoanRepayAmount}("");
+        (bool sent, ) = payable(address(flashloan)).call{
+            value: flashLoanRepayAmount
+        }("");
         if (!sent) {
             revert EthTransferFailed();
         }
@@ -119,6 +141,8 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
                 revert EthTransferFailed();
             }
         }
+
+        return optionId;
     }
 
     /// @notice Executes a given list of functions
@@ -208,17 +232,32 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
      * @param _optionId The option id
      */
     function executeOption(uint256 _optionId) external payable nonReentrant {
-        require(wasabiOption.ownerOf(_optionId) == _msgSender(), "Only owner can exercise option");
+        require(
+            wasabiOption.ownerOf(_optionId) == _msgSender(),
+            "Only owner can exercise option"
+        );
 
         LoanInfo storage loanInfo = optionToLoan[_optionId];
         require(loanInfo.nftLending != address(0), "Invalid Option");
 
-        INFTLending.LoanDetails memory loanDetails = INFTLending(loanInfo.nftLending).getLoanDetails(loanInfo.loanId);
-        require(loanDetails.loanExpiration > block.timestamp, "Loan has expired");
-        require(msg.value >= loanDetails.repayAmount, "Insufficient repay amount supplied");
+        INFTLending.LoanDetails memory loanDetails = INFTLending(
+            loanInfo.nftLending
+        ).getLoanDetails(loanInfo.loanId);
+        require(
+            loanDetails.loanExpiration > block.timestamp,
+            "Loan has expired"
+        );
+        require(
+            msg.value >= loanDetails.repayAmount,
+            "Insufficient repay amount supplied"
+        );
 
         loanInfo.nftLending.functionDelegateCall(
-            abi.encodeWithSelector(INFTLending.repay.selector, loanInfo.loanId, _msgSender())
+            abi.encodeWithSelector(
+                INFTLending.repay.selector,
+                loanInfo.loanId,
+                _msgSender()
+            )
         );
 
         wasabiOption.burn(_optionId);
@@ -234,25 +273,40 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
     function executeOptionWithArbitrage(
         uint256 _optionId,
         FunctionCallData[] calldata _marketplaceCallData,
-        bytes[] calldata _signatures)
-    external payable nonReentrant {
+        bytes[] calldata _signatures
+    ) external payable nonReentrant {
         validate(_marketplaceCallData, _signatures);
-        require(wasabiOption.ownerOf(_optionId) == _msgSender(), "Only owner can exercise option");
+        require(
+            wasabiOption.ownerOf(_optionId) == _msgSender(),
+            "Only owner can exercise option"
+        );
 
         LoanInfo storage loanInfo = optionToLoan[_optionId];
         require(loanInfo.nftLending != address(0), "Invalid Option");
 
-        INFTLending.LoanDetails memory loanDetails = INFTLending(loanInfo.nftLending).getLoanDetails(loanInfo.loanId);
-        require(loanDetails.loanExpiration > block.timestamp, "Loan has expired");
+        INFTLending.LoanDetails memory loanDetails = INFTLending(
+            loanInfo.nftLending
+        ).getLoanDetails(loanInfo.loanId);
+        require(
+            loanDetails.loanExpiration > block.timestamp,
+            "Loan has expired"
+        );
 
         uint256 initialBalance = address(this).balance;
 
         // 1. Get flash loan
-        uint256 flashLoanRepayAmount = flashloan.borrow(loanDetails.repayAmount);
+        uint256 flashLoanRepayAmount = flashloan.borrow(
+            loanDetails.repayAmount
+        );
 
         // 2. Repay loan
         loanInfo.nftLending.functionDelegateCall(
-            abi.encodeWithSelector(INFTLending.repay.selector, loanInfo.loanId, address(this)));
+            abi.encodeWithSelector(
+                INFTLending.repay.selector,
+                loanInfo.loanId,
+                address(this)
+            )
+        );
         wasabiOption.burn(_optionId);
 
         // 3. Sell NFT
@@ -274,7 +328,9 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         if (balanceChange < flashLoanRepayAmount) {
             revert LoanNotPaid();
         }
-        (bool sent, ) = payable(address(flashloan)).call{value: flashLoanRepayAmount}("");
+        (bool sent, ) = payable(address(flashloan)).call{
+            value: flashLoanRepayAmount
+        }("");
         if (!sent) {
             revert EthTransferFailed();
         }

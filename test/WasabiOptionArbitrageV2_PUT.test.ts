@@ -146,7 +146,7 @@ contract("WasabiOptionArbitrageV2 PUT", (accounts) => {
         const arbitrageResult = await arbitrage.arbitrage(
             optionId,
             price,
-            toEth(initialFlashLoanPoolBalance),
+            price,
             pool.address,
             marketplaceToken,
             [functionCall],
@@ -158,7 +158,7 @@ contract("WasabiOptionArbitrageV2 PUT", (accounts) => {
             arbitrage.arbitrage(
                 optionId,
                 price,
-                toEth(initialFlashLoanPoolBalance),
+                price,
                 pool.address,
                 marketplaceToken,
                 [functionCall],

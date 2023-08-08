@@ -200,6 +200,7 @@ contract("WasabiBNPL", (accounts) => {
     );
 
     assert.equal(await option.ownerOf(optionId), buyer);
+    assert.equal(await testNft.ownerOf(tokenToBuy), lending.address);
   });
 
   it("should get option data", async () => {

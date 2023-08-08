@@ -65,7 +65,7 @@ contract Flashloan is IFlashloan, Ownable {
 
     /// @dev withdraws any stuck ERC20 in this contract
     function withdrawERC20(IERC20 token, uint256 amount) external onlyOwner {
-        token.transfer(msg.sender, amount);
+        token.transfer(_msgSender(), amount);
     }
 
     /// @dev withdraws any stuck ERC721 in this contract

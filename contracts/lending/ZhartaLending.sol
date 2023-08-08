@@ -77,6 +77,7 @@ contract ZhartaLending is INFTLending {
             callData.delegations,
             callData.deadline,
             callData.nonce,
+            callData.genesisToken,
             callData.v,
             callData.r,
             callData.s

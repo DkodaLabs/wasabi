@@ -12,7 +12,7 @@ interface ILoansPeripheral {
         uint256 amount;
         uint256 interest;
         uint256 maturity;
-        Collateral[] collaterals;
+        Collateral collateral;
         bool delegations;
         uint256 deadline;
         uint256 nonce;

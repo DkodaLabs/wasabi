@@ -618,3 +618,47 @@ export function getFee(value: BN): BN {
 export function withFee(value: BN): BN {
   return value.add(getFee(value));
 }
+
+export function encodeZhartaData(data: any) {
+  try {
+    const collateralData = [data.collaterals.contractAddress, data.collaterals.tokenId, data.collaterals.amount];
+
+    const calldataTypes = [
+      'uint256',
+      'uint256',
+      'uint256',
+      'tuple(address,uint256,uint256)',
+      'bool',
+      'uint256',
+      'uint256',
+      'uint256',
+      'uint256',
+      'uint256',
+      'uint256',
+    ];
+
+    const encoded = web3.eth.abi.encodeParameters(
+      calldataTypes,
+      [
+        data.amount,
+        data.interest,
+        data.maturity,
+        collateralData,
+        data.delegations,
+        data.deadline,
+        data.nonce,
+        data.genesisToken,
+        data.v,
+        data.r,
+        data.s,
+      ],
+    );
+
+    // const decodedCalldata = web3.eth.abi.decodeParameters(calldataTypes, encoded);
+    // console.log('decodedCalldata', decodedCalldata);
+
+    return encoded;
+  } catch (error) {
+    throw new Error(`Failed to encode data: ${error}`);
+  }
+}

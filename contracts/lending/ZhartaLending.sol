@@ -35,12 +35,12 @@ contract ZhartaLending is INFTLending {
     ) external view returns (LoanDetails memory loanDetails) {
         // Get Loan for loanId
         ILoansCore.Loan memory loanDetail = loansCore.getLoan(
-            address(this),
+            msg.sender,
             _loanId
         );
 
         uint256 repayAmount = loansPeripheral.getLoanPayableAmount(
-            address(this),
+            msg.sender,
             _loanId,
             block.timestamp
         );
@@ -95,16 +95,21 @@ contract ZhartaLending is INFTLending {
 
     /// @inheritdoc INFTLending
     function repay(uint256 _loanId, address _receiver) external payable {
-        // Get Loan for loanId
-        ILoansCore.Loan memory loanDetail = loansCore.getLoan(
-            address(this),
-            _loanId
-        );
-
         // Pay back loan
-        loansPeripheral.pay{value: msg.value}(_loanId);
+        uint256 repayAmount = loansPeripheral.getLoanPayableAmount(
+            address(this),
+            _loanId,
+            block.timestamp
+        );
+        loansPeripheral.pay{value: repayAmount}(_loanId);
 
         if (_receiver != address(this)) {
+            // Get Loan for loanId
+            ILoansCore.Loan memory loanDetail = loansCore.getLoan(
+                address(this),
+                _loanId
+            );
+
             // Transfer collateral NFT to the user
             IERC721(loanDetail.collaterals[0].contractAddress).safeTransferFrom(
                 address(this),

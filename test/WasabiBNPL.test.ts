@@ -103,6 +103,15 @@ contract("WasabiBNPL", (accounts) => {
 
     await marketplace.setPrice(testNft.address, tokenToBuy, price);
 
+    const approveCallData = web3.eth.abi.encodeFunctionCall(
+      testNft.abi.find((a) => a.name === "approve")!,
+      [marketplace.address, tokenToBuy.toString()]
+    );
+    const approveCall = {
+      to: testNft.address,
+      value: 0,
+      data: approveCallData,
+    };
     const buyCallData = web3.eth.abi.encodeFunctionCall(
       marketplace.abi.find((a) => a.name === "buy")!,
       [testNft.address, tokenToBuy.toString()]
@@ -114,7 +123,8 @@ contract("WasabiBNPL", (accounts) => {
     };
 
     const buySignature = await signFunctionCallData(buyCall, deployer);
-    const signatures = [];
+    const approvalSignature = await signFunctionCallData(approveCall, deployer);
+    let signatures = [];
     signatures.push(buySignature);
 
     const loanAmount = toEth(10);
@@ -181,11 +191,13 @@ contract("WasabiBNPL", (accounts) => {
       "Nft Lending Address is invalid."
     );
 
+    signatures = [approvalSignature, buySignature];
+
     optionId = await bnpl.bnpl.call(
       nftLending.address,
       borrowData,
       toEth(13),
-      [buyCall],
+      [approveCall, buyCall],
       signatures,
       metadata(buyer, 3.5)
     );
@@ -194,7 +206,7 @@ contract("WasabiBNPL", (accounts) => {
       nftLending.address,
       borrowData,
       toEth(13),
-      [buyCall],
+      [approveCall, buyCall],
       signatures,
       metadata(buyer, 3.5)
     );

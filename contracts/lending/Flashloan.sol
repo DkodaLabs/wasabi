@@ -50,9 +50,11 @@ contract Flashloan is IFlashloan, Ownable {
             revert EthTransferFailed();
         }
 
-        uint256 loanPremium = (amount *
-            enabledFlashLoaners[_msgSender()].flashloanPremiumValue) /
-            flashloanPremiumFraction;
+        uint256 premiumPercent = enabledFlashLoaners[_msgSender()].flashloanPremiumValue;
+        if (premiumPercent == 0) {
+            return amount;
+        }
+        uint256 loanPremium = (amount * premiumPercent) / flashloanPremiumFraction;
         flashLoanRepayAmount = amount + loanPremium;
     }
 

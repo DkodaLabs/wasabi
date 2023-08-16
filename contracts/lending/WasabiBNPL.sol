@@ -115,8 +115,8 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         bytes memory result = _nftLending.functionDelegateCall(
             abi.encodeWithSelector(INFTLending.borrow.selector, _borrowData)
         );
-        uint256 loanId = abi.decode(result, (uint256));
 
+        uint256 loanId = abi.decode(result, (uint256));
         uint256 optionId = wasabiOption.mint(_msgSender(), factory);
         optionToLoan[optionId] = LoanInfo({
             nftLending: _nftLending,

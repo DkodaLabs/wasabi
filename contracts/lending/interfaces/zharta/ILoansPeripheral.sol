@@ -1,18 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
+import "./ILoansCore.sol";
+
 interface ILoansPeripheral {
-    struct Collateral {
-        address contractAddress;
-        uint256 tokenId;
-        uint256 amount;
-    }
 
     struct Calldata {
         uint256 amount;
         uint256 interest;
         uint256 maturity;
-        Collateral collateral;
+        ILoansCore.Collateral collateral;
         bool delegations;
         uint256 deadline;
         uint256 nonce;
@@ -26,7 +23,7 @@ interface ILoansPeripheral {
         uint256 _amount,
         uint256 _interest,
         uint256 _maturity,
-        Collateral[] calldata _collaterals,
+        ILoansCore.Collateral[] calldata _collaterals,
         bool _delegations,
         uint256 _deadline,
         uint256 _nonce,

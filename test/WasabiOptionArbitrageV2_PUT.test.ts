@@ -146,7 +146,6 @@ contract("WasabiOptionArbitrageV2 PUT", (accounts) => {
         const arbitrageResult = await arbitrage.arbitrage(
             optionId,
             price,
-            price,
             pool.address,
             marketplaceToken,
             [functionCall],
@@ -157,7 +156,6 @@ contract("WasabiOptionArbitrageV2 PUT", (accounts) => {
         await truffleAssert.reverts(
             arbitrage.arbitrage(
                 optionId,
-                price,
                 price,
                 pool.address,
                 marketplaceToken,

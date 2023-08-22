@@ -11,6 +11,7 @@ import {
   ZhartaLendingInstance,
   WETH9Instance,
   LendingAddressProviderInstance,
+  MockZhartaInstance,
 } from "../types/truffle-contracts";
 import { PoolState } from "./util/TestTypes";
 import {
@@ -23,6 +24,8 @@ import {
   revert,
   expectRevertCustomError,
   encodeZhartaData,
+  toBN,
+  fromWei,
 } from "./util/TestUtils";
 
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -36,6 +39,7 @@ const MockLending = artifacts.require("MockLending");
 const MockNFTLending = artifacts.require("MockNFTLending");
 const MockMarketplace = artifacts.require("MockMarketplace");
 const ZhartaLending = artifacts.require("ZhartaLending");
+const MockZharta = artifacts.require("MockZharta");
 
 contract("WasabiBNPL", (accounts) => {
   let poolFactory: WasabiPoolFactoryInstance;
@@ -48,6 +52,7 @@ contract("WasabiBNPL", (accounts) => {
   let flashloan: FlashloanInstance;
   let marketplace: MockMarketplaceInstance;
   let zharta: ZhartaLendingInstance;
+  let mockZharta: MockZhartaInstance;
   let weth: WETH9Instance;
   let wholeSnapshotId: any;
   let unitSnapshotId: any;
@@ -57,6 +62,8 @@ contract("WasabiBNPL", (accounts) => {
   const buyer = accounts[3];
   const initialFlashLoanPoolBalance = 15;
 
+  const price = 6;
+
   before("Prepare State", async function () {
     testNft = await TestERC721.deployed();
     option = await WasabiOption.deployed();
@@ -65,6 +72,7 @@ contract("WasabiBNPL", (accounts) => {
 
     weth = await WETH9.deployed();
     marketplace = await MockMarketplace.new(weth.address);
+    mockZharta = await MockZharta.deployed();
     zharta = await ZhartaLending.deployed();
     flashloan = await Flashloan.deployed();
     bnpl = await WasabiBNPL.new(
@@ -83,7 +91,13 @@ contract("WasabiBNPL", (accounts) => {
       to: flashloan.address,
       value: toEth(initialFlashLoanPoolBalance),
     });
-    await flashloan.enableFlashloaner(bnpl.address, true, 100);
+
+    await web3.eth.sendTransaction({
+      from: lp,
+      to: mockZharta.address,
+      value: toEth(20),
+    });
+    await flashloan.enableFlashloaner(bnpl.address, true, 0);
 
     await weth.deposit(metadata(lp, 30));
     await weth.transfer(zharta.address, toEth(10), metadata(lp));
@@ -98,19 +112,38 @@ contract("WasabiBNPL", (accounts) => {
   });
 
   it("Execute BNPL", async () => {
-    const price = toEth(13);
+    const loanAmount = 5;
+
+    let blockNumber = await web3.eth.getBlockNumber();
+    let maturity = Number((await web3.eth.getBlock(blockNumber)).timestamp) + 86400;
+
+    await marketplace.setPrice(testNft.address, tokenToBuy, toEth(price));
+
+    const buyCallData = 
+        web3.eth.abi.encodeFunctionCall(
+            marketplace.abi.find(a => a.name === 'buy')!,
+            [testNft.address, tokenToBuy.toString()]);
+    const functionCall = {
+        to: marketplace.address,
+        value: toEth(price),
+        data: buyCallData
+    };
+
+    const signature = await signFunctionCallData(functionCall, deployer);
+    const functionCalls = [functionCall];
+    const signatures = [signature];
 
     const data = {
-        amount: '121455000000000000',
-        interest: 288,
-        maturity: '1694102541',
+        amount: toEth(loanAmount),
+        interest: 300,
+        maturity: maturity,
         collaterals: {
           contractAddress: testNft.address,
-          tokenId: tokenToBuy.toString(),
-          amount: '121455000000000000'
+          tokenId: tokenToBuy,
+          amount: toEth(loanAmount)
         },
         delegations: false,
-        deadline: '1691512341',
+        deadline: maturity,
         nonce: '0',
         genesisToken: 0,
         v: '27',
@@ -120,27 +153,84 @@ contract("WasabiBNPL", (accounts) => {
 
     const borrowData = encodeZhartaData(data);
 
-    // await zharta.borrow(borrowData);
-
     optionId = await bnpl.bnpl.call(
       zharta.address,
       borrowData,
-      toEth(0),
-      [],
-      [],
-      metadata(buyer, 3.5)
+      toEth(loanAmount),
+      functionCalls,
+      signatures,
+      metadata(buyer, price - loanAmount)
     );
 
     await bnpl.bnpl(
       zharta.address,
       borrowData,
-      toEth(0),
-      [],
-      [],
-      metadata(buyer, 3.5)
+      toEth(loanAmount),
+      functionCalls,
+      signatures,
+      metadata(buyer, price - loanAmount)
     );
 
     assert.equal(await option.ownerOf(optionId), buyer);
-    // assert.equal(await testNft.ownerOf(tokenToBuy), lending.address);
+    assert.equal(await testNft.ownerOf(tokenToBuy), mockZharta.address);
+  });
+
+  it("Execute Option", async () => {
+    wholeSnapshotId = await takeSnapshot();
+
+    const loanDetails = await bnpl.optionToLoan(optionId);
+    const loanId = toBN(loanDetails[1]);
+    const loan = await mockZharta.getLoan(bnpl.address, loanId);
+    const optionDetails = await bnpl.getOptionData(optionId);
+
+    const strike = fromWei(optionDetails.strikePrice);
+    await bnpl.executeOption(optionId, metadata(buyer, strike));
+
+    assert.equal(await testNft.ownerOf(tokenToBuy), buyer);
+    await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
+
+    await revert(wholeSnapshotId);
+  });
+
+  it("Execute Option With Arbitrage", async () => {
+    wholeSnapshotId = await takeSnapshot();
+
+    await marketplace.setPrice(testNft.address, tokenToBuy, toEth(price + 1));
+    const approveCallData =
+        web3.eth.abi.encodeFunctionCall(
+            testNft.abi.find(a => a.name === 'approve')!,
+            [marketplace.address, tokenToBuy.toString()]);
+    const approveCall = {
+        to: testNft.address,
+        value: 0,
+        data: approveCallData,
+    }
+
+    const sellCallData = 
+        web3.eth.abi.encodeFunctionCall(
+            marketplace.abi.find(a => a.name === 'sell')!,
+            [testNft.address, tokenToBuy.toString()]);
+    const sellCall = {
+        to: marketplace.address,
+        value: 0,
+        data: sellCallData
+    };
+
+    const approveSignature = await signFunctionCallData(approveCall, deployer);
+    const sellSignature = await signFunctionCallData(sellCall, deployer);
+
+    const loanDetails = await bnpl.optionToLoan(optionId);
+    const loanId = toBN(loanDetails[1]);
+    const loan = await mockZharta.getLoan(bnpl.address, loanId);
+    const optionDetails = await bnpl.getOptionData(optionId);
+
+    await bnpl.executeOptionWithArbitrage(
+      optionId,
+      [approveCall, sellCall],
+      [approveSignature, sellSignature],
+      metadata(buyer));
+
+    assert.equal(await testNft.ownerOf(tokenToBuy), marketplace.address);
+    await truffleAssert.reverts(option.ownerOf(optionId), "ERC721: invalid token ID", "Option NFT not burned after execution");
   });
 });

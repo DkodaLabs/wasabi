@@ -115,6 +115,7 @@ types
 .idea
 
 test/GenerateSignature.test.ts
+contracts/lending/ZhartaLendingConstantFix.sol
 
 # PNM files
 out

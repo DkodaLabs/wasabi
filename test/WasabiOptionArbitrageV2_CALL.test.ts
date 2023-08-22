@@ -150,7 +150,6 @@ contract("WasabiOptionArbitrageV2 CALL", (accounts) => {
         await arbitrage.arbitrage(
             optionId,
             strikeWithFee,
-            strikeWithFee,
             pool.address,
             tokenToSell,
             [approveCall, sellCall],
@@ -161,7 +160,6 @@ contract("WasabiOptionArbitrageV2 CALL", (accounts) => {
         await truffleAssert.reverts(
             arbitrage.arbitrage(
                 optionId,
-                strikeWithFee,
                 strikeWithFee,
                 pool.address,
                 tokenToSell,
@@ -175,7 +173,6 @@ contract("WasabiOptionArbitrageV2 CALL", (accounts) => {
         await truffleAssert.reverts(
             arbitrage.arbitrage(
                 optionId,
-                strikeWithFee,
                 strikeWithFee,
                 pool.address,
                 tokenToSell,

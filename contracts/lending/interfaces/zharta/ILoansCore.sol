@@ -14,7 +14,7 @@ interface ILoansCore {
         uint256 interest;
         uint256 maturity;
         uint256 startTime;
-        Collateral[100] collaterals;
+        Collateral[] collaterals;
         uint256 paidPrincipal;
         uint256 paidInterestAmount;
         bool started;

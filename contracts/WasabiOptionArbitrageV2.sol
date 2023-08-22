@@ -49,7 +49,6 @@ contract WasabiOptionArbitrageV2 is IERC721Receiver, Ownable, ReentrancyGuard {
     function arbitrage(
         uint256 _optionId,
         uint256 _value,
-        uint256 _flashLoanAmount,
         address _poolAddress,
         uint256 _tokenId,
         FunctionCallData[] calldata _marketplaceCallData,
@@ -57,7 +56,7 @@ contract WasabiOptionArbitrageV2 is IERC721Receiver, Ownable, ReentrancyGuard {
     ) external payable nonReentrant {
         validate(_marketplaceCallData, _signatures);
 
-        uint256 flashLoanRepayAmount = flashloan.borrow(_flashLoanAmount);
+        uint256 flashLoanRepayAmount = flashloan.borrow(_value);
 
         // Transfer Option for Execute
         IERC721(option).safeTransferFrom(msg.sender, address(this), _optionId);

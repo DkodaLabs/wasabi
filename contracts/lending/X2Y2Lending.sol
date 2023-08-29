@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "./interfaces/INFTLending.sol";
 import "./interfaces/x2y2/IXY3.sol";
+import "./interfaces/x2y2/IAddressProvider.sol";
 import {IWETH} from "../IWETH.sol";
 
 /// @title X2Y2 Lending
@@ -14,7 +15,8 @@ contract X2Y2Lending is INFTLending {
     uint256 constant public MAX_INT_TYPE = type(uint256).max;
 
     /// @notice XY3 Contract
-    IXY3 public constant xy3 = IXY3(0xB81965DdFdDA3923f292a47A1be83ba3A36B5133);
+    IXY3 public constant xy3 =
+        IXY3(0xB81965DdFdDA3923f292a47A1be83ba3A36B5133);
 
     /// @notice WETH Contract
     IWETH public constant weth =
@@ -26,15 +28,15 @@ contract X2Y2Lending is INFTLending {
     ) external view returns (LoanDetails memory loanDetails) {
         uint32 loanId = uint32(_loanId);
 
-        // Get LoanInfo for loanId
-        IXY3.LoanInfo memory loanInfo = xy3.getLoanInfo(loanId);
-
+        // Get LoanDetail for loanId
+        IXY3.LoanDetail memory loanDetail = xy3.loanDetails(loanId);
+        address nftAddress = xy3.nftAssetList()[loanDetail.nftAssetIndex];
         return LoanDetails(
-            loanInfo.borrowAmount, // borrowAmount
-            loanInfo.payoffAmount, // repayAmount
-            loanInfo.maturityDate, // loanExpiration
-            loanInfo.nftAsset, // nftAddress
-            loanInfo.nftId // tokenId
+            loanDetail.borrowAmount, // borrowAmount
+            loanDetail.repayAmount, // repayAmount
+            loanDetail.loanStart + loanDetail.loanDuration, // loanExpiration
+            nftAddress, // nftAddress
+            loanDetail.nftTokenId // tokenId
         );
     }
 
@@ -60,9 +62,10 @@ contract X2Y2Lending is INFTLending {
 
         IERC721 nft = IERC721(offer.nftAsset);
 
-        // Approve
-        if (!nft.isApprovedForAll(address(this), address(xy3))) {
-            nft.setApprovalForAll(address(xy3), true);
+        // Approve NFT to the delegate
+        address delegateAddress = getDelegateAddress();
+        if (!nft.isApprovedForAll(address(this), delegateAddress)) {
+            nft.setApprovalForAll(delegateAddress, true);
         }
 
         // Borrow on X2Y2
@@ -85,27 +88,24 @@ contract X2Y2Lending is INFTLending {
         uint32 loanId = uint32(_loanId);
 
         // Get LoanInfo for loanId
-        IXY3.LoanInfo memory loanInfo = xy3.getLoanInfo(loanId);
+        IXY3.LoanDetail memory loanDetail = xy3.loanDetails(loanId);
 
         // Wrap ETH into WETH
-        weth.deposit{value: loanInfo.payoffAmount}();
+        weth.deposit{value: loanDetail.repayAmount}();
 
-        // Approve token to `xy3`
-        IERC20 token = IERC20(loanInfo.borrowAsset);
-        if (token.allowance(address(this), address(xy3)) < loanInfo.payoffAmount) {
-            token.approve(address(xy3), MAX_INT_TYPE);
+        // Approve token to the delegate
+        address delegateAddress = getDelegateAddress();
+        if (weth.allowance(address(this), delegateAddress) < loanDetail.repayAmount) {
+            weth.approve(delegateAddress, MAX_INT_TYPE);
         }
 
         // Pay back loan
         xy3.repay(loanId);
 
+        // Transfer NFT to a designated address
         if (_receiver != address(this)) {
-            // Transfer collateral NFT to the user
-            IERC721(loanInfo.nftAsset).safeTransferFrom(
-                address(this),
-                _receiver,
-                loanInfo.nftId
-            );
+            address nftAddress = xy3.nftAssetList()[loanDetail.nftAssetIndex];
+            IERC721(nftAddress).safeTransferFrom(address(this), _receiver, loanDetail.nftTokenId);
         }
     }
 
@@ -115,17 +115,13 @@ contract X2Y2Lending is INFTLending {
         IXY3.Offer memory offer,
         uint256 nftId,
         IXY3.BrokerSignature memory brokerSignature,
-        IXY3.CallData memory extraData
-    ) {
-        return abi.decode(
-                _inputData,
-                (
-                    IXY3.Offer,
-                    uint256,
-                    IXY3.BrokerSignature,
-                    IXY3.CallData
-                )
-            );
+        IXY3.CallData memory extraData) {
+        return abi.decode(_inputData, (IXY3.Offer, uint256, IXY3.BrokerSignature, IXY3.CallData));
+    }
+
+    /// @notice Returns the delegate address that should be given token/NFT approvals to
+    function getDelegateAddress() internal view returns(address) {
+        return IAddressProvider(xy3.getAddressProvider()).getTransferDelegate();
     }
 
     receive() external payable {}

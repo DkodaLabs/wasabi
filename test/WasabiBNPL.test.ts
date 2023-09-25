@@ -12,8 +12,10 @@ import {
   MockLendingInstance,
   WETH9Instance,
   LendingAddressProviderInstance,
+  WasabiConduitInstance,
+  WasabiFeeManagerInstance,
 } from "../types/truffle-contracts";
-import { PoolState } from "./util/TestTypes";
+import { Ask, Bid, OptionData, PoolState, ZERO_ADDRESS } from "./util/TestTypes";
 import {
   signFunctionCallData,
   metadata,
@@ -23,6 +25,11 @@ import {
   takeSnapshot,
   revert,
   expectRevertCustomError,
+  signAskWithEIP712,
+  toBN,
+  fromWei,
+  gasOfTxn,
+  signBidWithEIP712,
 } from "./util/TestUtils";
 
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -35,6 +42,8 @@ const WETH9 = artifacts.require("WETH9");
 const MockLending = artifacts.require("MockLending");
 const MockNFTLending = artifacts.require("MockNFTLending");
 const MockMarketplace = artifacts.require("MockMarketplace");
+const WasabiConduit = artifacts.require("WasabiConduit");
+const WasabiFeeManager = artifacts.require("WasabiFeeManager");
 
 contract("WasabiBNPL", (accounts) => {
   let poolFactory: WasabiPoolFactoryInstance;
@@ -51,11 +60,19 @@ contract("WasabiBNPL", (accounts) => {
   let weth: WETH9Instance;
   let wholeSnapshotId: any;
   let unitSnapshotId: any;
+  let conduit: WasabiConduitInstance;
+  let feeManager: WasabiFeeManagerInstance;
 
   const deployer = accounts[0];
   const lp = accounts[2];
   const buyer = accounts[3];
+  const someoneElse = accounts[5];
   const initialFlashLoanPoolBalance = 15;
+  let royaltyPayoutPercent = 20;
+  const originalPayoutPercent = 1000;
+
+  const buyerPrivateKey = "c88b703fb08cbea894b6aeff5a544fb92e78a18e19814cd85da83b71f772aa6c";
+  const someoneElsePrivateKey = "659cbb0e2411a44db63778987b1e22153c086a95eb6b18bdf89de078917abc63";
 
   before("Prepare State", async function () {
     testNft = await TestERC721.deployed();
@@ -68,6 +85,8 @@ contract("WasabiBNPL", (accounts) => {
     lending = await MockLending.deployed();
     nftLending = await MockNFTLending.deployed();
     flashloan = await Flashloan.deployed();
+    conduit = await WasabiConduit.deployed();
+    feeManager = await WasabiFeeManager.deployed();
     bnpl = await WasabiBNPL.new(
       option.address,
       flashloan.address,
@@ -78,6 +97,14 @@ contract("WasabiBNPL", (accounts) => {
 
     await option.toggleFactory(poolFactory.address, true);
     await poolFactory.togglePool(bnpl.address, PoolState.ACTIVE);
+
+    await conduit.setPoolFactoryAddress(poolFactory.address);
+    await conduit.setOption(option.address);
+    await conduit.setBNPL(bnpl.address);
+
+    // Set Fee
+    await feeManager.setFraction(royaltyPayoutPercent);
+    await feeManager.setDenominator(originalPayoutPercent);
 
     await web3.eth.sendTransaction({
       from: lp,
@@ -104,8 +131,8 @@ contract("WasabiBNPL", (accounts) => {
     await marketplace.setPrice(testNft.address, tokenToBuy, price);
 
     const approveCallData = web3.eth.abi.encodeFunctionCall(
-      testNft.abi.find((a) => a.name === "approve")!,
-      [marketplace.address, tokenToBuy.toString()]
+      testNft.abi.find((a) => a.name === "setApprovalForAll")!,
+      [marketplace.address, "true"]
     );
     const approveCall = {
       to: testNft.address,
@@ -191,13 +218,14 @@ contract("WasabiBNPL", (accounts) => {
       "Nft Lending Address is invalid."
     );
 
+    const callData = [approveCall, buyCall];
     signatures = [approvalSignature, buySignature];
 
     optionId = await bnpl.bnpl.call(
       nftLending.address,
       borrowData,
       toEth(13),
-      [approveCall, buyCall],
+      callData,
       signatures,
       metadata(buyer, 3.5)
     );
@@ -206,7 +234,7 @@ contract("WasabiBNPL", (accounts) => {
       nftLending.address,
       borrowData,
       toEth(13),
-      [approveCall, buyCall],
+      callData,
       signatures,
       metadata(buyer, 3.5)
     );
@@ -232,6 +260,110 @@ contract("WasabiBNPL", (accounts) => {
     assert.equal(optionData.optionType.toString(), "0");
     assert.equal(optionData.strikePrice.toString(), toEth(10.5).toString());
     assert.equal(optionData.tokenId.toString(), tokenToBuy.toString());
+
+    // Revert advanced time as previous time
+    await revert(wholeSnapshotId);
+  });
+
+  it("List and acceptAsk", async () => {
+    wholeSnapshotId = await takeSnapshot();
+
+    const price = 1;
+    let optionOwner = await option.ownerOf(optionId);
+
+    await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+    let blockTimestamp = await (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+    const ask: Ask = {
+        id: 1,
+        optionId: optionId.toString(),
+        orderExpiry: Number(blockTimestamp) + 20,
+        price: toEth(price),
+        seller: optionOwner,
+        tokenAddress: ZERO_ADDRESS,
+    };
+
+    const signature = await signAskWithEIP712(ask, conduit.address, buyerPrivateKey);
+
+    // Fee Manager
+    const royaltyReceiver = await feeManager.owner()
+    const initialRoyaltyReceiverBalance = toBN(await web3.eth.getBalance(royaltyReceiver));
+
+    const initialBalanceBuyer = toBN(await web3.eth.getBalance(someoneElse));
+    const initialBalanceSeller = toBN(await web3.eth.getBalance(optionOwner));
+
+    const acceptAskResult = await conduit.acceptAsk(ask, signature, metadata(someoneElse, price));
+
+    const finalBalanceBuyer = toBN(await web3.eth.getBalance(someoneElse));
+    const finalBalanceSeller = toBN(await web3.eth.getBalance(optionOwner));
+    const finalRoyaltyReceiverBalance = toBN(await web3.eth.getBalance(royaltyReceiver));
+
+    truffleAssert.eventEmitted(acceptAskResult, "AskTaken", null, "Ask wasn't taken");
+    assert.equal(await option.ownerOf(optionId), someoneElse, "Option not owned after buying");
+
+    const royaltyAmount = price * royaltyPayoutPercent / originalPayoutPercent;
+    const sellerAmount = price - royaltyAmount;
+
+    assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller).toString()), sellerAmount, 'Seller incorrect balance change')
+    assert.equal(fromWei(initialBalanceBuyer.sub(finalBalanceBuyer).toString()), price + fromWei(gasOfTxn(acceptAskResult.receipt)), 'Seller incorrect balance change')
+
+    // Fee Manager
+    assert.equal(fromWei(finalRoyaltyReceiverBalance.sub(initialRoyaltyReceiverBalance).toString()), royaltyAmount, 'Fee receiver incorrect balance change')
+
+    // Revert advanced time as previous time
+    await revert(wholeSnapshotId);
+  });
+
+  it("Bid and acceptBid", async () => {
+    wholeSnapshotId = await takeSnapshot();
+
+    const price = 1;
+    await weth.deposit(metadata(someoneElse, price * 2));
+    await weth.approve(conduit.address, toEth(price * 2), metadata(someoneElse));
+
+    let optionOwner = await option.ownerOf(optionId);
+    
+    await option.setApprovalForAll(conduit.address, true, metadata(optionOwner));
+
+    const optionData: OptionData = await bnpl.getOptionData(optionId);
+    let blockTimestamp = (await web3.eth.getBlock(await web3.eth.getBlockNumber())).timestamp;
+    const bid: Bid = {
+        id: 2,
+        price: toEth(price),
+        tokenAddress: weth.address,
+        collection: testNft.address,
+        orderExpiry: Number(blockTimestamp) + 20,
+        buyer: someoneElse,
+        optionType: optionData.optionType,
+        strikePrice: optionData.strikePrice,
+        expiry: Number(optionData.expiry.toString()) + 100,
+        expiryAllowance: 100,
+        optionTokenAddress: weth.address,
+    };
+
+    const signature = await signBidWithEIP712(bid, conduit.address, someoneElsePrivateKey); // buyer signs it
+
+    // Fee Manager
+    const royaltyReceiver = await feeManager.owner()
+    const initialRoyaltyReceiverBalance = await weth.balanceOf(royaltyReceiver);
+    
+    const initialBalanceBuyer = await weth.balanceOf(bid.buyer);
+    const initialBalanceSeller = await weth.balanceOf(optionOwner);
+    const acceptBidResult = await conduit.acceptBid(optionId, bnpl.address, bid, signature, metadata(optionOwner));
+    const finalBalanceBuyer = await weth.balanceOf(bid.buyer);
+    const finalBalanceSeller = await weth.balanceOf(optionOwner);
+    const finalRoyaltyReceiverBalance = await weth.balanceOf(royaltyReceiver);
+
+    truffleAssert.eventEmitted(acceptBidResult, "BidTaken", null, "Bid wasn't taken");
+    assert.equal(await option.ownerOf(optionId), bid.buyer, "Option not owned after buying");
+    assert.equal(fromWei(initialBalanceBuyer.sub(finalBalanceBuyer)), price, 'Buyer incorrect balance change')
+    
+    const royaltyAmount = price * royaltyPayoutPercent / originalPayoutPercent;
+    const sellerAmount = price - royaltyAmount;
+    assert.equal(fromWei(finalBalanceSeller.sub(initialBalanceSeller)), sellerAmount, 'Seller incorrect balance change')
+
+    // Fee Manager
+    assert.equal(fromWei(finalRoyaltyReceiverBalance.sub(initialRoyaltyReceiverBalance)), royaltyAmount, 'Fee receiver incorrect balance change')
 
     // Revert advanced time as previous time
     await revert(wholeSnapshotId);

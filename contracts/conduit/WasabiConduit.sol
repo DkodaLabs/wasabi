@@ -14,6 +14,7 @@ import "../IWasabiConduit.sol";
 import "../WasabiOption.sol";
 import "./ConduitSignatureVerifier.sol";
 import "../fees/IWasabiFeeManager.sol";
+import "../lending/BNPLOptionBidValidator.sol";
 
 /**
  * @dev A conduit that allows for trades of WasabiOptions
@@ -43,15 +44,18 @@ contract WasabiConduit is
 
     WasabiOption private option;
     uint256 public maxOptionsToBuy;
+    address public bnplContract;
     mapping(bytes => bool) public idToFinalizedOrCancelled;
     address private factory;
 
     /**
      * @dev Initializes a new WasabiConduit
      */
-    constructor(WasabiOption _option) {
+    constructor(WasabiOption _option, address _bnplContract, address _factory) {
         option = _option;
         maxOptionsToBuy = 100;
+        bnplContract = _bnplContract;
+        factory = _factory;
     }
 
     /// @inheritdoc IWasabiConduit
@@ -132,6 +136,11 @@ contract WasabiConduit is
     }
 
     /// @inheritdoc IWasabiConduit
+    function setBNPL(address _bnplContract) external onlyOwner {
+        bnplContract = _bnplContract;
+    }
+
+    /// @inheritdoc IWasabiConduit
     function setOption(WasabiOption _option) external onlyOwner {
         option = _option;
     }
@@ -160,11 +169,15 @@ contract WasabiConduit is
         validateAsk(_ask, _signature);
 
         uint256 price = _ask.price;
+        address royaltyAddress;
+        uint256 royaltyAmount;
 
-        (address royaltyAddress, uint256 royaltyAmount) = option.royaltyInfo(
-            _ask.optionId,
-            price
-        );
+        if (option.getPool(_ask.optionId) == bnplContract) {
+            IWasabiFeeManager feeManager = IWasabiFeeManager(IWasabiPoolFactory(factory).getFeeManager());
+            (royaltyAddress, royaltyAmount) = feeManager.getFeeDataForOption(_ask.optionId, price);
+        } else {
+            (royaltyAddress, royaltyAmount) = option.royaltyInfo(_ask.optionId, price);
+        }
 
         if (_ask.tokenAddress == address(0)) {
             require(msg.value >= price, "Not enough ETH supplied");
@@ -211,16 +224,29 @@ contract WasabiConduit is
             "Order was finalized or cancelled"
         );
 
-        IWasabiPool pool = IWasabiPool(_poolAddress);
-        validateOptionForBid(_optionId, pool, _bid);
-        validateBid(pool, _bid, _signature);
+        require(
+            option.ownerOf(_optionId) == _msgSender(),
+            "Seller is not owner"
+        );
+
+        validateBid(_bid, _signature);
 
         uint256 price = _bid.price;
 
-        (address royaltyAddress, uint256 royaltyAmount) = option.royaltyInfo(
-            _optionId,
-            price
-        );
+        address royaltyAddress;
+        uint256 royaltyAmount;
+
+        if (_poolAddress == bnplContract) {
+            BNPLOptionBidValidator.validateBidForBNPLOption(bnplContract, _optionId, _bid);
+
+            IWasabiFeeManager feeManager = IWasabiFeeManager(IWasabiPoolFactory(factory).getFeeManager());
+            (royaltyAddress, royaltyAmount) = feeManager.getFeeDataForOption(_optionId, price);
+        } else {
+            IWasabiPool pool = IWasabiPool(_poolAddress);
+            validateOptionForBid(_optionId, pool, _bid);
+
+            (royaltyAddress, royaltyAmount) = option.royaltyInfo(_optionId, price);
+        }
 
         IERC20 erc20 = IERC20(_bid.tokenAddress);
         if (royaltyAmount > 0) {
@@ -251,7 +277,8 @@ contract WasabiConduit is
         require(IWasabiPoolFactory(factory).isValidPool(_msgSender()), "Pool is not valid");
 
         IWasabiPool pool = IWasabiPool(poolAddress);
-        validateBid(pool, _bid, _signature);
+        validateBid(_bid, _signature);
+        validateOptionForBid(_optionId, pool, _bid);
 
         IERC20 erc20 = IERC20(_bid.tokenAddress);
 
@@ -306,11 +333,6 @@ contract WasabiConduit is
         IWasabiPool _pool,
         WasabiStructs.Bid calldata _bid
     ) internal view {
-        require(
-            option.ownerOf(_optionId) == _msgSender(),
-            "Seller is not owner"
-        );
-
         WasabiStructs.OptionData memory optionData = _pool.getOptionData(_optionId);
 
         require(
@@ -326,17 +348,18 @@ contract WasabiConduit is
             ? optionData.expiry - _bid.expiry
             : _bid.expiry - optionData.expiry;
         require(diff <= _bid.expiryAllowance, "Not within expiry range");
+
+        require(_pool.getNftAddress() == _bid.collection, "Collections don't match");
+        require(_pool.getLiquidityAddress() == _bid.optionTokenAddress, "Option liquidity doesn't match");
     }
 
     /**
      * @dev Validates the bid
      *
-     * @param _pool the pool the option was issued from
      * @param _bid the _bid to validate
      * @param _signature the _signature to validate the bid with
      */
     function validateBid(
-        IWasabiPool _pool,
         WasabiStructs.Bid calldata _bid,
         bytes calldata _signature
     ) internal view {
@@ -353,9 +376,6 @@ contract WasabiConduit is
 
         require(_bid.orderExpiry >= block.timestamp, "Order expired");
         require(_bid.price > 0, "Price needs to be greater than 0");
-
-        require(_pool.getNftAddress() == _bid.collection, "Collections don't match");
-        require(_pool.getLiquidityAddress() == _bid.optionTokenAddress, "Option liquidity doesn't match");
     }
 
     /// @inheritdoc IWasabiConduit
@@ -413,5 +433,29 @@ contract WasabiConduit is
         WasabiStructs.Bid calldata _bid
     ) internal pure returns (bytes memory) {
         return abi.encodePacked(_bid.buyer, _bid.id);
+    }
+
+    /// @dev Withdraws any stuck ETH in this contract
+    function withdrawETH(uint256 _amount) external payable onlyOwner {
+        if (_amount > address(this).balance) {
+            _amount = address(this).balance;
+        }
+        (bool sent, ) = payable(owner()).call{value: _amount}("");
+        if (!sent) {
+            revert EthTransferFailed();
+        }
+    }
+
+    /// @dev Withdraws any stuck ERC20 in this contract
+    function withdrawERC20(IERC20 _token, uint256 _amount) external onlyOwner {
+        _token.transfer(_msgSender(), _amount);
+    }
+
+    /// @dev Withdraws any stuck ERC721 in this contract
+    function withdrawERC721(
+        IERC721 _token,
+        uint256 _tokenId
+    ) external onlyOwner {
+        _token.safeTransferFrom(address(this), owner(), _tokenId);
     }
 }

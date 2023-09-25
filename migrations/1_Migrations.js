@@ -7,9 +7,11 @@ const ERC20WasabiPool = artifacts.require("ERC20WasabiPool");
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiConduit = artifacts.require("WasabiConduit");
 const WasabiFeeManager = artifacts.require("WasabiFeeManager");
+const BNPLOptionBidValidator = artifacts.require("BNPLOptionBidValidator");
 
 module.exports = async function (deployer, _network, accounts) {
   await deployer.deploy(WasabiStructs);
+  await deployer.deploy(BNPLOptionBidValidator);
   await deployer.deploy(PoolAskVerifier);
   await deployer.deploy(PoolBidVerifier);
   await deployer.deploy(WasabiOption);
@@ -22,6 +24,7 @@ module.exports = async function (deployer, _network, accounts) {
   } else {
     await deployer.deploy(WasabiFeeManager, 0, 10000);
   }
-  await deployer.deploy(WasabiConduit, WasabiOption.address);
+  await deployer.link(BNPLOptionBidValidator, WasabiConduit);
+  await deployer.deploy(WasabiConduit, WasabiOption.address, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000");
   await deployer.deploy(WasabiPoolFactory, WasabiOption.address, ETHWasabiPool.address, ERC20WasabiPool.address, WasabiFeeManager.address, WasabiConduit.address);
 };

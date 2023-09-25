@@ -27,8 +27,8 @@ module.exports = async function (deployer, _network) {
     await deployer.deploy(MockZharta);
     await deployer.deploy(ZhartaLending, MockZharta.address, MockZharta.address, MockZharta.address);
 
-    // await deployer.deploy(MockLending, wethAddress);
-    // await deployer.deploy(MockNFTLending, MockLending.address);
+    await deployer.deploy(MockLending, wethAddress);
+    await deployer.deploy(MockNFTLending, MockLending.address);
   } else {
     // optionAddress = "0xfc68f2130e094c95b6c4f5494158cbeb172e18a0";
     // wethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
@@ -38,15 +38,15 @@ module.exports = async function (deployer, _network) {
     // await deployer.deploy(NFTfiLending);
   }
 
-  // await deployer.deploy(FlashLoan);
-  // await deployer.deploy(LendingAddressProvider);
+  await deployer.deploy(FlashLoan);
+  await deployer.deploy(LendingAddressProvider);
 
-  // await deployer.deploy(
-  //   WasabiBNPL,
-  //   optionAddress,
-  //   FlashLoan.address,
-  //   LendingAddressProvider.address,
-  //   wethAddress,
-  //   factoryAddres
-  // );
+  await deployer.deploy(
+    WasabiBNPL,
+    optionAddress,
+    FlashLoan.address,
+    LendingAddressProvider.address,
+    wethAddress,
+    factoryAddres
+  );
 };

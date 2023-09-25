@@ -20,9 +20,9 @@ contract("FunctionCallEncoder", (accounts) => {
         };
 
         const functionCallEncoded = await functionCallEncoder.encodeFunctionCall(functionCall);
-        console.log('functionCallEncoded', functionCallEncoded);
+        // console.log('functionCallEncoded', functionCallEncoded);
 
         const functionCallSignedEncoded = await functionCallEncoder.encodeFunctionCallSignedMessage(functionCall);
-        console.log('functionCallSignedEncoded', functionCallSignedEncoded);
+        // console.log('functionCallSignedEncoded', functionCallSignedEncoded);
     })
 });

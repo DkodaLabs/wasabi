@@ -8,6 +8,9 @@ import "./WasabiOption.sol";
  */
 interface IWasabiConduit {
 
+    /// @notice ETH Transfer Failed
+    error EthTransferFailed();
+
     /**
      * @dev Buys multiple options
      */
@@ -37,6 +40,11 @@ interface IWasabiConduit {
         uint256 _tokenId,
         address _target
     ) external;
+
+    /**
+     * @dev Sets the BNPL contract
+     */
+    function setBNPL(address _bnplContract) external;
 
     /**
      * @dev Sets Option information
@@ -91,4 +99,13 @@ interface IWasabiConduit {
         WasabiStructs.Bid calldata _bid,
         bytes calldata _signature
     ) external;
+
+    /// @dev Withdraws any stuck ETH in this contract
+    function withdrawETH(uint256 _amount) external payable;
+
+    /// @dev Withdraws any stuck ERC20 in this contract
+    function withdrawERC20(IERC20 _token, uint256 _amount) external;
+
+    /// @dev Withdraws any stuck ERC721 in this contract
+    function withdrawERC721(IERC721 _token, uint256 _tokenId) external;
 }

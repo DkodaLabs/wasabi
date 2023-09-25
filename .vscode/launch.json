@@ -10,8 +10,7 @@
             "request": "launch",
             "program": "${workspaceRoot}/node_modules/truffle/build/cli.bundled.js",
             "args": [
-                "test",
-                "test/ZhartaLending.test.ts"
+                "test"
             ],
             "cwd": "${workspaceRoot}",
             "outFiles": [

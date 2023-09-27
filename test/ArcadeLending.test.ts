@@ -12,8 +12,10 @@ import {
   WETH9Instance,
   LendingAddressProviderInstance,
   MockZhartaInstance,
+  ArcadeLendingInstance,
+  MockArcadeLendingContractInstance,
 } from "../types/truffle-contracts";
-import { PoolState } from "./util/TestTypes";
+import { ArcadeCallData, PoolState } from "./util/TestTypes";
 import {
   signFunctionCallData,
   metadata,
@@ -26,6 +28,7 @@ import {
   encodeZhartaData,
   toBN,
   fromWei,
+  encodeArcadeData,
 } from "./util/TestUtils";
 
 const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
@@ -35,13 +38,11 @@ const LendingAddressProvider = artifacts.require("LendingAddressProvider");
 const WasabiBNPL = artifacts.require("WasabiBNPL");
 const Flashloan = artifacts.require("Flashloan");
 const WETH9 = artifacts.require("WETH9");
-const MockLending = artifacts.require("MockLending");
-const MockNFTLending = artifacts.require("MockNFTLending");
 const MockMarketplace = artifacts.require("MockMarketplace");
-const ZhartaLending = artifacts.require("ZhartaLending");
-const MockZharta = artifacts.require("MockZharta");
+const ArcadeLending = artifacts.require("ArcadeLending");
+const MockArcadeLendingContract = artifacts.require("MockArcadeLendingContract");
 
-contract("Zharta Lending", (accounts) => {
+contract("ArcadeLending Test", (accounts) => {
   let poolFactory: WasabiPoolFactoryInstance;
   let option: WasabiOptionInstance;
   let addressProvider: LendingAddressProviderInstance;
@@ -51,11 +52,10 @@ contract("Zharta Lending", (accounts) => {
   let bnpl: WasabiBNPLInstance;
   let flashloan: FlashloanInstance;
   let marketplace: MockMarketplaceInstance;
-  let zharta: ZhartaLendingInstance;
-  let mockZharta: MockZhartaInstance;
+  let arcade: ArcadeLendingInstance;
+  let mockArcade: MockArcadeLendingContractInstance;
   let weth: WETH9Instance;
   let wholeSnapshotId: any;
-  let unitSnapshotId: any;
 
   const deployer = accounts[0];
   const lp = accounts[2];
@@ -72,8 +72,8 @@ contract("Zharta Lending", (accounts) => {
 
     weth = await WETH9.deployed();
     marketplace = await MockMarketplace.new(weth.address);
-    mockZharta = await MockZharta.deployed();
-    zharta = await ZhartaLending.deployed();
+    arcade = await ArcadeLending.deployed();
+    mockArcade = await MockArcadeLendingContract.deployed();
     flashloan = await Flashloan.deployed();
     bnpl = await WasabiBNPL.new(
       option.address,
@@ -94,16 +94,15 @@ contract("Zharta Lending", (accounts) => {
 
     await web3.eth.sendTransaction({
       from: lp,
-      to: mockZharta.address,
+      to: mockArcade.address,
       value: toEth(20),
     });
     await flashloan.enableFlashloaner(bnpl.address, true, 0);
 
     await weth.deposit(metadata(lp, 30));
-    await weth.transfer(zharta.address, toEth(10), metadata(lp));
     await weth.transfer(marketplace.address, toEth(20), metadata(lp));
 
-    await addressProvider.addLending(zharta.address);
+    await addressProvider.addLending(arcade.address);
 
     let mintResult = await testNft.mint();
     tokenToBuy = mintResult.logs.find((e) => e.event == "Transfer")
@@ -133,28 +132,38 @@ contract("Zharta Lending", (accounts) => {
     const functionCalls = [functionCall];
     const signatures = [signature];
 
-    const data = {
-        amount: toEth(loanAmount),
-        interest: 300,
-        maturity: maturity,
-        collaterals: {
-          contractAddress: testNft.address,
-          tokenId: tokenToBuy,
-          amount: toEth(loanAmount)
+    const data: ArcadeCallData = {
+        loanTerms: {
+            proratedInterestRate: 1,
+            principal: toEth(loanAmount),
+            collateralAddress: testNft.address,
+            durationSecs: 86400,
+            collateralId: tokenToBuy,
+            payableCurrency: weth.address,
+            deadline: maturity,
+            affiliateCode: "0x0000000000000000000000000000000000000000000000000000000000000000",
         },
-        delegations: false,
-        deadline: maturity,
-        nonce: '0',
-        genesisToken: 0,
-        v: '27',
-        r: '108696869468085757493377642248186281836882762966372755015796929480269691791653',
-        s: '10485678798739289468371229199860095789121425267672879654434189836125882124520'
-      };
+        borrower: bnpl.address,
+        lender: lp,
+        sig: {
+            v: 28,
+            r: '0x23362c07b7d7e559e7a7433d622a943ca111e58cfa1fe052812c7b83833f9f49',
+            s: '0x2023dd98548e897f0f53fddc0bf02836959c12765a68619038ff89b0d59ff4e6',
+            extraData: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        },
+        nonce: 1,
+        itemPredicates: [
+          {
+            data: "0x0000000000000000000000000000000000000000000000000000000000000000",
+            verifier: weth.address
+          }
+        ]
+    };
 
-    const borrowData = encodeZhartaData(data);
+    const borrowData = encodeArcadeData(data);
 
     optionId = await bnpl.bnpl.call(
-      zharta.address,
+      arcade.address,
       borrowData,
       toEth(loanAmount),
       functionCalls,
@@ -163,7 +172,7 @@ contract("Zharta Lending", (accounts) => {
     );
 
     await bnpl.bnpl(
-      zharta.address,
+      arcade.address,
       borrowData,
       toEth(loanAmount),
       functionCalls,
@@ -172,7 +181,7 @@ contract("Zharta Lending", (accounts) => {
     );
 
     assert.equal(await option.ownerOf(optionId), buyer);
-    assert.equal(await testNft.ownerOf(tokenToBuy), mockZharta.address);
+    assert.equal(await testNft.ownerOf(tokenToBuy), mockArcade.address);
   });
 
   it("Execute Option", async () => {
@@ -180,7 +189,7 @@ contract("Zharta Lending", (accounts) => {
 
     const loanDetails = await bnpl.optionToLoan(optionId);
     const loanId = toBN(loanDetails[1]);
-    const loan = await mockZharta.getLoan(bnpl.address, loanId);
+    const loan = await mockArcade.getLoan(loanId);
     const optionDetails = await bnpl.getOptionData(optionId);
 
     const strike = fromWei(optionDetails.strikePrice);
@@ -221,7 +230,7 @@ contract("Zharta Lending", (accounts) => {
 
     const loanDetails = await bnpl.optionToLoan(optionId);
     const loanId = toBN(loanDetails[1]);
-    const loan = await mockZharta.getLoan(bnpl.address, loanId);
+    const loan = await mockArcade.getLoan(loanId);
     const optionDetails = await bnpl.getOptionData(optionId);
 
     await bnpl.executeOptionWithArbitrage(

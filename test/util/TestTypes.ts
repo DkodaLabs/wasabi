@@ -92,3 +92,21 @@ export interface WasabiPool {
     nftAddress: string,
     nftData?: WasabiPoolNFT,
 }
+
+export interface ArcadeCallData {
+    loanTerms: {
+        proratedInterestRate: number | BN | string;
+        principal: number | BN | string;
+        collateralAddress: string;
+        durationSecs: number | BN | string;
+        collateralId: number | BN | string;
+        payableCurrency: string;
+        deadline: number | BN | string;
+        affiliateCode: string;
+      },
+      borrower: string,
+      lender: string,
+      sig: { v: number | BN | string; r: string; s: string; extraData: string },
+      nonce: number | BN | string,
+      itemPredicates: { data: string; verifier: string }[],
+}

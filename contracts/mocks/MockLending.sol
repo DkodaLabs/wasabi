@@ -5,8 +5,9 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "../lending/arcade/IRepaymentController.sol";
 
-contract MockLending is IERC721Receiver {
+contract MockLending is IERC721Receiver, IRepaymentController {
     using SafeERC20 for IERC20;
 
     struct Loan {
@@ -18,10 +19,10 @@ contract MockLending is IERC721Receiver {
         uint256 expiration;
     }
 
-    uint256 private loanIdTracker;
+    uint256 public loanIdTracker;
     mapping(uint256 => Loan) public loans;
 
-    address private wethAddress;
+    address public wethAddress;
 
     constructor(address _wethAddress) {
         wethAddress = _wethAddress;
@@ -29,7 +30,7 @@ contract MockLending is IERC721Receiver {
 
     function borrow(
         bytes calldata _inputData
-    ) external returns (uint256 loanId) {
+    ) public returns (uint256 loanId) {
         (
             address nft,
             uint256 nftId,

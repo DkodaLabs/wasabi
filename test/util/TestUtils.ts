@@ -8,6 +8,7 @@ import {
   Ask,
   PricingConfig,
   PoolBid,
+  ArcadeCallData,
 } from "./TestTypes";
 
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
@@ -659,6 +660,53 @@ export function encodeZhartaData(data: any) {
 
     return encoded;
   } catch (error) {
+    throw new Error(`Failed to encode data: ${error}`);
+  }
+}
+
+export function encodeArcadeData(data: ArcadeCallData) {
+  try {
+    const loanTerms = [
+      data.loanTerms.proratedInterestRate,
+      data.loanTerms.principal,
+      data.loanTerms.collateralAddress,
+      data.loanTerms.durationSecs,
+      data.loanTerms.collateralId,
+      data.loanTerms.payableCurrency,
+      data.loanTerms.deadline,
+      data.loanTerms.affiliateCode,
+    ];
+
+    const signature = [
+      data.sig.v,
+      data.sig.r,
+      data.sig.s,
+      data.sig.extraData,
+    ];
+
+    const itemPredicatesArray = data.itemPredicates.map((item) => [
+      item.data,
+      item.verifier,
+    ]);
+
+    const encoded = web3.eth.abi.encodeParameters(
+      [
+        // Tuple structure for LoanTerms
+        'tuple(uint256,uint256,address,uint96,uint256,address,uint96,bytes32)',
+        // borrower and lender addresses
+        'address', 'address',
+        // Tuple structure for Signature
+        'tuple(uint8,bytes32,bytes32,bytes)',
+        // Nonce
+        'uint160',
+        // Array of tuples for item predicates
+        'tuple(bytes, address)[]',
+      ],
+      [loanTerms, data.borrower, data.lender, signature, data.nonce, itemPredicatesArray],
+    );
+    return encoded;
+  }
+  catch (error) {
     throw new Error(`Failed to encode data: ${error}`);
   }
 }

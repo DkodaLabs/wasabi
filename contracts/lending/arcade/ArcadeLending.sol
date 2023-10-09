@@ -21,7 +21,6 @@ contract ArcadeLending is INFTLending {
     uint256 public constant INTEREST_RATE_DENOMINATOR = 1e18;
     uint256 public constant BASIS_POINTS_DENOMINATOR = 1e4;
 
-    /// @notice WETH Contract
     IOriginationController public immutable originationController;
     ILoanCore public immutable loanCore;
     IRepaymentController public immutable repaymentController;

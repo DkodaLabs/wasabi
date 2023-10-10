@@ -8,6 +8,7 @@ import "../interfaces/INFTLending.sol";
 import "./LenderCommitmentForwarder.sol";
 import "./CollateralManager.sol";
 import "./ITellerV2.sol";
+import "./IMarketRegistry.sol";
 
 contract TellerLending is INFTLending {
 
@@ -25,18 +26,18 @@ contract TellerLending is INFTLending {
     ) external view returns (LoanDetails memory loanDetails) {
         CollateralManager.Collateral memory collateral = CollateralManager(loansCore.collateralManager()).getCollateralInfo(_loanId)[0];
         uint32 expiry = loansCore.calculateNextDueDate(_loanId);
-        ITellerV2.Payment memory amountDue = loansCore.calculateAmountDue(_loanId, expiry);
+        ITellerV2.Payment memory payment = loansCore.calculateAmountOwed(_loanId, expiry);
 
         loanDetails = LoanDetails(
-            amountDue.principal,
-            amountDue.principal + amountDue.interest,
+            payment.principal,
+            payment.principal + payment.interest,
             expiry,
             collateral._collateralAddress,
             collateral._tokenId
         );
     }
 
-        /// @inheritdoc INFTLending
+    /// @inheritdoc INFTLending
     function borrow(
         bytes calldata _inputData
     ) external payable returns (uint256 loanId) {
@@ -51,10 +52,11 @@ contract TellerLending is INFTLending {
             address _collateralTokenAddress,
             uint16 _interestRate,
             uint32 _loanDuration,
+            uint256 _marketplaceId,
             bytes32[] memory _merkleProof
         ) = abi.decode(
             _inputData,
-            (uint256, uint256, uint256, uint256, address, uint16, uint32, bytes32[]));
+            (uint256, uint256, uint256, uint256, address, uint16, uint32, uint256, bytes32[]));
 
         // 2. Approve NFT Transfer
         IERC721 nft = IERC721(_collateralTokenAddress);
@@ -63,9 +65,8 @@ contract TellerLending is INFTLending {
         }
 
         // 3. Approve market forwarder
-        uint256 marketId = loansCore.getLoanMarketId(loanId);
-        if (!loansCore.hasApprovedMarketForwarder(marketId, lenderCommitmentForwarder, address(this))) {
-            loansCore.approveMarketForwarder(marketId, lenderCommitmentForwarder);
+        if (!loansCore.hasApprovedMarketForwarder(_marketplaceId, lenderCommitmentForwarder, address(this))) {
+            loansCore.approveMarketForwarder(_marketplaceId, lenderCommitmentForwarder);
         }
 
         // 4. Take out loan
@@ -88,17 +89,19 @@ contract TellerLending is INFTLending {
                 _collateralTokenId,
                 _collateralTokenAddress,
                 _interestRate,
-                _loanDuration);
+                _loanDuration
+            );
         }
 
         // 5. Unwrap WETH into ETH
-        weth.withdraw(_principalAmount);
+        uint256 amountToBorrower = calculateAmountToBorrower(_principalAmount, _marketplaceId);
+        weth.withdraw(amountToBorrower);
     }
 
     /// @inheritdoc INFTLending
     function repay(uint256 _loanId, address _receiver) external payable {
         // 1. Calculate amount
-        ITellerV2.Payment memory payment = loansCore.calculateAmountDue(_loanId, block.timestamp);
+        ITellerV2.Payment memory payment = loansCore.calculateAmountOwed(_loanId, block.timestamp);
         uint256 repayAmount = payment.interest + payment.principal;
         CollateralManager.Collateral memory collateral = CollateralManager(loansCore.collateralManager()).getCollateralInfo(_loanId)[0];
 
@@ -117,6 +120,16 @@ contract TellerLending is INFTLending {
                 collateral._tokenId
             );
         }
+    }
+
+    function calculateAmountToBorrower(uint256 _principal, uint256 _marketId) view public returns(uint256 amountToBorrower) {
+        uint256 amountToProtocol = percent(_principal, loansCore.protocolFee());
+        uint256 amountToMarketplace = percent(_principal, IMarketRegistry(loansCore.marketRegistry()).getMarketplaceFee(_marketId));
+        amountToBorrower = _principal - amountToProtocol - amountToMarketplace;
+    }
+
+    function percent(uint256 value, uint16 percentage) pure internal returns (uint256) {
+        return value * percentage / 10_000;
     }
 
     receive() external payable {}

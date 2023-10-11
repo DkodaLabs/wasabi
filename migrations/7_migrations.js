@@ -10,6 +10,8 @@ const ZhartaLendingConstantFix = artifacts.require("ZhartaLendingConstantFix");
 const NFTfiLending = artifacts.require("NFTfiLending");
 const ArcadeLending = artifacts.require("ArcadeLending");
 const MockArcadeLendingContract = artifacts.require("MockArcadeLendingContract");
+const TellerLending = artifacts.require("TellerLending");
+const MockTellerLendingContract = artifacts.require("MockTellerLendingContract");
 
 module.exports = async function (deployer, _network) {
   const zharteLoanPeripheral = "0xaF2F471d3B46171f876f465165dcDF2F0E788636";
@@ -34,6 +36,9 @@ module.exports = async function (deployer, _network) {
 
     const mockLendingAddress = MockArcadeLendingContract.address;
     await deployer.deploy(ArcadeLending, mockLendingAddress, mockLendingAddress, mockLendingAddress, wethAddress);
+    
+    await deployer.deploy(MockTellerLendingContract, wethAddress);
+    await deployer.deploy(TellerLending, wethAddress, MockTellerLendingContract.address);
   } else {
     // optionAddress = "0xfc68f2130e094c95b6c4f5494158cbeb172e18a0";
     // wethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";

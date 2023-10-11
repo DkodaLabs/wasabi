@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../lending/arcade/IRepaymentController.sol";
 
-contract MockLending is IERC721Receiver, IRepaymentController {
+contract MockLending is IERC721Receiver, IRepaymentController, Ownable {
+    event NewLoan(address nft, uint256 tokenId, uint256 principal, uint256 repayment, uint256 duration);
     using SafeERC20 for IERC20;
 
     struct Loan {
@@ -47,20 +49,20 @@ contract MockLending is IERC721Receiver, IRepaymentController {
             expiration: block.timestamp + 30 days
         });
 
-        IERC721(nft).safeTransferFrom(msg.sender, address(this), nftId);
-        IERC20(wethAddress).safeTransfer(msg.sender, loanAmount);
+        IERC721(nft).safeTransferFrom(_msgSender(), address(this), nftId);
+        IERC20(wethAddress).safeTransfer(_msgSender(), loanAmount);
     }
 
-    function repay(uint256 _loanId) external {
+    function repay(uint256 _loanId) public {
         Loan storage loan = loans[_loanId];
         IERC20(wethAddress).safeTransferFrom(
-            msg.sender,
+            _msgSender(),
             address(this),
             loan.repayment
         );
         IERC721(loan.nft).safeTransferFrom(
             address(this),
-            msg.sender,
+            _msgSender(),
             loan.nftId
         );
     }

@@ -710,3 +710,26 @@ export function encodeArcadeData(data: ArcadeCallData) {
     throw new Error(`Failed to encode data: ${error}`);
   }
 }
+
+export function encodeTellerData(
+  commitmentId: number | BN | string,
+  principalAmount: number | BN | string,
+  collateralAmount: number | BN | string,
+  collateralTokenId: number | BN | string,
+  collateralTokenAddress: string,
+  interestRate: number | BN | string,
+  loanDuration: number | BN | string,
+  marketplaceId: number | BN | string,
+  merkleProof: string[]
+) {
+  try {
+    const encoded = web3.eth.abi.encodeParameters(
+      ['uint256', 'uint256', 'uint256', 'uint256', 'address', 'uint16', 'uint32', 'uint256', 'bytes32[]'],
+      [commitmentId, principalAmount, collateralAmount, collateralTokenId, collateralTokenAddress, interestRate, loanDuration, marketplaceId, merkleProof],
+    );
+    return encoded;
+  }
+  catch (error) {
+    throw new Error(`Failed to encode data: ${error}`);
+  }
+}

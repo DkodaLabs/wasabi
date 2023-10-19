@@ -14,6 +14,24 @@ library BNPLOptionBidValidator {
 
     address constant ZHARTA_LENDING = 0x6209A1b9751F67594427a45b5225bC3492009788;
 
+    /**
+     * Returns the loan details for the given option
+     * @param _bnplAddress the bnpl address
+     * @param _optionId the option id
+     */
+    function getLoanDetails(
+        address _bnplAddress,
+        uint256 _optionId
+    ) public view returns (INFTLending.LoanDetails memory loanDetails) {
+        WasabiBNPL bnpl = WasabiBNPL(payable(_bnplAddress));
+        (address lending, uint256 loanId) = bnpl.optionToLoan(_optionId);
+        if (lending == ZHARTA_LENDING) {
+            loanDetails = ZhartaLending(payable(lending)).getLoanDetailsForBorrower(loanId, _bnplAddress);
+        } else {
+            loanDetails = INFTLending(lending).getLoanDetails(loanId);
+        }
+    }
+
     /// @notice Validates the given bid for the option
     /// @param _bnplAddress the BNPL contract address
     /// @param _optionId the id of the option the validate
@@ -23,15 +41,8 @@ library BNPLOptionBidValidator {
         WasabiStructs.Bid calldata _bid
     ) external view {
         WasabiBNPL bnpl = WasabiBNPL(payable(_bnplAddress));
-        (address lending, uint256 loanId) = bnpl.optionToLoan(_optionId);
 
-        INFTLending.LoanDetails memory loanDetails;
-        if (lending == ZHARTA_LENDING) {
-            loanDetails = ZhartaLending(payable(lending)).getLoanDetailsForBorrower(loanId, _bnplAddress);
-        } else {
-            loanDetails = INFTLending(lending).getLoanDetails(loanId);
-        }
-
+        INFTLending.LoanDetails memory loanDetails = getLoanDetails(_bnplAddress, _optionId);
         WasabiStructs.OptionData memory optionData = bnpl.getOptionData(_optionId);
 
         require(

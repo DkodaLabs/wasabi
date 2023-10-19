@@ -42,6 +42,7 @@ contract TellerLending is INFTLending {
         bytes calldata _inputData
     ) external payable returns (uint256 loanId) {
         address lenderCommitmentForwarder = loansCore.lenderCommitmentForwarder();
+        address collateralManager = loansCore.collateralManager();
 
         // 1. Decode
         (
@@ -60,8 +61,8 @@ contract TellerLending is INFTLending {
 
         // 2. Approve NFT Transfer
         IERC721 nft = IERC721(_collateralTokenAddress);
-        if (!nft.isApprovedForAll(address(this), lenderCommitmentForwarder)) {
-            nft.setApprovalForAll(lenderCommitmentForwarder, true);
+        if (!nft.isApprovedForAll(address(this), collateralManager)) {
+            nft.setApprovalForAll(collateralManager, true);
         }
 
         // 3. Approve market forwarder
@@ -122,10 +123,20 @@ contract TellerLending is INFTLending {
         }
     }
 
-    function calculateAmountToBorrower(uint256 _principal, uint256 _marketId) view public returns(uint256 amountToBorrower) {
+    /// @notice Calculates the fee paid to the protocol upfront
+    /// @param _principal the loan principal
+    /// @param _marketId the market id
+    function calculateTellerFees(uint256 _principal, uint256 _marketId) view public returns(uint256 totalFees) {
         uint256 amountToProtocol = percent(_principal, loansCore.protocolFee());
         uint256 amountToMarketplace = percent(_principal, IMarketRegistry(loansCore.marketRegistry()).getMarketplaceFee(_marketId));
-        amountToBorrower = _principal - amountToProtocol - amountToMarketplace;
+        totalFees = amountToProtocol + amountToMarketplace;
+    }
+
+    /// @notice Calculates the amount received by a protocol
+    /// @param _principal the loan principal
+    /// @param _marketId the market id
+    function calculateAmountToBorrower(uint256 _principal, uint256 _marketId) view public returns(uint256 amountToBorrower) {
+        amountToBorrower = _principal - calculateTellerFees(_principal, _marketId);
     }
 
     function percent(uint256 value, uint16 percentage) pure internal returns (uint256) {

@@ -11,6 +11,9 @@ interface IWasabiConduit {
     /// @notice ETH Transfer Failed
     error EthTransferFailed();
 
+    /// @notice Insufficient amount supplied for the transaction
+    error InsufficientAmountSupplier();
+
     /**
      * @dev Buys multiple options
      */
@@ -62,7 +65,19 @@ interface IWasabiConduit {
     function setPoolFactoryAddress(address _factory) external;
 
     /**
-     * @dev Accpets the Ask
+     * @dev Accepts the Ask and exercises the option
+     * @param _taker the address taking this order
+     * @param _ask the ask object being taken
+     * @param _signature the signature of the ask
+     */
+    function acceptAskAndExercise(
+        address _taker,
+        WasabiStructs.Ask calldata _ask,
+        bytes calldata _signature
+    ) external payable returns (uint256);
+
+    /**
+     * @dev Accepts the Ask
      */
     function acceptAsk(
         WasabiStructs.Ask calldata _ask,
@@ -70,7 +85,7 @@ interface IWasabiConduit {
     ) external payable returns (uint256);
 
     /**
-     * @dev Accpets the Bid
+     * @dev Accepts the Bid
      */
     function acceptBid(
         uint256 _optionId,

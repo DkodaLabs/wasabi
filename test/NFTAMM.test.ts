@@ -17,7 +17,7 @@ const DemoETH = artifacts.require("DemoETH");
 const NFTAMM = artifacts.require("NFTAMM");
 const MockArbitrage = artifacts.require("MockArbitrage");
 
-contract("OptionFMVPurchaser", accounts => {
+contract("NFTAMM", accounts => {
     let token: DemoETHInstance;
     let poolFactory: WasabiPoolFactoryInstance;
     let option: WasabiOptionInstance;

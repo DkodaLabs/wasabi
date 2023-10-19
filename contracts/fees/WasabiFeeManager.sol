@@ -53,4 +53,16 @@ contract WasabiFeeManager is IWasabiFeeManager, Ownable {
     function setDenominator(uint96 _denominator) external onlyOwner {
         denominator = _denominator;
     }
+
+    /**
+     * @dev Toggles the pass discount
+     * @param _enabled flag to enable/disable the pass discount
+     */
+    function togglePassDiscount(bool _enabled) external {}
+    
+    function editPassDiscountToggler(address _toggler, bool _enabled) external {}
+
+    function passDiscountIsEnabled() external view returns(bool) {
+        return false;
+    }
 }

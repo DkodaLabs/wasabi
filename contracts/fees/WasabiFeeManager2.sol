@@ -79,4 +79,16 @@ contract WasabiFeeManager2 is IWasabiFeeManager, Ownable {
     function setUnitDiscount(uint96 _unitDiscount) external onlyOwner {
         unitDiscount = _unitDiscount;
     }
+
+    /**
+     * @dev Toggles the pass discount
+     * @param _enabled flag to enable/disable the pass discount
+     */
+    function togglePassDiscount(bool _enabled) external {}
+
+    function editPassDiscountToggler(address _toggler, bool _enabled) external {}
+
+    function passDiscountIsEnabled() external view returns(bool) {
+        return true;
+    }
 }

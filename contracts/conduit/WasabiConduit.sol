@@ -15,6 +15,7 @@ import "../WasabiOption.sol";
 import "./ConduitSignatureVerifier.sol";
 import "../fees/IWasabiFeeManager.sol";
 import "../lending/BNPLOptionBidValidator.sol";
+import "../lending/interfaces/IWasabiBNPL.sol";
 
 /**
  * @dev A conduit that allows for trades of WasabiOptions
@@ -156,10 +157,85 @@ contract WasabiConduit is
     }
 
     /// @inheritdoc IWasabiConduit
+    function acceptAskAndExercise(
+        address _taker,
+        WasabiStructs.Ask calldata _ask,
+        bytes calldata _signature
+    ) public payable nonReentrant returns (uint256 optionId) {
+        IWasabiFeeManager feeManager = IWasabiFeeManager(IWasabiPoolFactory(factory).getFeeManager());
+        bool passDiscountEnabled = feeManager.passDiscountIsEnabled();
+
+        if (passDiscountEnabled) {
+            feeManager.togglePassDiscount(false);
+        }
+
+        // 1. Buy Option
+        optionId = acceptAskInternal(address(this), _ask, _signature);
+
+        address poolAddress = option.getPool(optionId);
+        IERC721 nft;
+        uint256 tokenId;
+
+        // 2. Exercise option
+        if (poolAddress == bnplContract) {
+            // Compute fees and strike amount to pay
+            IWasabiBNPL bnpl = IWasabiBNPL(bnplContract);
+            INFTLending.LoanDetails memory loanDetails = BNPLOptionBidValidator.getLoanDetails(bnplContract, optionId);
+            nft = IERC721(loanDetails.nftAddress);
+            tokenId = loanDetails.tokenId;
+            uint256 strike = bnpl.getOptionData(optionId).strikePrice;
+            (address feeReceiver, uint256 feeAmount) = feeManager.getFeeDataForOption(optionId, strike);
+            if (strike + feeAmount < msg.value) {
+                revert InsufficientAmountSupplier();
+            }
+            // Pay fees
+            if (feeAmount > 0) {
+                (bool sent, ) = payable(feeReceiver).call{value: feeAmount}("");
+                if (!sent) {
+                    revert IWasabiErrors.FailedToSend();
+                }
+            }
+
+            bnpl.executeOption{value: strike}(optionId);
+
+        } else {
+            IWasabiPool pool = IWasabiPool(poolAddress);
+            require(pool.getLiquidityAddress() == address(0), "Only ETH pools can sell proxy listings");
+
+            WasabiStructs.OptionData memory optionData = pool.getOptionData(optionId);
+            require(optionData.optionType == WasabiStructs.OptionType.CALL, "Only CALL options can be taken");
+            nft = IERC721(pool.getNftAddress());
+            tokenId = optionData.tokenId;
+            (, uint256 feeAmount) = feeManager.getFeeDataForOption(optionId, optionData.strikePrice);
+            if (optionData.strikePrice + feeAmount < msg.value) {
+                revert InsufficientAmountSupplier();
+            }
+            pool.executeOption{value: optionData.strikePrice + feeAmount}(optionId);
+        }
+
+        nft.safeTransferFrom(address(this), _taker, tokenId);
+
+        if (passDiscountEnabled) {
+            feeManager.togglePassDiscount(true);
+        }
+    }
+
+    /// @inheritdoc IWasabiConduit
     function acceptAsk(
         WasabiStructs.Ask calldata _ask,
         bytes calldata _signature
     ) public payable nonReentrant returns (uint256) {
+        return acceptAskInternal(_msgSender(), _ask, _signature);
+    }
+
+    /**
+     * @dev Accepts the Ask
+     */
+    function acceptAskInternal(
+        address _optionReceiver,
+        WasabiStructs.Ask calldata _ask,
+        bytes calldata _signature
+    ) internal returns (uint256) {
         bytes memory id = getAskId(_ask);
         require(
             !idToFinalizedOrCancelled[id],
@@ -172,8 +248,8 @@ contract WasabiConduit is
         address royaltyAddress;
         uint256 royaltyAmount;
 
+        IWasabiFeeManager feeManager = IWasabiFeeManager(IWasabiPoolFactory(factory).getFeeManager());
         if (option.getPool(_ask.optionId) == bnplContract) {
-            IWasabiFeeManager feeManager = IWasabiFeeManager(IWasabiPoolFactory(factory).getFeeManager());
             (royaltyAddress, royaltyAmount) = feeManager.getFeeDataForOption(_ask.optionId, price);
         } else {
             (royaltyAddress, royaltyAmount) = option.royaltyInfo(_ask.optionId, price);
@@ -195,7 +271,7 @@ contract WasabiConduit is
         } else {
             IERC20 erc20 = IERC20(_ask.tokenAddress);
             if (royaltyAmount > 0) {
-                if(!erc20.transferFrom(_msgSender(), royaltyAddress, royaltyAmount)) {
+                if (!erc20.transferFrom(_msgSender(), royaltyAddress, royaltyAmount)) {
                     revert IWasabiErrors.FailedToSend();
                 }
                 price -= royaltyAmount;
@@ -204,10 +280,10 @@ contract WasabiConduit is
                 revert IWasabiErrors.FailedToSend();
             }
         }
-        option.safeTransferFrom(_ask.seller, _msgSender(), _ask.optionId);
+        option.safeTransferFrom(_ask.seller, _optionReceiver, _ask.optionId);
         idToFinalizedOrCancelled[id] = true;
 
-        emit AskTaken(_ask.optionId, _ask.id, _ask.seller, _msgSender());
+        emit AskTaken(_ask.optionId, _ask.id, _ask.seller, _optionReceiver);
         return _ask.optionId;
     }
 

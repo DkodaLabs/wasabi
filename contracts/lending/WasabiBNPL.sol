@@ -234,12 +234,16 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         uint256 flashLoanRepayAmount = flashloan.borrow(loanDetails.repayAmount);
 
         // 2. Repay loan
-        loanInfo.nftLending.functionDelegateCall(abi.encodeWithSelector(INFTLending.repay.selector, loanInfo.loanId, address(this)));
+        loanInfo.nftLending.functionDelegateCall(
+            abi.encodeWithSelector(
+                INFTLending.repay.selector, loanInfo.loanId, address(this)));
         wasabiOption.burn(_optionId);
         emit OptionExecuted(_optionId);
 
         // 3. Get loan
-        bytes memory result = _nftLending.functionDelegateCall(abi.encodeWithSelector(INFTLending.borrow.selector, _borrowData));
+        bytes memory result = _nftLending.functionDelegateCall(
+            abi.encodeWithSelector(
+                INFTLending.borrow.selector, _borrowData));
         uint256 loanId = abi.decode(result, (uint256));
         uint256 newOptionId = wasabiOption.mint(_msgSender(), factory);
         optionToLoan[newOptionId] = LoanInfo({
@@ -261,7 +265,7 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
             payETH(_msgSender(), payout);
         }
 
-        emit OptionRolledOver(newOptionId, _optionId);
+        emit OptionRolledOver(newOptionId, _optionId, payout);
     }
 
     // Helper Functions 

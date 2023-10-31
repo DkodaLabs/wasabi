@@ -39,7 +39,7 @@ interface IWasabiBNPL {
     event OptionIssued(uint256 optionId);
 
     /// @dev Emitted when an option is rolledover into a new one
-    event OptionRolledOver(uint256 optionId, uint256 previousOptionId);
+    event OptionRolledOver(uint256 optionId, uint256 previousOptionId, uint256 refundAmount);
 
     /// @dev Emitted when an option is executed
     event OptionExecuted(uint256 optionId);

@@ -15,6 +15,7 @@ import {
   WasabiConduitInstance,
   WasabiFeeManagerInstance,
 } from "../types/truffle-contracts";
+import {OptionRolledOver} from "../types/truffle-contracts/WasabiBNPL";
 import { Ask, Bid, OptionData, PoolState, ZERO_ADDRESS } from "./util/TestTypes";
 import {
   signFunctionCallData,
@@ -83,7 +84,7 @@ contract("WasabiBNPL", (accounts) => {
     weth = await WETH9.deployed();
     marketplace = await MockMarketplace.new(weth.address);
     lending = await MockLending.deployed();
-    nftLending = await MockNFTLending.deployed();
+    nftLending = await MockNFTLending.new(lending.address);
     flashloan = await Flashloan.deployed();
     conduit = await WasabiConduit.deployed();
     feeManager = await WasabiFeeManager.deployed();
@@ -113,8 +114,8 @@ contract("WasabiBNPL", (accounts) => {
     });
     await flashloan.enableFlashloaner(bnpl.address, true, 100);
 
-    await weth.deposit(metadata(lp, 30));
-    await weth.transfer(lending.address, toEth(10), metadata(lp));
+    await weth.deposit(metadata(lp, 40));
+    await weth.transfer(lending.address, toEth(20), metadata(lp));
     await weth.transfer(marketplace.address, toEth(20), metadata(lp));
 
     await addressProvider.addLending(nftLending.address);
@@ -516,6 +517,82 @@ contract("WasabiBNPL", (accounts) => {
       option.ownerOf(optionId),
       "ERC721: invalid token ID"
     );
+
+    await revert(wholeSnapshotId);
+  });
+
+  it("rollover -- lower LTV", async () => {
+    wholeSnapshotId = await takeSnapshot();
+
+    const previousRepaymentAmount = toBN(toEth(10.5));
+
+    const loanAmount = toEth(9);
+    const repayment = toEth(9.5);
+    const borrowData = ethers.utils.AbiCoder.prototype.encode(
+      ["address", "uint256", "uint256", "uint256"],
+      [testNft.address, tokenToBuy.toString(), loanAmount, repayment]
+    );
+
+    const flashLoanFee = previousRepaymentAmount.div(toBN(100));
+    const topoff = previousRepaymentAmount.sub(toBN(loanAmount));
+    const value = flashLoanFee.add(topoff);
+
+    const result = await bnpl.rolloverOption(optionId, nftLending.address, borrowData, {from: buyer, value});
+    await truffleAssert.eventEmitted(result, "OptionRolledOver", null, "Option rolled over");
+
+    await revert(wholeSnapshotId);
+  });
+
+  it("rollover -- higher LTV", async () => {
+    wholeSnapshotId = await takeSnapshot();
+
+    const previousRepaymentAmount = toBN(toEth(10.5));
+
+    const loanAmount = toEth(14);
+    const repayment = toEth(14.5);
+    const borrowData = ethers.utils.AbiCoder.prototype.encode(
+      ["address", "uint256", "uint256", "uint256"],
+      [testNft.address, tokenToBuy.toString(), loanAmount, repayment]
+    );
+
+    const flashLoanFee = previousRepaymentAmount.div(toBN(100));
+    const topoff = toBN(loanAmount).gte(previousRepaymentAmount) ? toBN(0) : previousRepaymentAmount.sub(toBN(loanAmount));
+    const value = flashLoanFee.add(topoff);
+
+    const extenderBalanceBefore = toBN(await web3.eth.getBalance(buyer));
+
+    const result = await bnpl.rolloverOption(optionId, nftLending.address, borrowData, {from: buyer, value});
+    await truffleAssert.eventEmitted(result, "OptionRolledOver", null, "Option rolled over");
+
+    const extenderBalanceAfter = toBN(await web3.eth.getBalance(buyer));
+
+    const refundAmount = extenderBalanceAfter.sub(extenderBalanceBefore);
+    assert.equal(
+      refundAmount.toString(),
+      toBN(loanAmount).sub(previousRepaymentAmount).sub(flashLoanFee).sub(gasOfTxn(result.receipt)).toString(),
+      'Not enough refunded');
+
+    await revert(wholeSnapshotId);
+  });
+
+  it("rollover -- same LTV", async () => {
+    wholeSnapshotId = await takeSnapshot();
+
+    const previousRepaymentAmount = toBN(toEth(10.5));
+
+    const loanAmount = toEth(10.5);
+    const repayment = toEth(11);
+    const borrowData = ethers.utils.AbiCoder.prototype.encode(
+      ["address", "uint256", "uint256", "uint256"],
+      [testNft.address, tokenToBuy.toString(), loanAmount, repayment]
+    );
+
+    const flashLoanFee = previousRepaymentAmount.div(toBN(100));
+    const topoff = toBN(loanAmount).gte(previousRepaymentAmount) ? toBN(0) : previousRepaymentAmount.sub(toBN(loanAmount));
+    const value = flashLoanFee.add(topoff);
+
+    const result = await bnpl.rolloverOption(optionId, nftLending.address, borrowData, {from: buyer, value});
+    await truffleAssert.eventEmitted(result, "OptionRolledOver", null, "Option rolled over");
 
     await revert(wholeSnapshotId);
   });

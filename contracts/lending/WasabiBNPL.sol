@@ -59,7 +59,7 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         factory = _factory;
     }
 
-    /// @dev Returns the option data for the given option id
+    /// @inheritdoc IWasabiBNPL
     function getOptionData(
         uint256 _optionId
     ) external view returns (WasabiStructs.OptionData memory optionData) {
@@ -79,16 +79,7 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         );
     }
 
-    /// @notice Executes BNPL flow
-    /// @dev BNLP flow
-    ///      1. take flashloan
-    ///      2. buy nft from marketplace
-    ///      3. get loan from nft lending protocol
-    /// @param _nftLending NFTLending contract address
-    /// @param _borrowData Borrow data
-    /// @param _flashLoanAmount Call value
-    /// @param _marketplaceCallData List of marketplace calldata
-    /// @param _signatures Signatures
+    /// @inheritdoc IWasabiBNPL
     function bnpl(
         address _nftLending,
         bytes calldata _borrowData,
@@ -106,10 +97,7 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         uint256 flashLoanRepayAmount = flashloan.borrow(_flashLoanAmount);
 
         // 2. Buy NFT
-        bool marketSuccess = executeFunctions(_marketplaceCallData);
-        if (!marketSuccess) {
-            revert FunctionCallFailed();
-        }
+        executeFunctions(_marketplaceCallData);
 
         // 3. Get loan
         bytes memory result = _nftLending.functionDelegateCall(
@@ -125,112 +113,19 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
 
         // 4. Repay flashloan
         if (address(this).balance < flashLoanRepayAmount) {
-            revert LoanNotPaid();
+            revert FlashLoanNotPaid();
         }
         uint256 payout = address(this).balance - flashLoanRepayAmount;
-
-        (bool sent, ) = payable(address(flashloan)).call{
-            value: flashLoanRepayAmount
-        }("");
-        if (!sent) {
-            revert EthTransferFailed();
-        }
+        payETH(address(flashloan), flashLoanRepayAmount);
         if (payout > 0) {
-            (sent, ) = payable(_msgSender()).call{value: payout}("");
-            if (!sent) {
-                revert EthTransferFailed();
-            }
+            payETH(_msgSender(), payout);
         }
 
+        emit OptionIssued(optionId);
         return optionId;
     }
 
-    /// @notice Executes a given list of functions
-    /// @param _marketplaceCallData List of marketplace calldata
-    function executeFunctions(
-        FunctionCallData[] memory _marketplaceCallData
-    ) internal returns (bool) {
-        uint256 length = _marketplaceCallData.length;
-        for (uint256 i; i != length; ++i) {
-            FunctionCallData memory functionCallData = _marketplaceCallData[i];
-            (bool success, ) = functionCallData.to.call{
-                value: functionCallData.value
-            }(functionCallData.data);
-            if (success == false) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /// @notice Validates if the FunctionCallData list has been approved
-    /// @param _marketplaceCallData List of marketplace calldata
-    /// @param _signatures Signatures
-    function validate(
-        FunctionCallData[] calldata _marketplaceCallData,
-        bytes[] calldata _signatures
-    ) internal view {
-        uint256 calldataLength = _marketplaceCallData.length;
-        require(calldataLength > 0, "Need marketplace calls");
-        require(calldataLength == _signatures.length, "Length is invalid");
-        for (uint256 i; i != calldataLength; ++i) {
-            bytes32 ethSignedMessageHash = Signing.getEthSignedMessageHash(
-                getMessageHash(_marketplaceCallData[i])
-            );
-            require(
-                Signing.recoverSigner(ethSignedMessageHash, _signatures[i]) ==
-                    owner(),
-                "Owner is not signer"
-            );
-        }
-    }
-
-    /// @notice Returns the message hash for the given _data
-    function getMessageHash(
-        FunctionCallData calldata _data
-    ) public pure returns (bytes32) {
-        return keccak256(abi.encode(_data.to, _data.value, _data.data));
-    }
-
-    /// @dev Withdraws any stuck ETH in this contract
-    function withdrawETH(uint256 _amount) external payable onlyOwner {
-        if (_amount > address(this).balance) {
-            _amount = address(this).balance;
-        }
-        (bool sent, ) = payable(owner()).call{value: _amount}("");
-        if (!sent) {
-            revert EthTransferFailed();
-        }
-    }
-
-    /// @dev Withdraws any stuck ERC20 in this contract
-    function withdrawERC20(IERC20 _token, uint256 _amount) external onlyOwner {
-        _token.safeTransfer(_msgSender(), _amount);
-    }
-
-    /// @dev Withdraws any stuck ERC721 in this contract
-    function withdrawERC721(
-        IERC721 _token,
-        uint256 _tokenId
-    ) external onlyOwner {
-        _token.safeTransferFrom(address(this), owner(), _tokenId);
-    }
-
-    function onERC721Received(
-        address /* operator */,
-        address /* from */,
-        uint256 /* tokenId */,
-        bytes memory /* data */
-    ) public virtual override returns (bytes4) {
-        return this.onERC721Received.selector;
-    }
-
-    receive() external payable {}
-
-    /**
-     * @dev Executes the given option id
-     * @param _optionId The option id
-     */
+    /// @inheritdoc IWasabiBNPL
     function executeOption(uint256 _optionId) external payable nonReentrant {
         require(
             wasabiOption.ownerOf(_optionId) == _msgSender(),
@@ -264,22 +159,14 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         emit OptionExecuted(_optionId);
     }
 
-    /**
-     * @dev Executes the given option id and sells the NFT to the market
-     * @param _optionId The option id
-     * @param _marketplaceCallData List of marketplace calldata
-     * @param _signatures List of signatures of the marketplace call data
-     */
+    /// @inheritdoc IWasabiBNPL
     function executeOptionWithArbitrage(
         uint256 _optionId,
         FunctionCallData[] calldata _marketplaceCallData,
         bytes[] calldata _signatures
     ) external payable nonReentrant {
         validate(_marketplaceCallData, _signatures);
-        require(
-            wasabiOption.ownerOf(_optionId) == _msgSender(),
-            "Only owner can exercise option"
-        );
+        require(wasabiOption.ownerOf(_optionId) == _msgSender(), "Only owner can exercise option");
 
         LoanInfo storage loanInfo = optionToLoan[_optionId];
         require(loanInfo.nftLending != address(0), "Invalid Option");
@@ -295,25 +182,14 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
         uint256 initialBalance = address(this).balance;
 
         // 1. Get flash loan
-        uint256 flashLoanRepayAmount = flashloan.borrow(
-            loanDetails.repayAmount
-        );
+        uint256 flashLoanRepayAmount = flashloan.borrow(loanDetails.repayAmount);
 
         // 2. Repay loan
-        loanInfo.nftLending.functionDelegateCall(
-            abi.encodeWithSelector(
-                INFTLending.repay.selector,
-                loanInfo.loanId,
-                address(this)
-            )
-        );
+        loanInfo.nftLending.functionDelegateCall(abi.encodeWithSelector(INFTLending.repay.selector, loanInfo.loanId, address(this)));
         wasabiOption.burn(_optionId);
 
         // 3. Sell NFT
-        bool marketSuccess = executeFunctions(_marketplaceCallData);
-        if (!marketSuccess) {
-            revert FunctionCallFailed();
-        }
+        executeFunctions(_marketplaceCallData);
 
         // Withdraw any WETH received
         IWETH weth = IWETH(wethAddress);
@@ -326,24 +202,149 @@ contract WasabiBNPL is IWasabiBNPL, Ownable, IERC721Receiver, ReentrancyGuard {
 
         // 4. Repay flashloan
         if (balanceChange < flashLoanRepayAmount) {
-            revert LoanNotPaid();
+            revert FlashLoanNotPaid();
         }
-        (bool sent, ) = payable(address(flashloan)).call{
-            value: flashLoanRepayAmount
-        }("");
-        if (!sent) {
-            revert EthTransferFailed();
-        }
+        payETH(address(flashloan), flashLoanRepayAmount);
 
         // 5. Give payout
         uint256 payout = balanceChange - flashLoanRepayAmount;
         if (payout > 0) {
-            (sent, ) = payable(_msgSender()).call{value: payout}("");
-            if (!sent) {
-                revert EthTransferFailed();
-            }
+            payETH(_msgSender(), payout);
         }
 
         emit OptionExecutedWithArbitrage(_optionId, payout);
     }
+
+    /// @inheritdoc IWasabiBNPL
+    function rolloverOption(uint256 _optionId, address _nftLending, bytes calldata _borrowData) external payable nonReentrant {
+        if (!addressProvider.isLending(_nftLending)) {
+            revert InvalidParam();
+        }
+        require(wasabiOption.ownerOf(_optionId) == _msgSender(), "Only owner can rollover option");
+
+        LoanInfo storage loanInfo = optionToLoan[_optionId];
+        require(loanInfo.nftLending != address(0), "Invalid Option");
+
+        INFTLending.LoanDetails memory loanDetails = INFTLending(loanInfo.nftLending).getLoanDetails(loanInfo.loanId);
+        require(loanDetails.loanExpiration > block.timestamp,"Loan has expired");
+
+        uint256 initialBalance = address(this).balance - msg.value;
+
+        // 1. Get flash loan
+        uint256 flashLoanRepayAmount = flashloan.borrow(loanDetails.repayAmount);
+
+        // 2. Repay loan
+        loanInfo.nftLending.functionDelegateCall(abi.encodeWithSelector(INFTLending.repay.selector, loanInfo.loanId, address(this)));
+        wasabiOption.burn(_optionId);
+        emit OptionExecuted(_optionId);
+
+        // 3. Get loan
+        bytes memory result = _nftLending.functionDelegateCall(abi.encodeWithSelector(INFTLending.borrow.selector, _borrowData));
+        uint256 loanId = abi.decode(result, (uint256));
+        uint256 newOptionId = wasabiOption.mint(_msgSender(), factory);
+        optionToLoan[newOptionId] = LoanInfo({
+            nftLending: _nftLending,
+            loanId: loanId
+        });
+        
+        uint256 balanceChange = address(this).balance - initialBalance;
+
+        // 4. Repay flashloan
+        if (balanceChange < flashLoanRepayAmount) {
+            revert FlashLoanNotPaid();
+        }
+        payETH(address(flashloan), flashLoanRepayAmount);
+
+        // 5. Give payout
+        uint256 payout = balanceChange - flashLoanRepayAmount;
+        if (payout > 0) {
+            payETH(_msgSender(), payout);
+        }
+
+        emit OptionRolledOver(newOptionId, _optionId);
+    }
+
+    // Helper Functions 
+
+    /// @dev Withdraws any stuck ETH in this contract
+    function withdrawETH(uint256 _amount) external payable onlyOwner {
+        if (_amount > address(this).balance) {
+            _amount = address(this).balance;
+        }
+        payETH(owner(), _amount);
+    }
+
+    /// @dev Withdraws any stuck ERC20 in this contract
+    function withdrawERC20(IERC20 _token, uint256 _amount) external onlyOwner {
+        _token.safeTransfer(_msgSender(), _amount);
+    }
+
+    /// @dev Withdraws any stuck ERC721 in this contract
+    function withdrawERC721(
+        IERC721 _token,
+        uint256 _tokenId
+    ) external onlyOwner {
+        _token.safeTransferFrom(address(this), owner(), _tokenId);
+    }
+
+
+    /// @notice Executes a given list of functions
+    /// @param _marketplaceCallData List of marketplace calldata
+    function executeFunctions(FunctionCallData[] memory _marketplaceCallData) internal {
+        uint256 length = _marketplaceCallData.length;
+        for (uint256 i; i != length; ++i) {
+            _marketplaceCallData[i].to.functionCallWithValue(_marketplaceCallData[i].data, _marketplaceCallData[i].value);
+        }
+    }
+
+    /// @notice Validates if the FunctionCallData list has been approved
+    /// @param _marketplaceCallData List of marketplace calldata
+    /// @param _signatures Signatures
+    function validate(
+        FunctionCallData[] calldata _marketplaceCallData,
+        bytes[] calldata _signatures
+    ) internal view {
+        uint256 calldataLength = _marketplaceCallData.length;
+        require(calldataLength > 0, "Need marketplace calls");
+        require(calldataLength == _signatures.length, "Length is invalid");
+        for (uint256 i; i != calldataLength; ++i) {
+            bytes32 ethSignedMessageHash = Signing.getEthSignedMessageHash(
+                getMessageHash(_marketplaceCallData[i])
+            );
+            require(
+                Signing.recoverSigner(ethSignedMessageHash, _signatures[i]) ==
+                    owner(),
+                "Owner is not signer"
+            );
+        }
+    }
+
+    /// @notice Returns the message hash for the given _data
+    function getMessageHash(
+        FunctionCallData calldata _data
+    ) public pure returns (bytes32) {
+        return keccak256(abi.encode(_data.to, _data.value, _data.data));
+    }
+
+    function onERC721Received(
+        address /* operator */,
+        address /* from */,
+        uint256 /* tokenId */,
+        bytes memory /* data */
+    ) public virtual override returns (bytes4) {
+        return this.onERC721Received.selector;
+    }
+
+    /// Pays ETH to the target
+    /// @param _target the target address
+    /// @param _amount the amount to pay
+    function payETH(address _target, uint256 _amount) private {
+        (bool sent, ) = payable(_target).call{value: _amount}("");
+        if (!sent) {
+            revert EthTransferFailed();
+        }
+    }
+
+    /// Receive function
+    receive() external payable {}
 }

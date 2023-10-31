@@ -27,7 +27,7 @@ interface IWasabiBNPL {
     error FunctionCallFailed();
 
     /// @notice Loan Not Paid
-    error LoanNotPaid();
+    error FlashLoanNotPaid();
 
     /// @notice ETH Transfer Failed
     error EthTransferFailed();
@@ -35,16 +35,32 @@ interface IWasabiBNPL {
     /// @notice Invalid Param
     error InvalidParam();
 
+    /// @dev Emitted when a new option is issued
+    event OptionIssued(uint256 optionId);
+
+    /// @dev Emitted when an option is rolledover into a new one
+    event OptionRolledOver(uint256 optionId, uint256 previousOptionId);
+
     /// @dev Emitted when an option is executed
     event OptionExecuted(uint256 optionId);
 
     /// @dev Emitted when an option is executed and the NFT is sold to the market
     event OptionExecutedWithArbitrage(uint256 optionId, uint256 payout);
 
-    /// @dev returns the OptionData for the given option id
+    /// @notice returns the OptionData for the given option id
+    /// 
     function getOptionData(uint256 _optionId) external view returns (WasabiStructs.OptionData memory optionData);
 
-    /// @notice Buys an NFT from the market and places it in a loan
+    /// @notice Executes BNPL flow
+    /// @dev BNLP flow
+    ///      1. take flashloan
+    ///      2. buy nft from marketplace
+    ///      3. get loan from nft lending protocol
+    /// @param _nftLending NFTLending contract address
+    /// @param _borrowData Borrow data
+    /// @param _flashLoanAmount Call value
+    /// @param _marketplaceCallData List of marketplace calldata
+    /// @param _signatures Signatures
     function bnpl(
         address _nftLending,
         bytes calldata _borrowData,
@@ -53,13 +69,23 @@ interface IWasabiBNPL {
         bytes[] calldata _signatures
     ) external payable returns (uint256);
 
-    /// @dev executes the given option
+    /// @notice Executes the given option
+    /// @param _optionId the option id
     function executeOption(uint256 _optionId) external payable;
 
-    /// @dev executes the given option and trades the underlying NFT to collect a payout
+    /// @notice Executes the given option and trades the underlying NFT to collect a payout
+    /// @param _optionId the option id
+    /// @param _marketplaceCallData marketplace calldata list
+    /// @param _signatures the signatures for the marketplace call data
     function executeOptionWithArbitrage(
         uint256 _optionId,
         FunctionCallData[] calldata _marketplaceCallData,
         bytes[] calldata _signatures
     ) external payable;
+
+    /// @notice Rolls the given option over by repaying the loan and getting a new one (mints a new option)
+    /// @param _optionId the option id
+    /// @param _nftLending the nft lending contract address
+    /// @param _borrowData  the borrow data
+    function rolloverOption(uint256 _optionId, address _nftLending, bytes calldata _borrowData) external payable;
 }

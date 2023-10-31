@@ -39,6 +39,8 @@ module.exports = async function (deployer, _network) {
     
     await deployer.deploy(MockTellerLendingContract, wethAddress);
     await deployer.deploy(TellerLending, wethAddress, MockTellerLendingContract.address);
+
+    await deployer.deploy(MockLending, wethAddress);
   } else {
     // optionAddress = "0xfc68f2130e094c95b6c4f5494158cbeb172e18a0";
     // wethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";

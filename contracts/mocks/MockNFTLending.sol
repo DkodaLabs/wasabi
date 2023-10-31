@@ -76,11 +76,13 @@ contract MockNFTLending is INFTLending {
 
         ILending(lending).repay(_loanId);
 
-        IERC721(loan.nft).safeTransferFrom(
-            address(this),
-            _receiver,
-            loan.nftId
-        );
+        if (_receiver != address(this)) {
+            IERC721(loan.nft).safeTransferFrom(
+                address(this),
+                _receiver,
+                loan.nftId
+            );
+        }
     }
 
     receive() external payable {}

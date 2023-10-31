@@ -11,7 +11,7 @@
             "program": "${workspaceRoot}/node_modules/truffle/build/cli.bundled.js",
             "args": [
                 "test",
-                "test/TellerLending.test.ts"
+                "test/WasabiBNPL.test.ts"
             ],
             "cwd": "${workspaceRoot}",
             "outFiles": [

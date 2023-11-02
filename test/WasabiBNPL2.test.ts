@@ -5,7 +5,7 @@ import {
   WasabiPoolFactoryInstance,
   WasabiOptionInstance,
   TestERC721Instance,
-  WasabiBNPLInstance,
+  WasabiBNPL2Instance,
   FlashloanInstance,
   MockMarketplaceInstance,
   MockNFTLendingInstance,
@@ -15,8 +15,8 @@ import {
   WasabiConduitInstance,
   WasabiFeeManagerInstance,
 } from "../types/truffle-contracts";
-import {OptionRolledOver} from "../types/truffle-contracts/WasabiBNPL";
-import { Ask, Bid, OptionData, PoolState, ZERO_ADDRESS } from "./util/TestTypes";
+import {OptionRolledOver} from "../types/truffle-contracts/WasabiBNPL2";
+import { Ask, Bid, FunctionCallData, OptionData, PoolState, ZERO_ADDRESS } from "./util/TestTypes";
 import {
   signFunctionCallData,
   metadata,
@@ -37,7 +37,7 @@ const WasabiPoolFactory = artifacts.require("WasabiPoolFactory");
 const WasabiOption = artifacts.require("WasabiOption");
 const TestERC721 = artifacts.require("TestERC721");
 const LendingAddressProvider = artifacts.require("LendingAddressProvider");
-const WasabiBNPL = artifacts.require("WasabiBNPL");
+const WasabiBNPL2 = artifacts.require("WasabiBNPL2");
 const Flashloan = artifacts.require("Flashloan");
 const WETH9 = artifacts.require("WETH9");
 const MockLending = artifacts.require("MockLending");
@@ -46,14 +46,15 @@ const MockMarketplace = artifacts.require("MockMarketplace");
 const WasabiConduit = artifacts.require("WasabiConduit");
 const WasabiFeeManager = artifacts.require("WasabiFeeManager");
 
-contract("WasabiBNPL", (accounts) => {
+contract("WasabiBNPL2", (accounts) => {
   let poolFactory: WasabiPoolFactoryInstance;
   let option: WasabiOptionInstance;
   let addressProvider: LendingAddressProviderInstance;
   let testNft: TestERC721Instance;
   let tokenToBuy: BN;
   let optionId: BN;
-  let bnpl: WasabiBNPLInstance;
+  let bnpl: WasabiBNPL2Instance;
+  let bnpl2: WasabiBNPL2Instance;
   let flashloan: FlashloanInstance;
   let marketplace: MockMarketplaceInstance;
   let lending: MockLendingInstance;
@@ -88,7 +89,16 @@ contract("WasabiBNPL", (accounts) => {
     flashloan = await Flashloan.deployed();
     conduit = await WasabiConduit.deployed();
     feeManager = await WasabiFeeManager.deployed();
-    bnpl = await WasabiBNPL.new(
+    bnpl = await WasabiBNPL2.new(
+      option.address,
+      flashloan.address,
+      addressProvider.address,
+      weth.address,
+      poolFactory.address
+    );
+    feeManager = await WasabiFeeManager.deployed();
+
+    bnpl2 = await WasabiBNPL2.new(
       option.address,
       flashloan.address,
       addressProvider.address,
@@ -98,6 +108,7 @@ contract("WasabiBNPL", (accounts) => {
 
     await option.toggleFactory(poolFactory.address, true);
     await poolFactory.togglePool(bnpl.address, PoolState.ACTIVE);
+    await poolFactory.togglePool(bnpl2.address, PoolState.ACTIVE);
 
     await conduit.setPoolFactoryAddress(poolFactory.address);
     await conduit.setOption(option.address);
@@ -113,6 +124,7 @@ contract("WasabiBNPL", (accounts) => {
       value: toEth(initialFlashLoanPoolBalance),
     });
     await flashloan.enableFlashloaner(bnpl.address, true, 100);
+    await flashloan.enableFlashloaner(bnpl2.address, true, 100);
 
     await weth.deposit(metadata(lp, 40));
     await weth.transfer(lending.address, toEth(20), metadata(lp));
@@ -593,6 +605,72 @@ contract("WasabiBNPL", (accounts) => {
 
     const result = await bnpl.rolloverOption(optionId, nftLending.address, borrowData, {from: buyer, value});
     await truffleAssert.eventEmitted(result, "OptionRolledOver", null, "Option rolled over");
+
+    await revert(wholeSnapshotId);
+  });
+
+  it("rollover -- by migrating from another contract (call BNPL)", async () => {
+    wholeSnapshotId = await takeSnapshot();
+
+    const previousRepaymentAmount = toBN(toEth(10.5));
+
+    // Give approval of the option from bnpl1 to bnpl2
+    await option.setApprovalForAll(bnpl2.address, true, metadata(buyer));
+
+    const transferFunction = {
+      to: option.address,
+      value: 0,
+      data: web3.eth.abi.encodeFunctionCall(
+        option.abi.find((a) => a.name === "safeTransferFrom")!,
+        [buyer, bnpl2.address, optionId.toString()]
+      )
+    }
+    const transferSignature = await signFunctionCallData(transferFunction, deployer);
+    const executeOptionFunction = {
+      to: bnpl.address,
+      value: previousRepaymentAmount.toString(),
+      data: web3.eth.abi.encodeFunctionCall(
+        bnpl.abi.find((a) => a.name === "executeOption")!,
+        [optionId.toString()]
+      )
+    }
+    const executeOptionSignature = await signFunctionCallData(executeOptionFunction, deployer);
+
+    const loanAmount = toEth(10.5);
+    const repayment = toEth(11);
+    const borrowData = ethers.utils.AbiCoder.prototype.encode(
+      ["address", "uint256", "uint256", "uint256"],
+      [testNft.address, tokenToBuy.toString(), loanAmount, repayment]
+    );
+
+    const flashLoanFee = previousRepaymentAmount.div(toBN(100));
+    const topoff = toBN(loanAmount).gte(previousRepaymentAmount) ? toBN(0) : previousRepaymentAmount.sub(toBN(loanAmount));
+    const value = flashLoanFee.add(topoff);
+
+    const result = await bnpl2.bnpl(
+      nftLending.address,
+      borrowData,
+      previousRepaymentAmount,
+      [transferFunction, executeOptionFunction],
+      [transferSignature, executeOptionSignature],
+      { from: buyer, value }
+    );
+
+    await truffleAssert.eventEmitted(result, "OptionIssued", null, "New option issed");
+    const event = result.logs.find(l => l.event === "OptionIssued")!;
+    const newOptionId = event.args[0].toString();
+
+    assert.notEqual(newOptionId, optionId.toString(), 'New option not issued');
+
+    assert.equal(await option.ownerOf(newOptionId), buyer);
+    assert.equal(await option.getPool(newOptionId), bnpl2.address);
+    assert.equal(await testNft.ownerOf(tokenToBuy), lending.address);
+    
+    let optionData = await bnpl2.getOptionData(newOptionId);
+    assert.equal(optionData.active, true);
+    assert.equal(optionData.optionType.toString(), "0");
+    assert.equal(optionData.strikePrice.toString(), repayment);
+    assert.equal(optionData.tokenId.toString(), tokenToBuy.toString());
 
     await revert(wholeSnapshotId);
   });
